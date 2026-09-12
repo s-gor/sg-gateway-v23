@@ -65,7 +65,7 @@ if [[ ! "$TLS_DOMAIN" =~ ^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$ ]]
   TLS_DOMAIN=""
 fi
 
-printf '\n%sSG-Gateway 0.1.0-022.08 · ПОЛНОЕ УДАЛЕНИЕ%s\n' "$CYAN" "$RESET"
+printf '\n%sSG-Gateway 0.1.0-023.01 · ПОЛНОЕ УДАЛЕНИЕ%s\n' "$CYAN" "$RESET"
 printf 'Будут удалены приложение, база, настройки, backups, SG-службы и установленные SG runtime.\n'
 printf 'Системные пакеты Ubuntu (nginx, certbot, ufw, Python и т.п.) останутся установленными.\n'
 if [[ -n "$TLS_DOMAIN" ]]; then

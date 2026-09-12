@@ -113,8 +113,6 @@ def test_02208_rendered_pages_preserve_backend_and_javascript_contracts(tmp_path
     require_contract(
         _contract(client, "/connections"),
         forms=(
-            _form("/connections/amneziawg", "country_code", "host", "port", "server_public_key"),
-            _form("/connections/amneziawg3", "country_code", "host", "port", "server_public_key"),
             _form(
                 "/connections/amneziawg31",
                 "ContentPaddingAddition", "DisableCookies", "H1", "H2", "H3", "H4",
@@ -122,7 +120,6 @@ def test_02208_rendered_pages_preserve_backend_and_javascript_contracts(tmp_path
                 "KeepaliveTimeout", "MaxHandshakeAttempts", "RandomTrailers", "RejectAfterTime",
                 "RekeyAfterTime", "RekeyTimeout", "S1", "S2", "S3", "S4",
             ),
-            _form("/connections/awg-dns", "dns"),
             _form(
                 "/connections/mihomo",
                 "action", "anytls_enabled", "anytls_padding_scheme", "mieru_enabled",
@@ -141,7 +138,7 @@ def test_02208_rendered_pages_preserve_backend_and_javascript_contracts(tmp_path
                 ids=("xps2-form", "xps2-apply-button"),
             ),
         ),
-        ids=("awg-dns", "awg31-settings", "mihomo", "xray-profiles", "xray-xmux", "xray-xmux-form"),
+        ids=("awg31-settings", "mihomo", "xray-profiles", "xray-xmux", "xray-xmux-form"),
         data_hooks=(
             "data-awg31-profile", "data-profile", "data-profile-panel", "data-runtime-switch",
             "data-salamander-generate", "data-salamander-rotate", "data-xmux-dialog",

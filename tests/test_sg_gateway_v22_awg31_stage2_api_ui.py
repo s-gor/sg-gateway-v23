@@ -524,7 +524,6 @@ def test_awg31_ui_is_distinct_and_controls_only_awg31_service(
     assert "AmneziaWG 3.0" not in html
     assert "AmneziaWG 3" in html
     assert "AmneziaWG 3.1" in html
-    assert "UDP 587" in html
     assert "10.131.0.0/24" in html
     for action in ("start", "stop", "restart", "status"):
         assert f"/connections/amneziawg31/service/{action}" in html

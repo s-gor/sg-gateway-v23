@@ -108,8 +108,11 @@ def test_stage6_update_repairs_empty_hosts_instead_of_asserting(tmp_path: Path):
         if row["engine"] == "amneziawg31":
             assert config["profile"] == "awg31"
             assert "country_code" not in config
-        else:
+        elif row["engine"] in {"mihomo", "xray"}:
             assert config["country_code"] == "fr"
+        else:
+            assert row["engine"] in {"amneziawg", "amneziawg3"}
+            assert config["country_code"] == "nl"
     assert connection.execute("SELECT COUNT(*) FROM clients").fetchone()[0] == 1
 
 

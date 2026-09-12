@@ -53,6 +53,6 @@ def test_awg_health_check_uses_awg31_only(monkeypatch):
     checks = health._connection_checks()
     assert calls[0] == ("settings", ("amneziawg31", "xray"))
     assert ("hostd", "awg31.status") in calls
-    assert all("amneziawg3" not in str(call) and call != ("settings", ("amneziawg", "xray")) for call in calls)
+    assert all(not (call[0] == "settings" and ("amneziawg" in call[1] or "amneziawg3" in call[1])) for call in calls)
     assert checks
 

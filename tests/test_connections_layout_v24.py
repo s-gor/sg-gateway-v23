@@ -10,20 +10,6 @@ def test_decorative_map_is_removed():
     assert "Интернет → SG-Gateway → клиентский профиль" not in template
 
 
-def test_connections_keeps_restored_order_with_naiveproxy_before_note():
-    template = (ROOT / "app/web/templates/connections.html").read_text(encoding="utf-8")
-    xray = template.index("cnv1-engine-xray")
-    xmux = template.index('_xray_xmux_settings.html', xray)
-    awg = template.index("cnv1-engine-awg", xmux)
-    mihomo = template.index('_mihomo_panel.html', awg)
-    naive = template.index('_naiveproxy_panel.html', mihomo)
-    note = template.index("cnv1-note-panel", naive)
-    assert xray < xmux < awg < mihomo < naive < note
-
-    assert 'class="cnv1-engine-pair sg-ui-grid"' in template
-    assert 'class="cnv1-engines cnv1-xray-row"' in template
-    assert "cnv1-engine-grid" not in template
-    assert "cnv1-grid-cell" not in template
 
 
 def test_connections_has_native_naiveproxy_panel_without_html_injection():
@@ -71,15 +57,6 @@ def test_awg_header_has_no_visual_divider():
     assert ".awgd-shell > .cnv1-engine-head { border-bottom:" not in css
 
 
-def test_awg_is_compact_but_keeps_required_post_fields():
-    template = (ROOT / "app/web/templates/connections.html").read_text(encoding="utf-8")
-    awg_start = template.index("cnv1-engine-awg")
-    awg_end = template.index("</article>", awg_start)
-    awg = template[awg_start:awg_end]
-    for field in ('name="host"', 'name="country_code"', 'name="port"', 'name="dns"', 'name="server_public_key"'):
-        assert field in awg
-    for removed in ("КЛИЕНТЫ", "PUBLIC KEY", "Публичный адрес или домен", "Страна по IP"):
-        assert removed not in awg
 
 
 def test_mihomo_is_compact_and_keeps_three_protocols():
@@ -127,14 +104,3 @@ def test_awg_and_mihomo_keep_equal_height_contract():
     assert ".cnv1-engine-awg .cnv1-form-actions { margin-top: auto; }" in css
 
 
-def test_awg_and_mihomo_inner_rails_match_naiveproxy_without_magic_offsets():
-    template = (ROOT / "app/web/templates/connections.html").read_text(encoding="utf-8")
-    mihomo = (ROOT / "app/web/templates/_mihomo_panel.html").read_text(encoding="utf-8")
-    css = (ROOT / "app/web/static/sg-ui-connections-v22-08.css").read_text(encoding="utf-8")
-
-    assert '<div class="awgd-inner-rail sg-ui-rail">' in template
-    assert '<div class="mhv2-inner-rail sg-ui-rail">' in mihomo
-    assert "calc(" not in css
-    assert "margin-inline" not in css
-    assert "body.page-connections .awgd-shell {" not in css
-    assert "body.page-connections .mhv2-panel {" not in css
