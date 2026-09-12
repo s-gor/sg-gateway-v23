@@ -1,0 +1,386 @@
+{% extends "base.html" %}
+{% block title %}SG-Gateway · {{ client.name }}{% endblock %}
+
+{% block head %}
+  {{ super() }}
+  <script src="{{ static_asset('sg-device-collapse-v1.js') }}" defer></script>
+{% endblock %}
+
+{% block page_styles %}
+  <link rel="stylesheet" href="{{ static_asset('sg-client-detail-v10.css') }}">
+  <link rel="stylesheet" href="{{ static_asset('sg-devices-v46.css') }}">
+  <link rel="stylesheet" href="{{ static_asset('sg-client-qr-modal-v1.css') }}">
+  <link rel="stylesheet" href="{{ static_asset('sg-subscription-verified-v1.css') }}">
+  <link rel="stylesheet" href="{{ static_asset('sg-device-collapse-v1.css') }}">
+  <link rel="stylesheet" href="{{ static_asset('sg-device-collapse-v4.css') }}">
+  <link rel="stylesheet" href="{{ static_asset('sg-device-expanded-cleanup-v1.css') }}">
+  <link rel="stylesheet" href="{{ static_asset('sg-ui-clients-v22-08.css') }}">
+{% endblock %}
+
+{% block content %}
+{% set state_labels = {'creating':'Создаётся','checking':'Проверяется','applying':'Применяется','applied':'Готово','pending':'Ожидает применения','generated':'Ожидает применения','error':'Ошибка','disabled':'Отключено','locked':'Недоступно','missing':'Не создано'} %}
+<section class="dv16-page sg-ui-page" data-sg-ui-page="client-detail">
+  <header class="dv16-heading sg-ui-page-head">
+    <div>
+      <div class="cd10-kicker"><span></span> SG-GATEWAY / CLIENT</div>
+      <h1>{{ client.name }}</h1>
+      <p>Устройства клиента и готовые ссылки для подключения.</p>
+      <div class="dv16-client-state">
+        <span class="dv16-state-dot {{ 'online' if client.enabled else 'offline' }}"></span>
+        <strong>{{ 'Клиент активен' if client.enabled else 'Клиент отключён' }}</strong>
+        <span>Устройств: {{ client.device_count }}</span>
+        <span>Активно: {{ client.active_device_count }}</span>
+        {% if client.expires_at %}<span>До {{ client.expires_at }}</span>{% endif %}
+      </div>
+    </div>
+    <div class="dv16-heading-actions sg-ui-actions">
+      <a class="button" href="{{ url_for('clients') }}">К списку</a>
+      <button class="button" type="button" data-open-client-edit>Редактировать клиента</button>
+      <button class="button primary" type="button" data-open-device-form>+ Добавить устройство</button>
+      <form method="post" action="{{ url_for('apply_clients') }}">
+        <input type="hidden" name="return_client_id" value="{{ client.id }}">
+        <button class="button" type="submit">Проверить доступы</button>
+      </form>
+      {% if client.enabled %}
+      <form method="post" action="{{ url_for('disable_client', client_id=client.id) }}">
+        <button class="button" type="submit">Отключить клиента</button>
+      </form>
+      {% else %}
+      <form method="post" action="{{ url_for('enable_client', client_id=client.id) }}">
+        <button class="button primary" type="submit">Включить клиента</button>
+      </form>
+      {% endif %}
+      <form method="post" action="{{ url_for('remove_client', client_id=client.id) }}"
+            data-sg-confirm="Удалить клиента вместе со всеми его устройствами и доступами?"
+            data-sg-confirm-title="Удалить клиента"
+            data-sg-confirm-button="Удалить"
+            data-sg-confirm-tone="danger">
+        <button class="button danger" type="submit">Удалить клиента</button>
+      </form>
+    </div>
+  </header>
+
+  <!-- SG_SUBSCRIPTION_DUAL_UI_V1 -->
+  {% include "_sg_subscription_dual.html" %}
+
+  <section class="dv16-devices sg-ui-section" data-sg-section="devices" aria-label="Устройства клиента">
+    {% for view in device_views %}
+    {% set device = view.device %}
+    {% set cards = view.access_cards %}
+    {% set subscriptions = cards|selectattr('kind', 'equalto', 'subscription')|list %}
+    {% set subscription = subscriptions[0] if subscriptions else none %}
+    {% set profiles = cards|rejectattr('kind', 'equalto', 'subscription')|list %}
+    {% set display_name = 'Основное устройство' if device.is_primary else device.name %}
+    <article class="dv16-device {{ 'is-disabled' if not device.enabled or not client.enabled else '' }} sg-ui-card" data-sg-device-card id="device-{{ device.id }}">
+      <header class="dv16-device-head">
+        <div class="dv16-device-title">
+          <span class="dv16-state-dot {{ 'online' if client.enabled and device.enabled else 'offline' }}"></span>
+          <div>
+            <span class="dv16-device-kind">{{ 'ОСНОВНОЕ' if device.is_primary else 'УСТРОЙСТВО' }}</span>
+            <h2>{{ display_name }}</h2>
+            <div class="dv16-profile-tags" aria-label="Включённые профили">
+              {% for card in profiles %}
+              <span class="state-{{ card.status }}">{{ card.title }}</span>
+              {% else %}
+              <span class="state-missing">Профили не выбраны</span>
+              {% endfor %}
+            </div>
+            {% if device.expires_at %}<small class="dv16-device-expiry">Доступ до {{ device.expires_at }}</small>{% endif %}
+          </div>
+        </div>
+        <div class="dv16-device-controls">
+          {% if not device.is_primary %}<button class="button" type="button" data-open-device-edit="{{ device.id }}">Редактировать</button>{% endif %}
+          <span class="dv16-status {{ 'success' if client.enabled and device.enabled else 'danger' }}">{{ 'Активно' if client.enabled and device.enabled else 'Отключено' }}</span>
+          {% if device.enabled %}
+          <form method="post" action="{{ url_for('disable_device', client_id=client.id, device_id=device.id) }}">
+            <button class="button" type="submit">Отключить</button>
+          </form>
+          {% else %}
+          <form method="post" action="{{ url_for('enable_device', client_id=client.id, device_id=device.id) }}">
+            <button class="button primary" type="submit">Включить</button>
+          </form>
+          {% endif %}
+          {% if not device.is_primary %}
+          <form method="post" action="{{ url_for('remove_device', client_id=client.id, device_id=device.id) }}"
+                data-sg-confirm="Удалить устройство «{{ device.name|e }}»? Остальные устройства продолжат работать."
+                data-sg-confirm-title="Удалить устройство"
+                data-sg-confirm-button="Удалить"
+                data-sg-confirm-tone="danger">
+            <button class="button danger" type="submit">Удалить</button>
+          </form>
+          {% endif %}
+        </div>
+      </header>
+
+      <section class="dv16-subscription state-{{ subscription.status if subscription else 'missing' }}">
+        <div class="dv16-subscription-summary">
+          <strong>OpenWrt · HomeProxy SUB</strong>
+          {% if subscription and subscription.status == 'applied' and subscription.payload %}
+          <span>Подписка устройства для HomeProxy-совместимых клиентов.</span>
+          <small>Legacy Base64: VLESS Reality TCP · Hysteria2 · AnyTLS · TUIC v5 — только выбранные и готовые.</small>
+          {% else %}
+          <span>Подписка ещё не создана.</span>
+          {% endif %}
+        </div>
+        <div class="dv16-subscription-actions">
+          {% if subscription and subscription.status == 'applied' and subscription.payload %}
+          <button class="button primary dv16-copy" type="button" data-copy-value="{{ openwrt_subscription_url(client, device)|e }}">Скопировать OpenWrt SUB</button>
+          {% if subscription.qr_url %}
+          <details class="dv16-qr">
+            <summary class="button">QR</summary>
+            <div class="dv16-qr-popover">
+              <button type="button" aria-label="Закрыть QR" onclick="this.closest('details').removeAttribute('open')">×</button>
+              <img src="{{ subscription.qr_url }}" alt="QR подписки {{ display_name }}">
+            </div>
+          </details>
+          {% endif %}
+          {% else %}
+          <span class="dv16-not-ready">{{ state_labels.get(subscription.status, subscription.status) if subscription else 'Не создано' }}</span>
+          {% endif %}
+        </div>
+      </section>
+
+      {% set keenetic_subscription = keenetic_subscription_url(client, device) if client.enabled and device.enabled else '' %}
+      <section class="dv16-subscription sg-router-subscription {{ 'state-applied' if keenetic_subscription else 'state-missing' }}" data-sg-router-keenetic-subscription-v1>
+        <div class="dv16-subscription-summary">
+          <strong>Keenetic · Xkeen UI SUB</strong>
+          {% if keenetic_subscription %}
+          <span>Персональная подписка устройства для Xkeen UI.</span>
+          <small>Только готовые VLESS: Reality TCP · XHTTP Reality · XHTTP TLS.</small>
+          {% else %}
+          <span>Подписка недоступна для отключённого устройства.</span>
+          {% endif %}
+        </div>
+        <div class="dv16-subscription-actions sg-router-subscription-actions">
+          {% if keenetic_subscription %}
+          <button class="button primary dv16-copy" type="button" data-copy-value="{{ keenetic_subscription|e }}">Скопировать Xkeen UI SUB</button>
+          {% else %}
+          <span class="dv16-not-ready">Недоступно</span>
+          {% endif %}
+        </div>
+      </section>
+
+      {% set router_subscription = router_subscription_url(client, device) if client.enabled and device.enabled else '' %}
+      <section class="dv16-subscription sg-router-subscription {{ 'state-applied' if router_subscription else 'state-missing' }}" data-sg-router-subscription-v1>
+        <div class="dv16-subscription-summary">
+          <strong>Универсальный Router JSON</strong>
+          {% if router_subscription %}
+          <span>Персональная JSON-подписка устройства.</span>
+          <small>Только выбранные и готовые профили. Обновляется при каждом запросе.</small>
+          {% else %}
+          <span>Подписка недоступна для отключённого устройства.</span>
+          {% endif %}
+        </div>
+        <div class="dv16-subscription-actions sg-router-subscription-actions">
+          {% if router_subscription %}
+          <button class="button primary dv16-copy" type="button" data-copy-value="{{ router_subscription|e }}">Скопировать ссылку</button>
+          <a class="button" href="{{ router_subscription_download_url(client, device)|e }}">Скачать JSON</a>
+          {% else %}
+          <span class="dv16-not-ready">Недоступно</span>
+          {% endif %}
+        </div>
+      </section>
+
+      <section class="dv16-technical dv16-technical-always-open">
+        <div class="dv16-technical-list">
+          {% for card in profiles %}
+          <article class="dv16-technical-row state-{{ card.status }}">
+            <div>
+              <strong>{{ card.title }}</strong>
+              <small>{{ state_labels.get(card.status, card.status) }}</small>
+            </div>
+            <div class="dv16-technical-actions">
+              {% if card.payload and card.status == 'applied' %}
+              <button class="button dv16-copy" type="button" data-copy-value="{{ card.payload|e }}">{{ 'Скопировать ссылку' if card.kind == 'mihomo' else 'Скопировать' }}</button>
+              {% endif %}
+              {% if card.show_qr and card.qr_url and card.status == 'applied' %}
+              <details class="dv16-qr">
+                <summary class="button">{{ 'QR · Mieru' if card.kind == 'mihomo' else 'QR' }}</summary>
+                <div class="dv16-qr-popover">
+                  <button type="button" aria-label="Закрыть QR" onclick="this.closest('details').removeAttribute('open')">×</button>
+                  <img src="{{ card.qr_url }}" alt="QR {{ card.title }}">
+                </div>
+              </details>
+              {% endif %}
+              {% if card.export_url and card.status == 'applied' %}<a class="button" href="{{ card.export_url }}">{{ 'Скачать ссылку' if card.kind == 'mihomo' else 'Скачать' }}</a>{% endif %}
+              {% if card.kind == 'mihomo' and card.payload and card.status == 'applied' %}<button class="button dv16-copy" type="button" data-mieru-router-source="{{ card.payload|e }}" title="Совместимый сокращённый URI для роутеров / ZB">Скопировать Router / ZB</button>{% endif %}
+              {% if card.secondary_payload and card.status == 'applied' %}<button class="button dv16-copy" type="button" data-copy-value="{{ card.secondary_payload|e }}">Скопировать JSON · iPhone</button>{% endif %}
+              {% if card.secondary_qr_url and card.status == 'applied' %}
+              <details class="dv16-qr">
+                <summary class="button">QR · iPhone</summary>
+                <div class="dv16-qr-popover">
+                  <button type="button" aria-label="Закрыть QR · iPhone" onclick="this.closest('details').removeAttribute('open')">×</button>
+                  <img src="{{ card.secondary_qr_url }}" alt="QR Mieru JSON · iPhone">
+                </div>
+              </details>
+              {% endif %}
+              {% if card.secondary_url and card.status == 'applied' %}<a class="button" href="{{ card.secondary_url }}">{{ card.secondary_label }}</a>{% endif %}
+              {% if card.tertiary_url and card.status == 'applied' %}<a class="button" href="{{ card.tertiary_url }}">{{ card.tertiary_label }}</a>{% endif %}
+            </div>
+          </article>
+          {% else %}
+          <p class="dv16-empty-technical">Для устройства не выбраны отдельные профили.</p>
+          {% endfor %}
+        </div>
+      </section>
+    </article>
+    {% endfor %}
+  </section>
+
+</section>
+
+<dialog class="dv16-dialog" id="dv46-device-dialog">
+  <form method="post" action="{{ url_for('add_device', client_id=client.id) }}" class="dv16-create-form">
+    <header class="dv16-dialog-head">
+      <div>
+        <span>НОВОЕ УСТРОЙСТВО</span>
+        <h2>Добавить устройство</h2>
+        <p>Введите имя. Ключи и подписку панель создаст сама.</p>
+      </div>
+      <button class="dv16-dialog-close" type="button" data-close-device-form aria-label="Закрыть">×</button>
+    </header>
+
+    <label class="dv16-field">
+      <span>Название</span>
+      <input type="text" name="name" maxlength="60" required placeholder="Телефон, ноутбук или телевизор" autocomplete="off">
+    </label>
+
+    <section class="dv16-recommended">
+      <div>
+        <strong>Рекомендуемый набор уже выбран</strong>
+        <span>VLESS Reality TCP, Mieru для SG Client и персональная SUB.</span>
+      </div>
+    </section>
+
+    <details class="dv16-channel-picker">
+      <summary>Изменить каналы подключения</summary>
+      <fieldset class="dv16-protocol-list">
+        <legend>Каналы подключения</legend>
+        {% for profile in xray_profiles.profiles %}
+        {% set token = 'xray_' ~ profile.id %}
+        <label class="dv16-protocol {{ 'is-locked' if not profile.ready else '' }}">
+          <input type="checkbox" name="protocols" value="{{ token }}" {% if profile.ready and profile.id == 'reality_tcp' %}checked{% elif not profile.ready %}disabled{% endif %}>
+          <span><strong>{{ profile.title }}</strong><small>{% if profile.ready %}Доступен{% elif profile.tls_required %}Нужен HTTPS{% else %}Сначала включите профиль в Connections{% endif %}</small></span>
+        </label>
+        {% endfor %}
+        <label class="dv16-protocol">
+          <input type="checkbox" name="protocols" value="mihomo" checked>
+          <span><strong>Mieru</strong><small>Отдельные username и password</small></span>
+        </label>
+        <label class="dv16-protocol">
+          <input type="checkbox" name="protocols" value="amneziawg31">
+          <span><strong>AmneziaWG 3.1</strong><small>AWG 3.1 userspace · отдельная конфигурация</small></span>
+        </label>
+        <label class="dv16-protocol {{ 'is-locked' if not tls.https_ready else '' }}">
+          <input type="checkbox" name="protocols" value="anytls" {% if not tls.https_ready %}disabled{% endif %}>
+          <span><strong>AnyTLS</strong><small>{{ 'Доступен' if tls.https_ready else 'Нужен HTTPS' }}</small></span>
+        </label>
+        <label class="dv16-protocol {{ 'is-locked' if not tls.https_ready else '' }}">
+          <input type="checkbox" name="protocols" value="tuic" {% if not tls.https_ready %}disabled{% endif %}>
+          <span><strong>TUIC v5</strong><small>{{ 'Доступен' if tls.https_ready else 'Нужен HTTPS' }}</small></span>
+        </label>
+        <label class="dv16-protocol {{ 'is-locked' if not tls.https_ready else '' }}">
+          <input type="checkbox" name="protocols" value="naiveproxy" {% if not tls.https_ready %}disabled{% endif %}>
+          <span><strong>NaiveProxy</strong><small>{{ 'Доступен' if tls.https_ready else 'Нужен HTTPS' }}</small></span>
+        </label>
+      </fieldset>
+    </details>
+
+    <label class="dv16-field">
+      <span>Срок действия</span>
+      <input type="date" name="expires_at">
+      <small>Оставьте пустым для бессрочного доступа.</small>
+    </label>
+
+    <footer class="dv16-dialog-actions">
+      <button class="button" type="button" data-close-device-form>Отмена</button>
+      <button class="button primary" type="submit">Добавить устройство</button>
+    </footer>
+  </form>
+</dialog>
+{% include "_client_edit_dialogs.html" %}
+{% endblock %}
+
+{% block scripts %}
+  {{ super() }}
+  <script>
+  (() => {
+    async function copyText(value) {
+      const text = String(value || '').trim();
+      if (!text) return false;
+      if (navigator.clipboard && window.isSecureContext) {
+        try { await navigator.clipboard.writeText(text); return true; } catch (_) {}
+      }
+      const area = document.createElement('textarea');
+      area.value = text;
+      area.readOnly = true;
+      area.style.position = 'fixed';
+      area.style.opacity = '0';
+      area.style.left = '-9999px';
+      document.body.appendChild(area);
+      area.select();
+      area.setSelectionRange(0, area.value.length);
+      let ok = false;
+      try { ok = document.execCommand('copy'); } catch (_) {}
+      area.remove();
+      return ok;
+    }
+
+    function buildMieruRouterUri(value) {
+      const text = String(value || '').trim();
+      if (!text.startsWith('mierus://')) return '';
+
+      const hashAt = text.indexOf('#');
+      const fragment = hashAt >= 0 ? text.slice(hashAt) : '';
+      const withoutFragment = hashAt >= 0 ? text.slice(0, hashAt) : text;
+      const queryAt = withoutFragment.indexOf('?');
+      if (queryAt < 0) return '';
+
+      const authority = withoutFragment.slice('mierus://'.length, queryAt);
+      if (!authority || !authority.includes('@')) return '';
+
+      const params = new URLSearchParams(withoutFragment.slice(queryAt + 1));
+      const port = String(params.get('port') || '').trim();
+      const transport = String(params.get('protocol') || 'TCP').trim().toUpperCase();
+      if (!/^\d{1,5}$/.test(port)) return '';
+      const portNumber = Number(port);
+      if (portNumber < 1 || portNumber > 65535) return '';
+
+      return `mieru://${authority}:${portNumber}?transport=${encodeURIComponent(transport)}${fragment}`;
+    }
+
+    document.querySelectorAll('[data-mieru-router-source]').forEach(button => {
+      const converted = buildMieruRouterUri(button.dataset.mieruRouterSource || '');
+      if (converted) {
+        button.dataset.copyValue = converted;
+      } else {
+        button.hidden = true;
+      }
+    });
+
+    document.querySelectorAll('[data-copy-value]').forEach(button => {
+      button.addEventListener('click', async () => {
+        const old = button.textContent;
+        const ok = await copyText(button.dataset.copyValue || '');
+        button.textContent = ok ? 'Скопировано' : 'Не скопировано';
+        button.classList.toggle('is-copied', ok);
+        setTimeout(() => {
+          button.textContent = old;
+          button.classList.remove('is-copied');
+        }, 1400);
+      });
+    });
+
+    const dialog = document.getElementById('dv46-device-dialog');
+    document.querySelectorAll('[data-open-device-form]').forEach(button => {
+      button.addEventListener('click', () => dialog?.showModal());
+    });
+    document.querySelectorAll('[data-close-device-form]').forEach(button => {
+      button.addEventListener('click', () => dialog?.close());
+    });
+    dialog?.addEventListener('click', event => {
+      if (event.target === dialog) dialog.close();
+    });
+  })();
+  </script>
+{% endblock %}

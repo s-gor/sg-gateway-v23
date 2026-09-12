@@ -1,0 +1,378 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+REPOSITORY="s-gor/sg-gateway-v23"
+BRANCH="${SG_GATEWAY_GITHUB_BRANCH:-${SG_GATEWAY_UPDATE_BRANCH:-dev-02301}}"
+SOURCE_COMMIT="${SG_GATEWAY_SOURCE_COMMIT:-}"
+ARCHIVE_REF="${SOURCE_COMMIT:-$BRANCH}"
+ARCHIVE_URL="https://github.com/${REPOSITORY}/archive/${ARCHIVE_REF}.tar.gz"
+TEMP_DIR=""
+ARCHIVE=""
+SOURCE_DIR=""
+MIN_FREE_MIB="${SG_GATEWAY_INSTALL_MIN_FREE_MIB:-1024}"
+BOOTSTRAP_LOG="/var/log/sg-gateway-bootstrap-02301.log"
+CURRENT_BOOTSTRAP_LABEL="Подготовка"
+
+if [[ -t 1 ]]; then
+  GREEN=$'\033[1;32m'
+  RED=$'\033[1;31m'
+  YELLOW=$'\033[1;33m'
+  RESET=$'\033[0m'
+else
+  GREEN=""
+  RED=""
+  YELLOW=""
+  RESET=""
+fi
+
+fail() {
+  printf '%s[SG-Gateway] [ОШИБКА]%s %s\n' "$RED" "$RESET" "$*" >&2
+  if [[ -f "$BOOTSTRAP_LOG" ]]; then
+    printf '[SG-Gateway] Полный технический журнал: %s\n' "$BOOTSTRAP_LOG" >&2
+  fi
+  exit 1
+}
+
+[[ "$BRANCH" == "dev-02301" ]] || fail "development installer is pinned to dev-02301; requested branch: $BRANCH"
+[[ -z "$SOURCE_COMMIT" || "$SOURCE_COMMIT" =~ ^[0-9a-f]{40}$ ]] || fail "SG_GATEWAY_SOURCE_COMMIT must be a lowercase 40-character commit SHA"
+
+cleanup() {
+  rm -f /tmp/sg-gateway-bootstrap-output.* 2>/dev/null || true
+  if [[ -n "$TEMP_DIR" && -d "$TEMP_DIR" ]]; then
+    rm -rf "$TEMP_DIR"
+  fi
+}
+trap cleanup EXIT INT TERM
+
+[[ "$(id -u)" -eq 0 ]] || fail "run this installer through sudo"
+
+# SG_GATEWAY_02112_INSTALL_UPDATE_SPLIT
+# The public clean-install command must never mutate an existing SG-Gateway.
+if [[ -f /opt/sg-gateway/VERSION && -f /etc/sg-gateway/runtime.env && -f /etc/sg-gateway/sg-gateway.env ]]; then
+  installed_version="$(tr -d '\r\n' < /opt/sg-gateway/VERSION 2>/dev/null || true)"
+  printf '[SG-Gateway] SG-Gateway %s is already installed.\n' "${installed_version:-unknown}"
+  printf '[SG-Gateway] Clean Install is blocked on an existing server.\n'
+  printf '[SG-Gateway] Use the dedicated Update command:\n'
+  printf 'curl -fsSL https://raw.githubusercontent.com/%s/%s/deploy/update-from-github.sh | sudo env SG_GATEWAY_GITHUB_BRANCH=%s bash\n' "$REPOSITORY" "$BRANCH" "$BRANCH"
+  exit 2
+fi
+
+prepare_bootstrap_log() {
+  install -d -m 0755 "$(dirname "$BOOTSTRAP_LOG")"
+  : > "$BOOTSTRAP_LOG"
+  chmod 0600 "$BOOTSTRAP_LOG"
+}
+
+run_quiet() {
+  local label="$1"
+  shift
+  local started=$SECONDS rc=0 pid=0 frame=0 raw_output="" elapsed=0
+  local frames=('|' '/' '-' "\\")
+
+  CURRENT_BOOTSTRAP_LABEL="$label"
+  raw_output="$(mktemp /tmp/sg-gateway-bootstrap-output.XXXXXX)"
+  chmod 0600 "$raw_output"
+
+  if [[ -t 1 ]]; then
+    printf "\r\033[K%s[SG-Gateway] [-]%s %s" "$GREEN" "$RESET" "$label"
+  else
+    printf '%s[SG-Gateway] [..]%s %s\n' "$GREEN" "$RESET" "$label"
+  fi
+
+  set +e
+  (
+    trap - ERR INT TERM
+    set -Eeuo pipefail
+    "$@"
+  ) >"$raw_output" 2>&1 &
+  pid=$!
+
+  if [[ -t 1 ]]; then
+    while kill -0 "$pid" 2>/dev/null; do
+      frame=$(( (frame + 1) % 4 ))
+      printf "\r\033[K%s[SG-Gateway] [%s]%s %s" "$GREEN" "${frames[$frame]}" "$RESET" "$label"
+      sleep 0.18
+    done
+  fi
+
+  wait "$pid"
+  rc=$?
+  set -e
+
+  cat "$raw_output" >> "$BOOTSTRAP_LOG"
+  elapsed=$((SECONDS - started))
+
+  if (( rc != 0 )); then
+    if [[ -t 1 ]]; then
+      printf "\r\033[K%s[SG-Gateway] [ОШИБКА]%s %s (%s сек.)\n" "$RED" "$RESET" "$label" "$elapsed"
+    else
+      printf '%s[SG-Gateway] [ОШИБКА]%s %s (%s сек.)\n' "$RED" "$RESET" "$label" "$elapsed"
+    fi
+    printf 'FAILED COMMAND (rc=%s): %s\n' "$rc" "$label" >> "$BOOTSTRAP_LOG"
+    if [[ -s "$raw_output" ]]; then
+      printf '%s[SG-Gateway] Причина:%s\n' "$YELLOW" "$RESET" >&2
+      tail -n 12 "$raw_output" | sed 's/^/[SG-Gateway] /' >&2
+    fi
+    printf '[SG-Gateway] Полный технический журнал: %s\n' "$BOOTSTRAP_LOG" >&2
+    rm -f "$raw_output"
+    return "$rc"
+  fi
+
+  rm -f "$raw_output"
+  if [[ -t 1 ]]; then
+    printf "\r\033[K%s[SG-Gateway] [OK]%s %s (%s сек.)\n" "$GREEN" "$RESET" "$label" "$elapsed"
+  else
+    printf '%s[SG-Gateway] [OK]%s %s (%s сек.)\n' "$GREEN" "$RESET" "$label" "$elapsed"
+  fi
+}
+
+require_supported_ubuntu() {
+  [[ -r /etc/os-release ]] || fail "cannot detect the operating system; Ubuntu 24.04 is required"
+  # shellcheck disable=SC1091
+  . /etc/os-release
+  [[ "${ID:-}" == "ubuntu" ]] || fail "Ubuntu 24.04 is required; detected ${PRETTY_NAME:-unknown system}"
+  [[ "${VERSION_ID:-}" == "24.04" ]] || fail "only Ubuntu 24.04 is supported; detected ${PRETTY_NAME:-Ubuntu ${VERSION_ID:-unknown}}"
+  printf '[SG-Gateway] Supported system: %s\n' "${PRETTY_NAME:-Ubuntu 24.04}"
+}
+
+wait_for_cloud_init() {
+  if ! command -v cloud-init >/dev/null 2>&1; then
+    printf '[SG-Gateway] cloud-init not present; continuing with local Ubuntu state.\n'
+    return 0
+  fi
+
+  printf '[SG-Gateway] Waiting for cloud-init to finish...\n'
+  local cloud_init_output="" cloud_init_rc=0
+  set +e
+  cloud_init_output="$(cloud-init status --wait 2>&1)"
+  cloud_init_rc=$?
+  set -e
+  printf '%s\n' "$cloud_init_output"
+
+  if (( cloud_init_rc == 0 )); then
+    printf '[SG-Gateway] cloud-init: ready.\n'
+    return 0
+  fi
+
+  # cloud-init 24.x uses exit code 2 when initialization completed with
+  # recoverable/degraded errors.  A completed first boot must not block the
+  # SG-Gateway installer; later apt/network preflights still fail normally if
+  # the machine is genuinely unusable.
+  if (( cloud_init_rc == 2 )) && grep -Eq '(^|[[:space:]])status:[[:space:]]*done([[:space:]]|$)' <<<"$cloud_init_output"; then
+    printf '[SG-Gateway] cloud-init: completed with recoverable errors; continuing.\n'
+    return 0
+  fi
+
+  fail "cloud-init did not finish successfully; resolve the Ubuntu first-boot state and rerun the installer"
+}
+
+require_free_space() {
+  local path="$1" label="$2" available_kib required_kib available_mib
+  [[ "$MIN_FREE_MIB" =~ ^[0-9]+$ ]] || fail "SG_GATEWAY_INSTALL_MIN_FREE_MIB must be a non-negative integer"
+  available_kib="$(df -Pk "$path" 2>/dev/null | awk 'NR == 2 {print $4}')"
+  [[ "$available_kib" =~ ^[0-9]+$ ]] || fail "cannot determine free disk space for $label ($path)"
+  required_kib=$(( MIN_FREE_MIB * 1024 ))
+  available_mib=$(( available_kib / 1024 ))
+  if (( available_kib < required_kib )); then
+    fail "not enough free disk space for clean install on $label: need at least ${MIN_FREE_MIB} MiB, available ${available_mib} MiB"
+  fi
+  printf '[SG-Gateway] Disk preflight %s: %s MiB free (minimum %s MiB).\n' "$label" "$available_mib" "$MIN_FREE_MIB"
+}
+
+preflight_disk_space() {
+  require_free_space /tmp "temporary storage"
+  require_free_space /opt "installation storage"
+}
+
+prepare_clean_ubuntu() {
+  command -v apt-get >/dev/null 2>&1 || fail "apt-get is required to prepare Ubuntu"
+
+  printf '[SG-Gateway] Updating clean Ubuntu before SG-Gateway installation...\n'
+  apt-get -o Dpkg::Use-Pty=0 update
+  env DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a \
+    apt-get -o Dpkg::Use-Pty=0 full-upgrade -y
+  env DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a \
+    apt-get -o Dpkg::Use-Pty=0 autoremove -y
+
+  if [[ -e /var/run/reboot-required ]]; then
+    printf '[SG-Gateway] Ubuntu update completed, but a reboot is required before SG-Gateway can be installed.\n'
+    printf '[SG-Gateway] Run: reboot\n'
+    printf '[SG-Gateway] After login, repeat the same SG-Gateway install command.\n'
+    exit 10
+  fi
+
+  require_free_space /tmp "temporary storage after Ubuntu update"
+  require_free_space /opt "installation storage after Ubuntu update"
+  printf '[SG-Gateway] Ubuntu update: complete; reboot not required.\n'
+}
+
+prepare_bootstrap_tools() {
+  local -a missing_packages=()
+  local command_name=""
+
+  command -v curl >/dev/null 2>&1 || missing_packages+=(curl)
+  command -v tar >/dev/null 2>&1 || missing_packages+=(tar)
+  command -v gzip >/dev/null 2>&1 || missing_packages+=(gzip)
+  [[ -s /etc/ssl/certs/ca-certificates.crt ]] || missing_packages+=(ca-certificates)
+
+  if (( ${#missing_packages[@]} > 0 )); then
+    command -v apt-get >/dev/null 2>&1 || fail "apt-get is required to install bootstrap dependencies"
+    printf '[SG-Gateway] Preparing required Ubuntu tools...\n'
+    apt-get -o Dpkg::Use-Pty=0 update -qq
+    env DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a \
+      apt-get -o Dpkg::Use-Pty=0 install -y -qq --no-install-recommends "${missing_packages[@]}"
+  fi
+
+  for command_name in curl tar gzip; do
+    command -v "$command_name" >/dev/null 2>&1 || fail "missing command after bootstrap: $command_name"
+  done
+}
+
+download_gateway_source() {
+  if [[ -n "$SOURCE_COMMIT" ]]; then
+    printf '[SG-Gateway] Downloading exact GitHub source %s...\n' "$SOURCE_COMMIT"
+  else
+    printf '[SG-Gateway] Downloading GitHub branch %s...\n' "$BRANCH"
+  fi
+
+  curl -fsSL --retry 6 --retry-all-errors --retry-delay 3 --connect-timeout 20 \
+    "$ARCHIVE_URL" -o "$ARCHIVE"
+
+  gzip -t "$ARCHIVE"
+  tar -xzf "$ARCHIVE" -C "$SOURCE_DIR" --strip-components=1
+
+  [[ -f "$SOURCE_DIR/install.sh" ]] || fail "install.sh is missing from the GitHub archive"
+  [[ -f "$SOURCE_DIR/VERSION" ]] || fail "VERSION is missing from the GitHub archive"
+  [[ -f "$SOURCE_DIR/requirements.txt" ]] || fail "requirements.txt is missing from the GitHub archive"
+  [[ -d "$SOURCE_DIR/app" ]] || fail "application source is missing from the GitHub archive"
+}
+
+prepare_bootstrap_log
+
+# A fresh cloud image can still be expanding its disk or applying first-boot
+# package changes when SSH becomes available. Wait for that work first, then
+# fully update Ubuntu before downloading or mutating any SG-Gateway state.
+run_quiet "Подготовка 1/6 · Проверка Ubuntu" require_supported_ubuntu
+run_quiet "Подготовка 2/6 · Ожидание cloud-init" wait_for_cloud_init
+run_quiet "Подготовка 3/6 · Проверка диска" preflight_disk_space
+run_quiet "Подготовка 4/6 · Обновление Ubuntu" prepare_clean_ubuntu
+run_quiet "Подготовка 5/6 · Подготовка инструментов" prepare_bootstrap_tools
+
+TEMP_DIR="$(mktemp -d /tmp/sg-gateway-github-install.XXXXXX)"
+ARCHIVE="$TEMP_DIR/sg-gateway-dev-02301.tar.gz"
+SOURCE_DIR="$TEMP_DIR/source"
+mkdir -p "$SOURCE_DIR"
+run_quiet "Подготовка 6/6 · Загрузка SG-Gateway" download_gateway_source
+
+printf '[SG-Gateway] GitHub source version: %s\n' "$(tr -d '\r\n' < "$SOURCE_DIR/VERSION")"
+printf '[SG-Gateway] DEV channel: dev-02301\n'
+printf '[SG-Gateway] Starting the native Ubuntu CLEAN installer...\n'
+SG_GATEWAY_SOURCE_DIR="$SOURCE_DIR" \
+SG_GATEWAY_SOURCE_COMMIT="$SOURCE_COMMIT" \
+bash "$SOURCE_DIR/install.sh"
+
+# SG_GATEWAY_FIX30_IPV6_BOOTSTRAP_V1
+# Keep the proven native installer untouched while Fix30 is developed.  The
+# GitHub clean-install wrapper records dual-stack runtime facts only after the
+# baseline installation has succeeded.  IPv6 is optional and can never turn a
+# successful IPv4 installation into a failed one.
+valid_ip_family() {
+  local value="${1:-}" family="${2:-}"
+  python3 - "$value" "$family" <<'PYIP' >/dev/null 2>&1
+import ipaddress
+import sys
+try:
+    address = ipaddress.ip_address(sys.argv[1].strip())
+    family = int(sys.argv[2])
+except (ValueError, IndexError):
+    raise SystemExit(1)
+raise SystemExit(0 if address.version == family and address.is_global else 1)
+PYIP
+}
+
+env_value() {
+  local file="$1" key="$2"
+  [[ -f "$file" ]] || return 1
+  awk -F= -v wanted="$key" '$1 == wanted {sub(/^[^=]*=/, ""); print; exit}' "$file"
+}
+
+detect_global_ipv6() {
+  local value=""
+  if command -v ip >/dev/null 2>&1; then
+    value="$(ip -6 route get 2606:4700:4700::1111 2>/dev/null \
+      | sed -n 's/.* src \([^ ]*\).*/\1/p' | head -n 1 || true)"
+    if valid_ip_family "$value" 6; then
+      printf '%s' "$value"
+      return 0
+    fi
+
+    while IFS= read -r value; do
+      value="${value%%/*}"
+      if valid_ip_family "$value" 6; then
+        printf '%s' "$value"
+        return 0
+      fi
+    done < <(ip -6 -o address show scope global 2>/dev/null | awk '{print $4}' || true)
+  fi
+  return 1
+}
+
+persist_dual_stack_runtime() {
+  local runtime_file="/etc/sg-gateway/runtime.env"
+  local app_file="/etc/sg-gateway/sg-gateway.env"
+  local legacy_ipv4="" public_ipv6=""
+
+  legacy_ipv4="$(env_value "$runtime_file" SG_GATEWAY_PUBLIC_ADDRESS 2>/dev/null || true)"
+  if ! valid_ip_family "$legacy_ipv4" 4; then
+    legacy_ipv4=""
+  fi
+  public_ipv6="$(detect_global_ipv6 || true)"
+
+  if ! python3 - "$runtime_file" "$app_file" "$legacy_ipv4" "$public_ipv6" <<'PYENV'
+from pathlib import Path
+import sys
+
+runtime_path = Path(sys.argv[1])
+app_path = Path(sys.argv[2])
+ipv4 = sys.argv[3].strip()
+ipv6 = sys.argv[4].strip()
+values = {
+    "SG_GATEWAY_PUBLIC_IPV4": ipv4,
+    "SG_GATEWAY_PUBLIC_IPV6": ipv6,
+}
+
+for path in (runtime_path, app_path):
+    if not path.is_file():
+        continue
+    lines = path.read_text(encoding="utf-8").splitlines()
+    remaining = dict(values)
+    output = []
+    for line in lines:
+        if "=" not in line or line.lstrip().startswith("#"):
+            output.append(line)
+            continue
+        key = line.split("=", 1)[0].strip()
+        if key in remaining:
+            output.append(f"{key}={remaining.pop(key)}")
+        else:
+            output.append(line)
+    for key, value in remaining.items():
+        output.append(f"{key}={value}")
+    path.write_text("\n".join(output).rstrip() + "\n", encoding="utf-8")
+PYENV
+  then
+    printf '[SG-Gateway] IPv6 bootstrap: runtime persistence failed; IPv4 installation remains active.\n' >&2
+    return 0
+  fi
+
+  if [[ -n "$public_ipv6" ]]; then
+    printf '[SG-Gateway] IPv6 detected: %s\n' "$public_ipv6"
+    printf '[SG-Gateway] Dual Stack runtime metadata: ACTIVE\n'
+  else
+    printf '[SG-Gateway] IPv6 not detected; IPv4 runtime remains unchanged.\n'
+  fi
+
+  systemctl try-restart sg-hostd.service sg-gateway.service >/dev/null 2>&1 || true
+}
+
+persist_dual_stack_runtime || true

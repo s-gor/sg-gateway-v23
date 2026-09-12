@@ -261,3 +261,9 @@ Single Edge 443 implementation begins only after this point.
 - [ ] **Step 5: Record the baseline SHA in the project handoff**
 
 The handoff must state the exact v23 main SHA and confirm v22 remained untouched.
+
+---
+
+Bootstrap contract-cleanup pass applied on the v23-only working branch; full CI remains the acceptance gate for promotion.
+
+Final bootstrap verification pass restarted with the exact current stage-6 migration contract.

@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="ru" data-theme="dark">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script>
+      try {
+        const savedTheme = localStorage.getItem("sg-gateway-theme");
+        document.documentElement.dataset.theme = savedTheme === "light" ? "light" : "dark";
+      } catch (_) {}
+    </script>
+    <title>SG-Gateway · Вход</title>
+    <link rel="stylesheet" href="{{ static_asset('sg-ui-foundation-v22-08.css') }}">
+    <link rel="stylesheet" href="{{ static_asset('sg-ui-components-v22-08.css') }}">
+    <link rel="stylesheet" href="{{ static_asset('sg-ui-standalone-v22-08.css') }}">
+  </head>
+  <body class="sg-ui-standalone-body">
+    <main class="login-shell sg-ui-standalone sg-ui-standalone--login" data-sg-standalone-page="login">
+      <section class="login-panel sg-ui-card sg-ui-login-card">
+        <div class="brand">
+          <div class="brand-mark">SG</div>
+          <div>
+            <div class="brand-name">SG-Gateway</div>
+            <div class="brand-note">Вход в панель</div>
+          </div>
+        </div>
+
+        <form class="settings-form sg-ui-standalone-form" method="post" action="/login">
+          <input type="hidden" name="next" value="{{ next_url }}">
+          <label>
+            Пароль администратора
+            <input name="password" type="password" autocomplete="current-password" autofocus required>
+          </label>
+
+          {% if error %}
+            <p class="error-text">Неверный пароль.</p>
+          {% endif %}
+
+          <button class="button primary sg-ljd-key-action sg-ui-button sg-ui-button--primary" type="submit">Войти</button>
+        </form>
+      </section>
+    </main>
+  </body>
+</html>
