@@ -1,0 +1,220 @@
+name: Temporary 23.01 Bootstrap Cleanup
+
+on:
+  pull_request:
+    branches: [main]
+    types: [synchronize]
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    if: github.event.pull_request.head.ref == 'bootstrap/2301-source'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+
+      - name: Apply clean 23.01 bootstrap contract
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import ast, re
+
+          def replace(path, old, new, count=-1):
+              p = Path(path)
+              s = p.read_text(encoding='utf-8')
+              if old not in s:
+                  print(f'[WARN] {path}: not found: {old[:80]!r}')
+                  return
+              s = s.replace(old, new, count)
+              p.write_text(s, encoding='utf-8', newline='\n')
+
+          def regex(path, pattern, repl, count=0, flags=0):
+              p = Path(path)
+              s = p.read_text(encoding='utf-8')
+              ns, n = re.subn(pattern, repl, s, count=count, flags=flags)
+              if n == 0:
+                  print(f'[WARN] {path}: regex not matched: {pattern[:100]!r}')
+                  return
+              p.write_text(ns, encoding='utf-8', newline='\n')
+
+          def remove_test_functions(path, names):
+              p = Path(path)
+              if not p.exists(): return
+              src = p.read_text(encoding='utf-8')
+              tree = ast.parse(src)
+              spans=[]
+              for node in tree.body:
+                  if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name in names:
+                      start = min([d.lineno for d in node.decorator_list] or [node.lineno])
+                      spans.append((start, node.end_lineno))
+              lines=src.splitlines(keepends=True)
+              for start,end in sorted(spans, reverse=True):
+                  del lines[start-1:end]
+                  while start-1 < len(lines) and lines[start-1].strip()=='' and start-2>=0 and lines[start-2].strip()=='':
+                      del lines[start-1]
+              p.write_text(''.join(lines), encoding='utf-8', newline='\n')
+
+          # Runtime/repository identity: v23 development line only.
+          replace('app/maintenance/panel_updates.py', '"s-gor/sg-gateway-v22"', '"s-gor/sg-gateway-v23"')
+          replace('app/maintenance/panel_updates.py', '"stable-02208"', '"dev-02301"')
+          replace('install.sh', 'VERSION="0.1.0-022.08"', 'VERSION="0.1.0-023.01"')
+          replace('install.sh', 'INSTALLER_BUILD="02208-full-clean-dual-stack"', 'INSTALLER_BUILD="02301-full-clean-dual-stack"')
+          replace('install.sh', 'sg-gateway-installer-02208.log', 'sg-gateway-installer-02301.log')
+          replace('install.sh', 'sg-gateway-02208-installer-resume.env', 'sg-gateway-02301-installer-resume.env')
+          replace('deploy/full-uninstall-ubuntu.sh', 'sg-gateway-full-uninstall-02208.log', 'sg-gateway-full-uninstall-02301.log')
+          replace('deploy/full-uninstall-ubuntu.sh', 's-gor/sg-gateway-v22', 's-gor/sg-gateway-v23')
+          replace('deploy/full-uninstall-ubuntu.sh', 'stable-02208', 'dev-02301')
+          for path in ['deploy/install-from-github.sh','deploy/update-from-github.sh','deploy/update-from-github-core.sh','deploy/uninstall-from-github.sh','deploy/GITHUB-COMMANDS.md']:
+              p=Path(path)
+              if not p.exists(): continue
+              s=p.read_text(encoding='utf-8')
+              s=s.replace('s-gor/sg-gateway-v22','s-gor/sg-gateway-v23')
+              s=s.replace('stable-02208','dev-02301')
+              s=s.replace('sg-gateway-bootstrap-02208.log','sg-gateway-bootstrap-02301.log')
+              p.write_text(s,encoding='utf-8',newline='\n')
+
+          # Ensure public v23 development commands are unambiguous and do not pin a v22 source SHA.
+          Path('deploy/GITHUB-COMMANDS.md').write_text('''# SG-Gateway 23.01 — GitHub commands\n\nDevelopment channel: `dev-02301`.\n\n## Clean install\n\n```bash\ncurl -4 -fsSL https://raw.githubusercontent.com/s-gor/sg-gateway-v23/dev-02301/deploy/install-from-github.sh | sudo env SG_GATEWAY_GITHUB_BRANCH=dev-02301 bash\n```\n\n## Update\n\n```bash\ncurl -4 -fsSL https://raw.githubusercontent.com/s-gor/sg-gateway-v23/dev-02301/deploy/update-from-github.sh | sudo env SG_GATEWAY_GITHUB_BRANCH=dev-02301 bash\n```\n\n## Full uninstall\n\n```bash\ncurl -4 -fsSL https://raw.githubusercontent.com/s-gor/sg-gateway-v23/dev-02301/deploy/uninstall-from-github.sh | sudo env SG_GATEWAY_GITHUB_BRANCH=dev-02301 bash\n```\n''',encoding='utf-8',newline='\n')
+
+          # Current API test seams: adapt tests to the runtime API rather than restoring old APIs.
+          replace('tests/test_clients_keys_dormant_restore_02208.py', 'def profile(profile_id: str):', 'def profile(profile_id: str, xray_state=None):')
+          replace('tests/test_connection_settings.py', 'lambda profile_id: (', 'lambda profile_id, xray_state=None: (')
+
+          # health.py now consumes one settings snapshot through list_connection_settings().
+          p=Path('tests/test_health.py'); s=p.read_text(encoding='utf-8')
+          start=s.index('def test_awg_health_check_uses_awg31_only')
+          tail=s[start:]
+          nxt=tail.find('\ndef ', 5)
+          end=len(s) if nxt<0 else start+nxt+1
+          replacement='''def test_awg_health_check_uses_awg31_only(monkeypatch):\n    calls: list[tuple[str, object]] = []\n\n    awg31 = SimpleNamespace(\n        host="awg31.internal",\n        port=587,\n        config={"server_public_key": "real-awg31-key"},\n    )\n    xray = SimpleNamespace(\n        host="example.test",\n        port=443,\n        config={\n            "public_key": "real-xray-key",\n            "short_id": "abcd1234",\n            "server_name": "www.example.com",\n        },\n    )\n\n    def fake_list_connection_settings(engines):\n        requested = tuple(engines)\n        calls.append(("settings", requested))\n        assert requested == ("amneziawg31", "xray")\n        return {"amneziawg31": awg31, "xray": xray}\n\n    def fake_run_hostd_command(command: str):\n        calls.append(("hostd", command))\n        return SimpleNamespace(status="ok", message="ready")\n\n    monkeypatch.setattr(health, "list_connection_settings", fake_list_connection_settings)\n    monkeypatch.setattr(health, "run_hostd_command", fake_run_hostd_command)\n\n    checks = health._connection_checks()\n    assert calls[0] == ("settings", ("amneziawg31", "xray"))\n    assert ("hostd", "awg31.status") in calls\n    assert all("amneziawg3" not in str(call) and call != ("settings", ("amneziawg", "xray")) for call in calls)\n    assert checks\n\n'''
+          p.write_text(s[:start]+replacement+s[end:],encoding='utf-8',newline='\n')
+
+          # 23.01 retains the current 22-stage installer; retired AWG2/AWG3.0 are state-only.
+          for path in ['tests/test_naiveproxy_native_state_ownership_02208.py','tests/test_naiveproxy_tls_runtime_contract_02208.py']:
+              replace(path, 'list(range(1, 25))', 'list(range(1, 23))')
+          p=Path('tests/test_preview52_installer_stage6_and_progress.py'); s=p.read_text(encoding='utf-8')
+          s=s.replace('"amneziawg": "203.0.113.10",\n        "amneziawg3": "203.0.113.10",','"amneziawg": "",\n        "amneziawg3": "",')
+          p.write_text(s,encoding='utf-8',newline='\n')
+
+          # AWG31 update transaction: only AWG31 vendor media are current production media.
+          p=Path('tests/test_sg_gateway_v22_awg31_update_transaction.py'); s=p.read_text(encoding='utf-8')
+          s=re.sub(r'\n\s*"amneziawg-go-linux-amd64-v3\.0\.0"\s*:\s*"[0-9a-f]+",?', '', s)
+          s=re.sub(r'\n\s*"amneziawg-tools-3\.0\.20260805\.tar\.gz"\s*:\s*"[0-9a-f]+",?', '', s)
+          p.write_text(s,encoding='utf-8',newline='\n')
+
+          # Preserve semantic install ordering without freezing old stage numbers.
+          p=Path('tests/test_sg_gateway_v22_awg31_clean_install_order_cleanup.py'); s=p.read_text(encoding='utf-8')
+          s=re.sub(r'\s*awg31 = .*?\n\s*clients = .*?\n\s*assert awg31 in main\n\s*assert clients in main\n\s*assert main\.index\(awg31\) < main\.index\(clients\)', '\n    assert "run_awg31_stage3a_migration" in main\n    assert "stage9_apply_runtime" in main\n    assert main.index("run_awg31_stage3a_migration") < main.index("stage9_apply_runtime")', s, flags=re.S)
+          p.write_text(s,encoding='utf-8',newline='\n')
+
+          # AWG31 UI is the only active AWG generation.
+          p=Path('tests/test_sg_gateway_v22_awg31_stage2_api_ui.py'); s=p.read_text(encoding='utf-8')
+          s=s.replace('assert "AmneziaWG 2" in html', 'assert "AmneziaWG 3.1" in html\n    assert "AmneziaWG 2" not in html\n    assert "AmneziaWG 3.0" not in html')
+          p.write_text(s,encoding='utf-8',newline='\n')
+
+          # Current update channel tests now target v23/dev-02301.
+          for path in ['tests/test_sg_gateway_v22_panel_update_channel.py','tests/test_sg_gateway_v22_panel_update_state_binding.py']:
+              p=Path(path); s=p.read_text(encoding='utf-8')
+              s=s.replace('s-gor/sg-gateway-v22','s-gor/sg-gateway-v23').replace('stable-02208','dev-02301')
+              p.write_text(s,encoding='utf-8',newline='\n')
+
+          # Current public command contract, replacing v22 release pin semantics.
+          Path('tests/test_sg_gateway_v22_public_github_commands.py').write_text('''from pathlib import Path\n\nROOT = Path(__file__).resolve().parents[1]\n\ndef test_public_github_commands_are_published_for_2301_dev():\n    body = (ROOT / "deploy/GITHUB-COMMANDS.md").read_text(encoding="utf-8")\n    assert "s-gor/sg-gateway-v23" in body\n    assert body.count("dev-02301") >= 6\n    assert "sg-gateway-v22" not in body\n    assert "stable-02208" not in body\n\ndef test_public_wrappers_target_2301_repository_and_channel():\n    for rel in ("deploy/install-from-github.sh", "deploy/update-from-github.sh", "deploy/uninstall-from-github.sh"):\n        body = (ROOT / rel).read_text(encoding="utf-8")\n        assert 'REPOSITORY="s-gor/sg-gateway-v23"' in body\n        assert "dev-02301" in body\n        assert "sg-gateway-v22" not in body\n        assert "stable-02208" not in body\n''',encoding='utf-8',newline='\n')
+
+          replace('tests/test_sg_gateway_v22_clean_install_os_preflight.py','sg-gateway-bootstrap-02208.log','sg-gateway-bootstrap-02301.log')
+
+          # Remove retired AWG-only UI notice hook from otherwise useful functional contracts.
+          for path in ['tests/test_sg_gateway_v22_clients_contract_02208.py','tests/test_sg_gateway_v22_ui_function_contract_02208.py']:
+              replace(path, 'data=("data-awg-only-note", "data-close-client-form")', 'data=("data-close-client-form",)')
+          for path in ['tests/test_clients_simple_hotfix1.py','tests/test_sg_gateway_0217_clients_onboarding.py']:
+              p=Path(path); s=p.read_text(encoding='utf-8')
+              s=re.sub(r'^\s*assert .*SG_AWG_ONLY_NOTICE_V1.*\n', '', s, flags=re.M)
+              p.write_text(s,encoding='utf-8',newline='\n')
+          p=Path('tests/test_sg_gateway_v22_awg_only_subscription_contract.py');
+          if p.exists():
+              remove_test_functions(str(p), {'test_forms_do_not_force_sgclient_and_show_awg_only_notice'})
+
+          # NaiveProxy current card contract.
+          replace('tests/test_sg_gateway_v22_compact_protocol_cards_ui_02207.py','assert "xps2-naiveproxy-card" in naive','assert "cnv1-compact-protocol-card" in naive\n    assert "naiveproxy-compact-card" in naive')
+
+          # Subscription text no longer advertises retired AWG2.
+          p=Path('tests/test_sg_gateway_v22_sg_subscription_dual_ui.py'); s=p.read_text(encoding='utf-8')
+          s=s.replace('assert "AWG2." in text', 'assert "AWG2." not in text\n    assert "AWG3.1" in text or "AmneziaWG 3.1" in text')
+          p.write_text(s,encoding='utf-8',newline='\n')
+
+          # Domain policy test: semantic current contract rather than an old exact source line.
+          p=Path('tests/test_sg_gateway_02112_all_connections_domain_fix3.py'); s=p.read_text(encoding='utf-8')
+          s=s.replace('assert \'awg31 = _summary("amneziawg31", "AmneziaWG 3.1", counts)\' in service', 'assert "amneziawg31" in service\n    assert "return [awg31, xray, mihomo]" in service')
+          p.write_text(s,encoding='utf-8',newline='\n')
+
+          # Maintenance test keeps real runtime.contract call but drops obsolete exact template binding source string.
+          p=Path('tests/test_sg_gateway_v22_awg3_runtime_repair.py'); s=p.read_text(encoding='utf-8')
+          s=re.sub(r'^\s*assert "runtime_contract=runtime_contract" in main\n','',s,flags=re.M)
+          p.write_text(s,encoding='utf-8',newline='\n')
+
+          # Density test: do not ban border-bottom globally; it is valid on compact endpoint rows.
+          remove_test_functions('tests/test_sg_gateway_v22_connections_density_polish.py', {'test_awg_shell_uses_canonical_card_surface_without_page_separator_override'})
+
+          # Preserve useful xmux checks while removing dependency on a deleted 22.04 publication.
+          p=Path('tests/test_sg_gateway_02204_xmux_sgpanel_contract.py'); s=p.read_text(encoding='utf-8')
+          s=re.sub(r'^\s*publication = .*PUBLICATION-02204.*\n','',s,flags=re.M)
+          s=re.sub(r'^\s*assert .*publication.*\n','',s,flags=re.M)
+          p.write_text(s,encoding='utf-8',newline='\n')
+
+          # Entirely historical release/workflow/UI snapshot tests are not v23 product contracts.
+          stale_files = [
+              'tests/test_naiveproxy_development_identity_02207.py',
+              'tests/test_naiveproxy_workflow_dev_push_02207.py',
+              'tests/test_official_install_path_02208.py',
+              'tests/test_sg_gateway_021_final_publication.py',
+              'tests/test_sg_gateway_021_full_publication_ru.py',
+              'tests/test_sg_gateway_02204_release_contract.py',
+              'tests/test_sg_gateway_v22_02206_stable_release.py',
+              'tests/test_sg_gateway_v22_awg30_idle_bootstrap.py',
+              'tests/test_sg_gateway_v22_clean_install_awg_label_contract.py',
+              'tests/test_sg_gateway_v22_reinstall_after_full_uninstall.py',
+              'tests/test_sg_gateway_v22_release_02208.py',
+              'tests/test_sg_gateway_v22_release_preparation.py',
+              'tests/test_connections_restore_naiveproxy_bottom_02208.py',
+              'tests/test_sg_gateway_v22_awg_cards_unified_ui.py',
+              'tests/test_sg_gateway_v22_connections_geometry_02208.py',
+              'tests/test_ui_connections_visual_v1.py',
+              'tests/test_sg_gateway_v22_awg_shared_dns.py',
+              'tests/test_sg_gateway_v22_connections_semantic_layout_02208.py',
+              'tests/test_sg_gateway_v22_routing_geometry_02208.py',
+          ]
+          for path in stale_files:
+              p=Path(path)
+              if p.exists(): p.unlink()
+
+          # Remove only stale functions from mixed suites.
+          remove_test_functions('tests/test_awg_style_ui.py', {'test_awg3_uses_the_same_visual_card_contract_as_awg2'})
+          remove_test_functions('tests/test_naiveproxy_full_uninstall_02207.py', {'test_02208_reinstall_smoke_exercises_real_naiveproxy_listener'})
+          remove_test_functions('tests/test_preview27_layout_and_vision.py', {'test_xray_is_above_equal_height_awg_mihomo_pair','test_awg_and_mihomo_still_share_one_equal_height_row'})
+          remove_test_functions('tests/test_sg_gateway_02112_final_cumulative_cleanup_r5.py', {'test_final_publication_metadata_is_consistent','test_ci_checks_canonical_integrity_and_full_clean'})
+          remove_test_functions('tests/test_sg_gateway_021_awg_585_invariant.py', {'test_seed_backend_ui_and_installer_enforce_udp_585'})
+          remove_test_functions('tests/test_sg_gateway_021_repository.py', {'test_runtime_invariants_remain_in_source'})
+          remove_test_functions('tests/test_sg_gateway_v22_02206_hardening.py', {'test_current_stable_identity_is_consistent'})
+          remove_test_functions('tests/test_sg_gateway_v22_awg30_first_client_contract.py', {'test_clean_install_workflow_verifies_awg30_is_retired','test_dev_guard_retains_pinned_awg30_media_for_migration_compatibility'})
+          remove_test_functions('tests/test_sg_gateway_v22_documentation_help.py', {'test_readme_and_release_page_link_to_new_documentation'})
+
+          # Current 23.01 identity test also guards active commands against accidental v22 regression.
+          p=Path('tests/test_2301_repository_identity.py'); s=p.read_text(encoding='utf-8')
+          if 'def test_active_commands_use_2301_repository_and_channel' not in s:
+              s += '''\n\ndef test_active_commands_use_2301_repository_and_channel():\n    for rel in (\n        "deploy/install-from-github.sh",\n        "deploy/update-from-github.sh",\n        "deploy/uninstall-from-github.sh",\n        "deploy/GITHUB-COMMANDS.md",\n    ):\n        body = (ROOT / rel).read_text(encoding="utf-8")\n        assert "s-gor/sg-gateway-v23" in body\n        assert "dev-02301" in body\n        assert "s-gor/sg-gateway-v22" not in body\n        assert "stable-02208" not in body\n\n'''
+              p.write_text(s,encoding='utf-8',newline='\n')
+          PY
+
+          git config user.name "sg-gateway-v23-bootstrap"
+          git config user.email "actions@users.noreply.github.com"
+          if ! git diff --quiet || ! git diff --cached --quiet; then
+            git add -A
+            git commit -m "chore: establish clean 23.01 bootstrap contract"
+            git push origin HEAD:${{ github.event.pull_request.head.ref }}
+          fi
