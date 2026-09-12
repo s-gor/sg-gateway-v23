@@ -51,14 +51,11 @@ jobs:
           rsync -a --delete \
             --exclude '/.git/' \
             --exclude '/docs/superpowers/***' \
-            --exclude '/.github/workflows/bootstrap-from-v22.yml' \
+            --exclude '/.github/workflows/***' \
             --exclude '/PUBLICATION-02112.md' \
             --exclude '/PUBLICATION-02204.md' \
             --exclude '/PUBLICATION-02206.md' \
             --exclude '/PUBLICATION-02208.md' \
-            --exclude '/.github/workflows/release-02204-stable.yml' \
-            --exclude '/.github/workflows/release-02208-stable.yml' \
-            --exclude '/.github/workflows/release-fix30.yml' \
             source/ target/
 
           cd target
