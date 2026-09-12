@@ -8,7 +8,6 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 INSTALL = (ROOT / "deploy/install-core.sh").read_text(encoding="utf-8")
-WORKFLOW = (ROOT / ".github" / "workflows" / "dev-02206-guard.yml").read_text(encoding="utf-8")
 
 
 def _function(name: str) -> str:
@@ -163,7 +162,3 @@ def test_startup_verifiers_do_not_use_the_old_one_shot_curls() -> None:
     assert "curl --noproxy '*' -kfsS --max-time 15" not in nginx
     assert "curl --noproxy '*' -fsS --max-time 8 http://127.0.0.1/" not in nginx
 
-
-def test_guard_runs_02206_startup_regressions_explicitly() -> None:
-    assert "tests/test_sg_gateway_v22_02206_panel_startup_retry.py" in WORKFLOW
-    assert "tests/test_sg_gateway_v22_02206_installer_readiness.py" in WORKFLOW

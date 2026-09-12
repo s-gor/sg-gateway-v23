@@ -2,7 +2,6 @@
   "build": "MAIN-02301-DEV",
   "channel": "dev-02301",
   "client_access_model": {
-    "awg2_awg3_independent_selection": true,
     "hysteria_auth_per_device": true,
     "independent_enable_disable": true,
     "legacy_credentials_preserved": true,
@@ -55,8 +54,7 @@
   },
   "clients_ui": {
     "awg_generations": [
-      "AWG2",
-      "AWG3"
+      "AWG3.1"
     ],
     "compact_device_modal": true,
     "create_protocol_grid": "4x2-desktop-8-real-vpn-protocols",
@@ -194,8 +192,6 @@
     "amneziawg_udp_port": 585,
     "amneziawg_udp_port_invariant": "database-seed-backend-ui-firewall-runtime-profile",
     "application_smoke_test": "render-contract-not-runtime-health",
-    "awg2_runtime_line": "frozen-1.x-kernel",
-    "awg3_runtime_line": "isolated-3.x-userspace-no-kernel-module",
     "clean_install_database_assertion": true,
     "client_detail_typography_preserved": true,
     "client_list_row_typography_v020": "reverted-to-approved-018-scale",
