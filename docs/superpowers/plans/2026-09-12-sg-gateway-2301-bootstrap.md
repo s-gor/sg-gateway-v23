@@ -266,4 +266,4 @@ The handoff must state the exact v23 main SHA and confirm v22 remained untouched
 
 Bootstrap contract-cleanup pass applied on the v23-only working branch; full CI remains the acceptance gate for promotion.
 
-Final bootstrap verification pass started after reducing the imported legacy suite to current 23.01 product contracts.
+Final bootstrap verification pass restarted with the exact current stage-6 migration contract.
