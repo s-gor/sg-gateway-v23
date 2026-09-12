@@ -1,20 +1,23 @@
 from pathlib import Path
 
 
+ROOT = Path(__file__).resolve().parents[1]
+
+
 def test_2301_version_identity():
-    assert Path("VERSION").read_text().strip() == "0.1.0-023.01"
-    assert Path("DEVELOPMENT-VERSION").read_text().strip() == "0.1.0-023.01-dev"
-    assert Path("BUILD-ID").read_text().strip() == "MAIN-02301-DEV"
+    assert (ROOT / "VERSION").read_text().strip() == "0.1.0-023.01"
+    assert (ROOT / "DEVELOPMENT-VERSION").read_text().strip() == "0.1.0-023.01-dev"
+    assert (ROOT / "BUILD-ID").read_text().strip() == "MAIN-02301-DEV"
 
 
 def test_active_commands_use_v23_only():
     paths = [
-        Path("README.md"),
-        Path("deploy/GITHUB-COMMANDS.md"),
-        Path("deploy/install-from-github.sh"),
-        Path("deploy/update-from-github.sh"),
-        Path("deploy/update-from-github-core.sh"),
-        Path("deploy/uninstall-from-github.sh"),
+        ROOT / "README.md",
+        ROOT / "deploy/GITHUB-COMMANDS.md",
+        ROOT / "deploy/install-from-github.sh",
+        ROOT / "deploy/update-from-github.sh",
+        ROOT / "deploy/update-from-github-core.sh",
+        ROOT / "deploy/uninstall-from-github.sh",
     ]
     text = "\n".join(p.read_text(encoding="utf-8") for p in paths)
     assert "s-gor/sg-gateway-v23" in text
@@ -35,4 +38,3 @@ def test_active_commands_use_2301_repository_and_channel():
         assert "dev-02301" in body
         assert "s-gor/sg-gateway-v22" not in body
         assert "stable-02208" not in body
-
