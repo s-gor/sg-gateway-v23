@@ -39,14 +39,12 @@ jobs:
                   del lines[start - 1:end]
               p.write_text(''.join(lines), encoding='utf-8', newline='\n')
 
-          # Retire the last three AWG2-era layout snapshots; other v24 layout tests remain.
           remove_test_functions('tests/test_connections_layout_v24.py', {
               'test_connections_keeps_restored_order_with_naiveproxy_before_note',
               'test_awg_is_compact_but_keeps_required_post_fields',
               'test_awg_and_mihomo_inner_rails_match_naiveproxy_without_magic_offsets',
           })
 
-          # Health contract: exact retired engine names must not be requested; AWG31 is valid.
           p = Path('tests/test_health.py')
           s = p.read_text(encoding='utf-8')
           s = s.replace(
@@ -55,16 +53,14 @@ jobs:
           )
           p.write_text(s, encoding='utf-8', newline='\n')
 
-          # Stage-6 migration preserves dormant legacy country metadata and repairs active engines.
           p = Path('tests/test_preview52_installer_stage6_and_progress.py')
           s = p.read_text(encoding='utf-8')
-          old = '''        for row in rows:\n            config = json.loads(row["config_json"])\n            if row["engine"] == "amneziawg31":\n                assert config["profile"] == "awg31"\n                assert "country_code" not in config\n            else:\n                assert config["country_code"] == "fr"\n'''
-          new = '''        for row in rows:\n            config = json.loads(row["config_json"])\n            if row["engine"] == "amneziawg31":\n                assert config["profile"] == "awg31"\n                assert "country_code" not in config\n            elif row["engine"] in {"mihomo", "xray"}:\n                assert config["country_code"] == "fr"\n            else:\n                assert row["engine"] in {"amneziawg", "amneziawg3"}\n                assert config["country_code"] == "nl"\n'''
+          old = '''    for row in rows:\n        config = json.loads(row["config_json"])\n        if row["engine"] == "amneziawg31":\n            assert config["profile"] == "awg31"\n            assert "country_code" not in config\n        else:\n            assert config["country_code"] == "fr"\n'''
+          new = '''    for row in rows:\n        config = json.loads(row["config_json"])\n        if row["engine"] == "amneziawg31":\n            assert config["profile"] == "awg31"\n            assert "country_code" not in config\n        elif row["engine"] in {"mihomo", "xray"}:\n            assert config["country_code"] == "fr"\n        else:\n            assert row["engine"] in {"amneziawg", "amneziawg3"}\n            assert config["country_code"] == "nl"\n'''
           if old not in s:
               raise SystemExit('stage6 loop contract not found')
           p.write_text(s.replace(old, new), encoding='utf-8', newline='\n')
 
-          # Current installer has 22 semantic stages, not the historical 24-stage layout.
           for path in [
               'tests/test_sg_gateway_02112_final_cumulative_cleanup_r5.py',
               'tests/test_sg_gateway_v22_02206_hardening.py',
@@ -73,29 +69,24 @@ jobs:
               s = p.read_text(encoding='utf-8').replace(' · 24 этапа', ' · 22 этапа')
               p.write_text(s, encoding='utf-8', newline='\n')
 
-          # Current uninstall banner must carry the current product version; legacy cleanup remains intact.
           p = Path('deploy/full-uninstall-ubuntu.sh')
           s = p.read_text(encoding='utf-8').replace('0.1.0-022.08', '0.1.0-023.01')
           p.write_text(s, encoding='utf-8', newline='\n')
 
-          # AWG31 UI test keeps behavior/service assertions but drops old presentation-specific port text.
           p = Path('tests/test_sg_gateway_v22_awg31_stage2_api_ui.py')
           s = p.read_text(encoding='utf-8').replace('    assert "UDP 587" in html\n', '')
           p.write_text(s, encoding='utf-8', newline='\n')
 
-          # NaiveProxy native-card test keeps structure/ordering, not a retired marketing subtitle.
           p = Path('tests/test_sg_gateway_v22_compact_protocol_cards_ui_02207.py')
           s = p.read_text(encoding='utf-8').replace('    assert "HTTPS FORWARD PROXY · TLS" in naive\n', '')
           p.write_text(s, encoding='utf-8', newline='\n')
 
-          # AWG3.1 is current; forbid only retired AWG3.0 identifiers/combined legacy labels.
           p = Path('tests/test_sg_gateway_v22_sg_subscription_dual_ui.py')
           s = p.read_text(encoding='utf-8')
           s = s.replace('for forbidden in ("AWG3", "amneziawg3", "AmneziaWG 3.1", "AWG2/AWG3"):',
                         'for forbidden in ("amneziawg3", "AWG2/AWG3"):')
           p.write_text(s, encoding='utf-8', newline='\n')
 
-          # Rendered UI contract: remove retired AWG2/AWG3.0 forms and shared legacy AWG DNS form/id.
           p = Path('tests/test_sg_gateway_v22_ui_function_contract_02208.py')
           s = p.read_text(encoding='utf-8')
           s = re.sub(r'^\s*_form\("/connections/amneziawg",.*\n', '', s, flags=re.M)
@@ -104,7 +95,6 @@ jobs:
           s = s.replace('ids=("awg-dns", "awg31-settings",', 'ids=("awg31-settings",')
           p.write_text(s, encoding='utf-8', newline='\n')
 
-          # Deterministically refresh checksum inventory from this exact v23 branch tree.
           tracked = sorted(subprocess.check_output(['git', 'ls-files'], text=True).splitlines())
           tracked = [x for x in tracked if x != 'SOURCE-SHA256SUMS']
           with Path('SOURCE-SHA256SUMS').open('w', encoding='utf-8', newline='\n') as out:
