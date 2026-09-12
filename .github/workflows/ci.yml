@@ -34,6 +34,9 @@ jobs:
         run: |
           python -B -c "from pathlib import Path; files=list(Path('app').rglob('*.py'))+list(Path('engines').rglob('*.py'))+list(Path('hostd').rglob('*.py'))+list(Path('tests').rglob('*.py')); [compile(p.read_text(encoding='utf-8'), str(p), 'exec') for p in files]; print(f'syntax ok: {len(files)} files')"
 
+      - name: Verify 23.01 repository identity
+        run: python -m pytest -q tests/test_2301_repository_identity.py
+
       - name: Verify source integrity
         run: |
           python - <<'PY'
@@ -70,9 +73,6 @@ jobs:
               raise SystemExit(f'checksum inventory mismatch; missing={missing[:20]} stale={stale[:20]}')
           print(f'source integrity ok: {len(listed)} files')
           PY
-
-      - name: Verify 23.01 repository identity
-        run: python -m pytest -q tests/test_2301_repository_identity.py
 
       - name: Verify Xray recovery upgrade regression
         run: python -m pytest -q tests/test_preview31_xray_updates.py
