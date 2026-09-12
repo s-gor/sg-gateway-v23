@@ -1,0 +1,308 @@
+{% extends "base.html" %}
+{% block title %}SG-Gateway · Routing{% endblock %}
+
+{% block page_styles %}
+  <link rel="stylesheet" href="{{ static_asset('sg-routing-client096.css') }}">
+  <link rel="stylesheet" href="{{ static_asset('sg-ui-routing-v22-08.css') }}">
+{% endblock %}
+
+{% block content %}
+{% set candidate = routing_templates.candidate or {} %}
+{% set active = routing_templates.active or {} %}
+{% set shown = candidate if candidate else active %}
+{% set smart = shown.get('smart', {}) %}
+{% set preset = smart.get('preset', 'direct') %}
+{% set rules = shown.get('rules', []) %}
+{% set caps = routing_templates.capabilities or {} %}
+{% set selected_title = shown.get('title', 'Обычный доступ · SG-Gateway · IPv4') %}
+{% set selected_message = shown.get('message', 'Выберите базовую схему и выполните проверку.') %}
+
+<section class="r096-page sg-ui-page sg-ui-routing" data-sg-ui-page="routing">
+  <header class="r096-heading sg-ui-page-head sg-ui-routing-head">
+    <div>
+      <div class="r096-kicker"><span></span> SG-GATEWAY / ROUTING</div>
+      <h1>Routing</h1>
+      <p>Единая схема правил для серверного Xray и связанных GeoFiles.</p>
+    </div>
+    <a class="r096-header-button" href="{{ url_for('help_index') }}">Справка</a>
+  </header>
+
+  <nav class="r096-tabs sg-ui-tabs sg-ui-routing-tabs" data-sg-section="routing-tabs" aria-label="Разделы Routing">
+    <button type="button" data-r096-tab="routing" class="sg-ui-tab active">Routing</button>
+    <button type="button" data-r096-tab="geofiles" class="sg-ui-tab">GeoFiles</button>
+  </nav>
+
+  <section class="r096-panel sg-ui-section sg-ui-routing-panel" data-sg-section="routing-main" data-r096-panel="routing">
+    <form id="r096-smart-form" method="post" action="{{ url_for('routing_smart_preview') }}">
+      <article class="r096-selected-card">
+        <div class="r096-selected-head">
+          <div>
+            <h2>Выбранная конфигурация</h2>
+            <p>Схема: <strong>{{ selected_title }}</strong></p>
+          </div>
+          <button class="r096-secondary-button" type="button" onclick="location.reload()">Обновить</button>
+        </div>
+        <div class="r096-diagnostic">
+          <strong>{{ 'Проверка пройдена' if shown.get('ready') else 'Требуется проверка' }}</strong>
+          <span>{{ selected_message }}</span>
+          <small>
+            GeoIP {{ routing_templates.geoip_count }} · GeoSite {{ routing_templates.geosite_count }} ·
+            {{ 'candidate готов' if candidate.get('ready') else ('активная схема сохранена' if active else 'схема ещё не применялась') }}
+          </small>
+        </div>
+      </article>
+
+      <details class="r096-user-rules" data-r096-user-rules {% if preset == 'custom' %}open{% endif %}>
+        <summary data-r096-user-rules-toggle aria-controls="r096-user-rules-body" aria-expanded="{{ 'true' if preset == 'custom' else 'false' }}">
+          <span>
+            <strong>Пользовательские правила</strong>
+            <small>Свои домены и IP/подсети. По одной записи в строке.</small>
+          </span>
+          <em data-r096-user-rules-label>{{ 'Скрыть' if preset == 'custom' else 'Открыть' }}</em>
+        </summary>
+        <div class="r096-user-body" id="r096-user-rules-body">
+          <p>Для доменов можно использовать <code>full:</code>, <code>domain:</code>, <code>regexp:</code>, <code>keyword:</code> и <code>geosite:</code>. Без префикса используется <code>domain:</code>.</p>
+          <div class="r096-rule-tabs">
+            <button type="button" data-r096-rule-tab="direct4" class="active">SG-Gateway · IPv4</button>
+            <button type="button" data-r096-rule-tab="direct6">SG-Gateway · IPv6</button>
+            <button type="button" data-r096-rule-tab="warp4">WARP · IPv4</button>
+            <button type="button" data-r096-rule-tab="warp6">WARP · IPv6</button>
+            <button type="button" data-r096-rule-tab="block">Заблокировать</button>
+          </div>
+          {% for action, label in [('direct4','SG-Gateway · IPv4'),('direct6','SG-Gateway · IPv6'),('warp4','WARP · IPv4'),('warp6','WARP · IPv6'),('block','Заблокировать')] %}
+          {% set legacy_action = 'direct' if action == 'direct4' else ('warp' if action == 'warp4' else '') %}
+          {% set domains_value = smart.get('custom_' ~ action ~ '_domains', smart.get('custom_' ~ legacy_action ~ '_domains', []) if legacy_action else []) %}
+          {% set ips_value = smart.get('custom_' ~ action ~ '_ips', smart.get('custom_' ~ legacy_action ~ '_ips', []) if legacy_action else []) %}
+          <div class="r096-rule-editor" data-r096-rule-panel="{{ action }}" {% if action != 'direct4' %}hidden{% endif %}>
+            <label><span>Домены · {{ label }}</span><textarea name="custom_{{ action }}_domains" rows="6">{{ domains_value | join('\n') }}</textarea></label>
+            <label><span>IP и подсети · {{ label }}</span><textarea name="custom_{{ action }}_ips" rows="6">{{ ips_value | join('\n') }}</textarea></label>
+          </div>
+          {% endfor %}
+        </div>
+      </details>
+
+      <article class="r096-card">
+        <h2>Базовая схема</h2>
+        <p>Выберите основу маршрутизации. Любое ручное изменение ниже переключает схему в пользовательский режим.</p>
+        <div class="r096-preset-grid">
+          {% for value, label in [
+            ('direct','Обычный доступ · SG-Gateway · IPv4'),
+            ('ads_block','Блокировка рекламы и трекеров'),
+            ('blocked_warp','Ресурсы, заблокированные в РФ через WARP · IPv4'),
+            ('all_warp','Весь интернет через WARP · IPv4'),
+            ('custom','Пользовательская схема')
+          ] %}
+          {% set warp_preset = value in ['blocked_warp','all_warp'] %}
+          <label class="r096-choice-card{% if warp_preset and not caps.get('warp4') %} disabled{% endif %}" {% if warp_preset and not caps.get('warp4') %}title="Сначала подготовьте и включите WARP IPv4"{% endif %}>
+            <input type="radio" name="preset" value="{{ value }}" {% if preset == value %}checked{% endif %} {% if warp_preset and not caps.get('warp4') %}disabled{% endif %}>
+            <span>{{ label }}</span>
+          </label>
+          {% endfor %}
+        </div>
+      </article>
+
+      <article class="r096-card r096-main-rules">
+        <h2>Основные правила</h2>
+
+        {% macro action_group(name, value, allow_warp=True, allow_block=True) %}
+        {% set current = {'direct':'direct4','warp':'warp4'}.get(value, value) %}
+        <div class="r096-segments" data-action-group="{{ name }}">
+          <label><input type="radio" name="{{ name }}" value="direct4" {% if current == 'direct4' %}checked{% endif %}><span>SG-Gateway · IPv4</span></label>
+          <label class="{% if not caps.get('direct6') %}disabled{% endif %}" {% if not caps.get('direct6') %}title="На сервере нет доступного публичного IPv6"{% endif %}><input type="radio" name="{{ name }}" value="direct6" {% if current == 'direct6' %}checked{% endif %} {% if not caps.get('direct6') %}disabled{% endif %}><span>SG-Gateway · IPv6</span></label>
+          {% if allow_warp %}
+          <label class="{% if not caps.get('warp4') %}disabled{% endif %}" {% if not caps.get('warp4') %}title="WARP IPv4 не готов или выключен"{% endif %}><input type="radio" name="{{ name }}" value="warp4" {% if current == 'warp4' %}checked{% endif %} {% if not caps.get('warp4') %}disabled{% endif %}><span>WARP · IPv4</span></label>
+          <label class="{% if not caps.get('warp6') %}disabled{% endif %}" {% if not caps.get('warp6') %}title="WARP IPv6 не готов или выключен"{% endif %}><input type="radio" name="{{ name }}" value="warp6" {% if current == 'warp6' %}checked{% endif %} {% if not caps.get('warp6') %}disabled{% endif %}><span>WARP · IPv6</span></label>
+          {% endif %}
+          {% if allow_block %}<label><input type="radio" name="{{ name }}" value="block" {% if current == 'block' %}checked{% endif %}><span>Заблокировать</span></label>{% endif %}
+        </div>
+        {% endmacro %}
+
+        <div class="r096-rule-row">
+          <div><strong>Локальная сеть</strong><small>Домашний роутер, NAS, принтеры и частные адреса</small></div>
+          {{ action_group('local_action', smart.get('local_action', 'direct4'), False, True) }}
+        </div>
+
+        <section class="r096-russia-block" hidden aria-hidden="true">
+          <div><strong>Российская маршрутизация</strong><small>Выберите только один набор категорий.</small></div>
+          <div class="r096-segments r096-russia-scope">
+            {% set scope = smart.get('russia_scope', 'none') %}
+            <label><input type="radio" name="russia_scope" value="none" {% if scope == 'none' %}checked{% endif %}><span>Выключено</span></label>
+            <label><input type="radio" name="russia_scope" value="tld" {% if scope == 'tld' %}checked{% endif %}><span>Только доменные зоны</span></label>
+            <label><input type="radio" name="russia_scope" value="sites_ip" {% if scope == 'sites_ip' %}checked{% endif %}><span>Сайты и IP</span></label>
+          </div>
+          <div class="r096-rule-row nested">
+            <div><strong>Действие выбранного набора</strong><small id="r096-russia-syntax">Правило выключено</small></div>
+            {{ action_group('russia_action', smart.get('russia_action', 'direct4')) }}
+          </div>
+        </section>
+
+        <div class="r096-rule-row">
+          <div><strong>Ресурсы, заблокированные в РФ</strong><small>Категория выбирается из фактически установленных GeoFiles</small></div>
+          {{ action_group('blocked_action', smart.get('blocked_action', 'direct4')) }}
+        </div>
+
+        <div class="r096-rule-row">
+          <div><strong>Реклама и трекеры</strong><small>category-ads-all или совместимая категория текущего набора</small></div>
+          {{ action_group('ads_action', smart.get('ads_action', 'direct4')) }}
+        </div>
+
+        <div class="r096-rule-row last">
+          <div><strong>Остальной трафик</strong><small>Действие, если ни одно правило выше не совпало</small></div>
+          {{ action_group('default_action', smart.get('default_action', 'direct4')) }}
+        </div>
+      </article>
+
+      <article class="r096-warning-card">
+        <strong>Фиксированное семейство IP</strong>
+        <span>Режимы <strong>Через SG-Gateway</strong> и <strong>Через WARP</strong> всегда используют выбранное семейство адреса. Для каждого правила выбирается не только выход, но и семейство адреса. <strong>IPv4</strong> никогда автоматически не переключается на IPv6, а <strong>IPv6</strong> — на IPv4. Если ресурс не имеет адреса выбранного семейства, соединение завершается без fallback. Это не позволяет одному правилу по очереди показывать сайту оба внешних адреса.</span>
+      </article>
+
+      <article class="r096-card r096-rules-preview">
+        <header>
+          <div><h2>Фактические правила candidate</h2><p>Порядок совпадений и категории, найденные в установленной паре GeoFiles.</p></div>
+          <span class="r096-state {{ 'ok' if shown.get('ready') else 'warning' }}">{{ 'Готово' if shown.get('ready') else 'Не проверено' }}</span>
+        </header>
+        {% if rules %}
+        <div class="r096-rule-list">
+          {% for rule in rules %}
+          {% set route_kind = 'direct' if rule.action in ['direct','direct4','direct6'] else ('warp' if rule.action in ['warp','warp4','warp6'] else 'block') %}
+          <div class="{{ '' if rule.enabled else 'disabled' }}">
+            <b>{{ '%02d' | format(loop.index * 10) }}</b>
+            <span><strong>{{ rule.title }}</strong><small>{% if rule.missing %}Не найдено: {{ rule.missing | join(', ') }}{% elif rule.selected_geosite %}geosite:{{ rule.selected_geosite }}{% elif rule.selected_geoip %}geoip:{{ rule.selected_geoip }}{% elif rule.get('implicit_default') %}Legacy SG-Gateway · IPv4 по умолчанию{% elif rule.xray_rule and rule.xray_rule.get('network') %}tcp,udp · финальное правило{% else %}Пользовательские значения{% endif %}</small></span>
+            <em class="route-{{ route_kind }}">{{ {'direct':'SG-Gateway · IPv4','direct4':'SG-Gateway · IPv4','direct6':'SG-Gateway · IPv6','warp':'WARP · IPv4','warp4':'WARP · IPv4','warp6':'WARP · IPv6','block':'Заблокировать'}.get(rule.action, rule.action) }}</em>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="r096-empty">Проверьте выбранную конфигурацию — здесь появится фактический порядок правил.</div>
+        {% endif %}
+      </article>
+
+      <article class="r096-card r096-geofiles-summary">
+        <div>
+          <h2>Наборы geosite / geoip</h2>
+          {% if geofiles.active %}
+          <p>{{ geofiles.active.source_label }} · GeoIP {{ geofiles.active.geoip.categories | length }} · GeoSite {{ geofiles.active.geosite.categories | length }}</p>
+          <small>Проверка Xray: {{ geofiles.active.xray_validation }}</small>
+          {% else %}
+          <p>Активная пара не установлена.</p>
+          {% endif %}
+        </div>
+        <button type="button" class="r096-primary-button" data-open-r096-tab="geofiles">Открыть GeoFiles</button>
+      </article>
+
+      <article class="r096-card r096-warp-summary">
+        <div>
+          <h2>Cloudflare WARP</h2>
+          <p>
+            {{ warp.status_label }} ·
+            IPv4 {{ 'готов' if warp.ipv4_ready else 'нет' }}{% if warp.last_test and warp.last_test.get('ipv4') and warp.last_test.ipv4.ip %} · {{ warp.last_test.ipv4.ip }}{% endif %} ·
+            IPv6 {{ 'готов' if warp.ipv6_ready else 'нет' }}{% if warp.last_test and warp.last_test.get('ipv6') and warp.last_test.ipv6.ip %} · {{ warp.last_test.ipv6.ip }}{% endif %}
+          </p>
+          <small>WARP IPv4 и WARP IPv6 — независимые выходы Routing; автоматического перехода между ними нет.</small>
+        </div>
+        <a class="r096-secondary-button" href="{{ url_for('outbounds') }}#warp">Открыть Outbounds</a>
+      </article>
+    </form>
+
+    <footer class="r096-footer" id="r096-routing-footer">
+      <span>{{ selected_message }}</span>
+      <div>
+        {% if routing_templates.backups %}
+        <form method="post" action="{{ url_for('routing_template_rollback') }}" data-sg-confirm="Восстановить предыдущие правила маршрутизации?" data-sg-confirm-title="Откатить правила" data-sg-confirm-button="Восстановить"><button class="r096-secondary-button" type="submit">Откатить</button></form>
+        {% endif %}
+        <button class="r096-secondary-button" type="submit" form="r096-smart-form">Проверить</button>
+        <form method="post" action="{{ url_for('routing_template_apply') }}" data-sg-confirm="Применить проверенные правила к рабочему Xray?" data-sg-confirm-title="Применить маршрутизацию" data-sg-confirm-button="Применить"><button class="r096-primary-button" type="submit" {% if not candidate.get('ready') %}disabled{% endif %}>Применить</button></form>
+      </div>
+    </footer>
+  </section>
+
+  <section class="r096-panel sg-ui-section sg-ui-routing-panel" data-sg-section="routing-geofiles" data-r096-panel="geofiles" hidden>
+    {% include "_geofiles_panel.html" %}
+  </section>
+
+</section>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+(() => {
+  const tabButtons = [...document.querySelectorAll('[data-r096-tab]')];
+  const panels = [...document.querySelectorAll('[data-r096-panel]')];
+  const footer = document.getElementById('r096-routing-footer');
+  const activate = name => {
+    const current = ['routing', 'geofiles'].includes(name) ? name : 'routing';
+    tabButtons.forEach(button => button.classList.toggle('active', button.dataset.r096Tab === current));
+    panels.forEach(panel => panel.hidden = panel.dataset.r096Panel !== current);
+    if (footer) footer.hidden = current !== 'routing';
+    history.replaceState(null, '', `#${current}`);
+  };
+  tabButtons.forEach(button => button.addEventListener('click', () => activate(button.dataset.r096Tab)));
+  document.querySelectorAll('[data-open-r096-tab]').forEach(button => button.addEventListener('click', () => activate(button.dataset.openR096Tab)));
+  activate(location.hash.replace('#', ''));
+
+  const ruleButtons = [...document.querySelectorAll('[data-r096-rule-tab]')];
+  const rulePanels = [...document.querySelectorAll('[data-r096-rule-panel]')];
+  ruleButtons.forEach(button => button.addEventListener('click', () => {
+    const name = button.dataset.r096RuleTab;
+    ruleButtons.forEach(item => item.classList.toggle('active', item === button));
+    rulePanels.forEach(panel => panel.hidden = panel.dataset.r096RulePanel !== name);
+  }));
+
+  const form = document.getElementById('r096-smart-form');
+  const userRules = document.querySelector('[data-r096-user-rules]');
+  const userRulesToggle = document.querySelector('[data-r096-user-rules-toggle]');
+  const userRulesLabel = document.querySelector('[data-r096-user-rules-label]');
+  const syncUserRules = () => {
+    if (!userRules) return;
+    if (userRulesToggle) userRulesToggle.setAttribute('aria-expanded', String(userRules.open));
+    if (userRulesLabel) userRulesLabel.textContent = userRules.open ? 'Скрыть' : 'Открыть';
+  };
+  if (userRules && userRulesToggle) {
+    userRulesToggle.addEventListener('click', event => {
+      event.preventDefault();
+      userRules.open = !userRules.open;
+      syncUserRules();
+    });
+    userRules.addEventListener('toggle', syncUserRules);
+    syncUserRules();
+  }
+
+  const presetDefaults = {
+    direct: {local_action:'direct4',russia_scope:'none',russia_action:'direct4',blocked_action:'direct4',ads_action:'direct4',default_action:'direct4'},
+    ads_block: {local_action:'direct4',russia_scope:'none',russia_action:'direct4',blocked_action:'direct4',ads_action:'block',default_action:'direct4'},
+    blocked_warp: {local_action:'direct4',russia_scope:'none',russia_action:'direct4',blocked_action:'warp4',ads_action:'direct4',default_action:'direct4'},
+    all_warp: {local_action:'direct4',russia_scope:'none',russia_action:'direct4',blocked_action:'warp4',ads_action:'warp4',default_action:'warp4'}
+  };
+  let applyingPreset = false;
+  const setValue = (name, value) => { const input = form?.querySelector(`input[name="${name}"][value="${value}"]`); if (input) input.checked = true; };
+  form?.querySelectorAll('input[name="preset"]').forEach(input => input.addEventListener('change', () => {
+    if (input.value === 'custom' && input.checked && userRules) {
+      userRules.open = true;
+      syncUserRules();
+      userRules.scrollIntoView({behavior: 'smooth', block: 'start'});
+    }
+    const values = presetDefaults[input.value];
+    if (!values) return;
+    applyingPreset = true;
+    Object.entries(values).forEach(([name, value]) => setValue(name, value));
+    applyingPreset = false;
+    syncRussia();
+  }));
+  form?.querySelectorAll('.r096-main-rules input, textarea').forEach(input => input.addEventListener('change', () => {
+    if (applyingPreset) return;
+    const custom = form.querySelector('input[name="preset"][value="custom"]');
+    if (custom) custom.checked = true;
+  }));
+
+  const syntax = document.getElementById('r096-russia-syntax');
+  const syncRussia = () => {
+    const scope = form?.querySelector('input[name="russia_scope"]:checked')?.value || 'none';
+    if (syntax) syntax.textContent = scope === 'tld' ? 'Создаётся: geosite:tld-ru' : scope === 'sites_ip' ? 'Создаются: geosite:category-ru и geoip:ru' : 'Российское правило выключено';
+  };
+  form?.querySelectorAll('input[name="russia_scope"]').forEach(input => input.addEventListener('change', syncRussia));
+  syncRussia();
+})();
+</script>
+{% endblock %}
