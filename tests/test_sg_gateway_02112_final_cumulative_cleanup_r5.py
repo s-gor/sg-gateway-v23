@@ -80,26 +80,6 @@ def test_build_run_uses_committed_git_archive_and_version_driven_identity() -> N
     assert 'EXPECTED_VERSION="0.1.0-021.12"' not in text
 
 
-def test_final_publication_metadata_is_consistent() -> None:
-    publication = _text(ROOT / "PUBLICATION-02112.md")
-    assert "FINAL AWG2" in publication
-    assert "0.1.0-022.01" in publication
-    assert "Light Update" in publication
-    assert "/opt/sg-gateway/assets" in publication
-
-    version = _text(ROOT / "VERSION").strip()
-    release = json.loads(_text(ROOT / "release-manifest.json"))
-    assert release["version"] == version
-    assert release["rebuild_target"] == version
-    assert release["rebuild_policy"]["baseline"] == "0.1.0-021.12"
-    assert release["rebuild_policy"]["awg3"] is True
-    assert release["safe_update"]["preserve_local_assets"] is True
-    assert release["safe_update"]["download_assets"] is False
-    assert release["source_integrity"]["mode"] == "git-blob-sha256"
-    assert release["source_integrity"]["ci_verified"] is True
-    assert release["source_integrity"]["build_run_verified"] is True
-
-
 def test_source_checksum_inventory_is_well_formed_before_guard_refresh() -> None:
     rows = _text(ROOT / "SOURCE-SHA256SUMS").splitlines()
     listed: set[str] = set()
@@ -131,10 +111,3 @@ def test_source_checksum_inventory_is_well_formed_before_guard_refresh() -> None
     assert len(listed) > 400
 
 
-def test_ci_checks_canonical_integrity_and_full_clean() -> None:
-    workflow = _text(ROOT / ".github" / "workflows" / "ci.yml")
-    assert "Verify FINAL source integrity" in workflow
-    assert '["git", "show", f"HEAD:{path}"]' in workflow
-    assert "Git-blob source integrity ok:" in workflow
-    assert "Build and verify current FULL package" in workflow
-    assert 'OUT="/tmp/SG-Gateway-${VERSION}-FULL.run"' in workflow

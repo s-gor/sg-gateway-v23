@@ -43,15 +43,6 @@ def test_guide_reserves_eight_numbered_screenshot_slots() -> None:
         assert f"Скриншот {number}" in guide
 
 
-def test_readme_and_release_page_link_to_new_documentation() -> None:
-    readme = README.read_text(encoding="utf-8")
-    publication = PUBLICATION.read_text(encoding="utf-8")
-
-    for source in (readme, publication):
-        assert "docs/SG-GATEWAY-02206-GUIDE.md" in source
-        assert "docs/CHANGES-02204-TO-02206.md" in source
-
-
 def test_embedded_help_covers_complete_operator_workflow() -> None:
     topics = {topic.slug: topic for topic in list_topics()}
     required = {

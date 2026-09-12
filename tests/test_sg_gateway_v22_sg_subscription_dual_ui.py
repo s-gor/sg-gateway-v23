@@ -37,7 +37,8 @@ def test_final_dual_partial_uses_explicit_v4_contract_without_awg3() -> None:
     assert 'src="/clients/{{ client.id }}/sg-subscription-v1/qr/universal"' in text
     assert 'src="/clients/{{ client.id }}/sg-subscription-v1/qr"' in text
     assert "url_for('sg_subscription_v1" not in text
-    assert "AWG2." in text
+    assert "AWG2." not in text
+    assert "AWG3.1" in text or "AmneziaWG 3.1" in text
     for forbidden in ("AWG3", "amneziawg3", "AmneziaWG 3.1", "AWG2/AWG3"):
         assert forbidden not in text
 

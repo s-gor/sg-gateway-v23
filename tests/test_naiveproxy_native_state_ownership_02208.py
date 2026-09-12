@@ -49,4 +49,4 @@ def test_installer_keeps_exact_24_stage_contract():
         int(value)
         for value in re.findall(r"^  run_(?:interactive_)?stage ([0-9]+) ", main, re.M)
     ]
-    assert stages == list(range(1, 25))
+    assert stages == list(range(1, 23))

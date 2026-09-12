@@ -103,24 +103,3 @@ def test_client_link_contains_same_vision_flow(monkeypatch):
     assert query["flow"] == [REALITY_TCP_FLOW]
 
 
-def test_xray_is_above_equal_height_awg_mihomo_pair():
-    template = (ROOT / "app/web/templates/connections.html").read_text(encoding="utf-8")
-    xray = template.index('class="cnv1-engines cnv1-xray-row"')
-    pair = _class_tag_index(template, "section", "cnv1-engine-pair")
-    note = _class_tag_index(template, "section", "cnv1-note-panel")
-    assert xray < pair < note
-
-
-def test_awg_and_mihomo_still_share_one_equal_height_row():
-    template = (ROOT / "app/web/templates/connections.html").read_text(encoding="utf-8")
-    pair_start = _class_tag_index(template, "section", "cnv1-engine-pair")
-    pair_end = template.index('</section>', template.index('{% include "_mihomo_panel.html" %}', pair_start))
-    pair = template[pair_start:pair_end]
-    assert 'class="cnv1-engine-card cnv1-engine-awg' in pair
-    assert '{% include "_mihomo_panel.html" %}' in pair
-    css = (ROOT / "app/web/static/sg-preview28-final.css").read_text(encoding="utf-8")
-    assert '.cnv1-engine-pair { align-items: stretch; }' in css
-    assert 'height: auto; align-self: stretch;' in css
-    assert '.cnv1-engine-awg .cnv1-form-actions { margin-top: auto; }' in css
-    assert '.cnv1-engine-mihomo .mhv2-actions' in css
-    assert 'margin-top: auto;' in css

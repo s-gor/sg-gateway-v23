@@ -43,7 +43,7 @@ def test_02208_clients_and_device_mutation_contracts_are_preserved(tmp_path, mon
     require_contract(
         extract_html_contract(http.get("/clients").get_data(as_text=True)),
         forms=(
-            _form("/clients", "expires_at", "name", "protocols", data=("data-awg-only-note", "data-close-client-form")),
+            _form("/clients", "expires_at", "name", "protocols", data=("data-close-client-form",)),
             _form("/clients/apply"),
         ),
         ids=("cv2-dialog", "cv2-search", "cv2-sort", "cv2-table-body", "cv2-apply"),

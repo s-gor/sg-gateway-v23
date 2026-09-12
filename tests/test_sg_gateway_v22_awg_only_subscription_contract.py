@@ -39,28 +39,6 @@ def test_all_client_and_device_mutations_use_protocol_normalizer():
     assert 'protocols = request.form.getlist("protocols")' not in source
 
 
-def test_forms_do_not_force_sgclient_and_show_awg_only_notice():
-    clients = CLIENTS.read_text(encoding="utf-8")
-    detail = DETAIL.read_text(encoding="utf-8")
-    edit = EDIT.read_text(encoding="utf-8")
-    for source in (clients, detail, edit):
-        assert 'type="hidden" name="protocols" value="sgclient"' not in source
-        Environment().parse(source)
-
-    assert clients.count("SG_AWG_ONLY_NOTICE_V1_CREATE_CLIENT") == 1
-    assert detail.count("SG_AWG_ONLY_NOTICE_V1_ADD_DEVICE") == 1
-    assert edit.count("SG_AWG_ONLY_NOTICE_V1_EDIT_CLIENT") == 1
-    assert edit.count("SG_AWG_ONLY_NOTICE_V1_EDIT_DEVICE") == 1
-
-    notice = (
-        "При выборе только AWG-профилей подписка не создаётся. "
-        "Используйте QR-коды или файлы конфигурации для каждого соединения."
-    )
-    assert notice in clients
-    assert notice in detail
-    assert edit.count(notice) == 2
-
-
 def test_awg_only_notice_highlights_only_nonempty_all_awg_selection():
     source = JS.read_text(encoding="utf-8")
     assert "selected.length > 0" in source

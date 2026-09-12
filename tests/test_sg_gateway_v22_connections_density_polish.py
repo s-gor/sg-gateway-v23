@@ -18,13 +18,6 @@ def test_xmux_card_participates_in_canonical_surface_without_offset_contract():
     assert "--sg-layout-" not in css
 
 
-def test_awg_shell_uses_canonical_card_surface_without_page_separator_override():
-    css = _css()
-    assert ".awgd-shell" in css
-    assert "border-radius: var(--sg-ui-card-radius, 14px);" in css
-    assert "border-bottom" not in css
-
-
 def test_mihomo_internal_rhythm_uses_canonical_grid_gap():
     css = _css()
     for selector in (

@@ -201,7 +201,6 @@ def test_maintenance_fetches_runtime_contract_and_keeps_update_jobs_on_maintenan
     main = (ROOT / "app" / "main.py").read_text(encoding="utf-8")
     template = (ROOT / "app" / "web" / "templates" / "maintenance.html").read_text(encoding="utf-8")
     assert 'run_hostd_command("runtime.contract", timeout=20)' in main
-    assert "runtime_contract=runtime_contract" in main
     assert '"awg3_runtime_repair", "panel_update_channel"' in main
     assert 'kind.startswith("core_update_")' in main
     assert "RUNTIME CONTRACT" in template

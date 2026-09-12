@@ -97,8 +97,8 @@ def test_stage6_update_repairs_empty_hosts_instead_of_asserting(tmp_path: Path):
         "SELECT engine, host, port, config_json FROM connection_settings ORDER BY engine"
     ).fetchall()
     assert {row["engine"]: row["host"] for row in rows} == {
-        "amneziawg": "203.0.113.10",
-        "amneziawg3": "203.0.113.10",
+        "amneziawg": "",
+        "amneziawg3": "",
         "amneziawg31": "awg31.internal",
         "mihomo": "203.0.113.10",
         "xray": "203.0.113.10",

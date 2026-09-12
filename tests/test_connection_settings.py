@@ -37,7 +37,7 @@ def test_update_connection_settings_changes_new_exports(tmp_path, monkeypatch):
     monkeypatch.setattr(
         exports,
         "_xray_profile",
-        lambda profile_id: (
+        lambda profile_id, xray_state=None: (
             {"host": "xray.test", "tls_domain": ""},
             SimpleNamespace(
                 id=profile_id,

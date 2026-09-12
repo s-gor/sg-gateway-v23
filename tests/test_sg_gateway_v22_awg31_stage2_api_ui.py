@@ -519,7 +519,9 @@ def test_awg31_ui_is_distinct_and_controls_only_awg31_service(
     response = client.get("/connections")
     assert response.status_code == 200
     html = response.get_data(as_text=True)
-    assert "AmneziaWG 2" in html
+    assert "AmneziaWG 3.1" in html
+    assert "AmneziaWG 2" not in html
+    assert "AmneziaWG 3.0" not in html
     assert "AmneziaWG 3" in html
     assert "AmneziaWG 3.1" in html
     assert "UDP 587" in html

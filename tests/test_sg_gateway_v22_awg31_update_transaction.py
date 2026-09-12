@@ -17,8 +17,6 @@ ROOT = Path(__file__).resolve().parents[1]
 WRAPPER = ROOT / "deploy/update-from-github.sh"
 CORE = ROOT / "deploy/update-from-github-core.sh"
 RUNTIME_SHA256 = {
-    "amneziawg-tools-3.0.20260805.tar.gz": "090f9383532822a756d078890b447e00af7f46bd30a10f9f47c46d633d807b19",
-    "amneziawg-go-linux-amd64-v3.0.0": "131110027db6d5dc0e35b19eb5b8a2692676081366c34112088dc68bbb050bcd",
     "amneziawg-tools-3.1.20260812.tar.gz": "f18592c499c893b1b87b15de9e707ce265585cf2536698975b6ede8156d14ada",
     "amneziawg-go-linux-amd64-v3.1.20260814": "375bc2645df09498aa30215e3b3a09a97626a8e929f409e0edef6564fb8e3110",
 }

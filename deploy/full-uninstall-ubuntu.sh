@@ -5,7 +5,7 @@ PREFIX="/opt/sg-gateway"
 CONFIG_DIR="/etc/sg-gateway"
 DATA_DIR="/var/lib/sg-gateway"
 LOG_DIR="/var/log/sg-gateway"
-UNINSTALL_LOG="/var/log/sg-gateway-full-uninstall-02208.log"
+UNINSTALL_LOG="/var/log/sg-gateway-full-uninstall-02301.log"
 
 PANEL_PORT="63443"
 XRAY_PORT="443"
@@ -409,4 +409,4 @@ printf '[SG-Gateway] EC2 готов к чистой установке SG-Gatewa
 printf '[SG-Gateway] Системные пакеты Ubuntu не удалялись.\n'
 printf '[SG-Gateway] Журнал: %s\n' "$UNINSTALL_LOG"
 printf '\n[SG-Gateway] Для повторной установки SG-Gateway выполните:\n'
-printf '%s\n' 'curl -4 -fsSL https://raw.githubusercontent.com/s-gor/sg-gateway-v22/stable-02208/deploy/install-from-github.sh | sudo env SG_GATEWAY_GITHUB_BRANCH=stable-02208 bash'
+printf '%s\n' 'curl -4 -fsSL https://raw.githubusercontent.com/s-gor/sg-gateway-v23/dev-02301/deploy/install-from-github.sh | sudo env SG_GATEWAY_GITHUB_BRANCH=dev-02301 bash'

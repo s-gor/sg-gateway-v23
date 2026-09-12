@@ -213,7 +213,7 @@ def test_xray_tls_profile_wakes_up_with_same_restored_uuid(
     )
     tls_ready = {"value": False}
 
-    def profile(profile_id: str):
+    def profile(profile_id: str, xray_state=None):
         ready = profile_id == "reality_tcp" or tls_ready["value"]
         port = 443 if profile_id == "xhttp_tls" else 8443
         return (

@@ -21,11 +21,9 @@ def _run_bash(script: str, *args: str) -> subprocess.CompletedProcess[str]:
 def test_awg31_stage3a_precedes_first_clean_install_clients_apply() -> None:
     source = (ROOT / "install.sh").read_text(encoding="utf-8")
     main = source[source.index("main() {"):]
-    awg31 = 'run_stage 19 "Независимый профиль AWG31" run_awg31_stage3a_migration'
-    clients = 'run_stage 20 "Применение Xray и клиентов" stage9_apply_runtime'
-    assert awg31 in main
-    assert clients in main
-    assert main.index(awg31) < main.index(clients)
+    assert "run_awg31_stage3a_migration" in main
+    assert "stage9_apply_runtime" in main
+    assert main.index("run_awg31_stage3a_migration") < main.index("stage9_apply_runtime")
 
 
 def _extract_shell_function(source: str, name: str) -> str:

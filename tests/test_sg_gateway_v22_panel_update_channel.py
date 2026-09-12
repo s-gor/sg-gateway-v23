@@ -12,14 +12,14 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_update_channel_defaults_are_consistent_and_old_repo_is_gone() -> None:
-    assert panel_updates.GITHUB_REPO == "s-gor/sg-gateway-v22"
-    # Stable releases track the immutable stable-02208 channel by default.
-    assert panel_updates.GITHUB_BRANCH == "stable-02208"
+    assert panel_updates.GITHUB_REPO == "s-gor/sg-gateway-v23"
+    # Stable releases track the immutable dev-02301 channel by default.
+    assert panel_updates.GITHUB_BRANCH == "dev-02301"
     update = (ROOT / "deploy" / "update-from-github.sh").read_text(encoding="utf-8")
     bootstrap = (ROOT / "deploy" / "install-from-github.sh").read_text(encoding="utf-8")
-    assert 'REPOSITORY="s-gor/sg-gateway-v22"' in update
-    assert '${SG_GATEWAY_GITHUB_BRANCH:-${SG_GATEWAY_UPDATE_BRANCH:-stable-02208}}' in update
-    assert "stable-02208" in bootstrap
+    assert 'REPOSITORY="s-gor/sg-gateway-v23"' in update
+    assert '${SG_GATEWAY_GITHUB_BRANCH:-${SG_GATEWAY_UPDATE_BRANCH:-dev-02301}}' in update
+    assert "dev-02301" in bootstrap
     assert "SG_GATEWAY_ALLOW_DEVELOPMENT" not in bootstrap
     assert "raw.githubusercontent.com/%s/%s/deploy/update-from-github.sh" in bootstrap
     assert "sudo env SG_GATEWAY_GITHUB_BRANCH=%s bash" in bootstrap
@@ -30,8 +30,8 @@ def test_update_channel_defaults_are_consistent_and_old_repo_is_gone() -> None:
 
 def test_overview_queries_configured_channel_not_main(monkeypatch) -> None:
     seen = []
-    monkeypatch.setattr(panel_updates, "GITHUB_REPO", "s-gor/sg-gateway-v22")
-    monkeypatch.setattr(panel_updates, "GITHUB_API", "https://api.github.test/repos/s-gor/sg-gateway-v22")
+    monkeypatch.setattr(panel_updates, "GITHUB_REPO", "s-gor/sg-gateway-v23")
+    monkeypatch.setattr(panel_updates, "GITHUB_API", "https://api.github.test/repos/s-gor/sg-gateway-v23")
     monkeypatch.setattr(panel_updates, "GITHUB_BRANCH", "dev-v22")
 
     def fake_json(url: str, timeout: float = 8.0):
@@ -41,7 +41,7 @@ def test_overview_queries_configured_channel_not_main(monkeypatch) -> None:
     monkeypatch.setattr(panel_updates, "_request_json", fake_json)
     sha, _, _ = panel_updates._latest_channel()
     assert sha == "a" * 40
-    assert seen == ["https://api.github.test/repos/s-gor/sg-gateway-v22/commits/dev-v22"]
+    assert seen == ["https://api.github.test/repos/s-gor/sg-gateway-v23/commits/dev-v22"]
 
 
 def test_02204_without_baseline_can_bootstrap_to_stable_02206(monkeypatch) -> None:

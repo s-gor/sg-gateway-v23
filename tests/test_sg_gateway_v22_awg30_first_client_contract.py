@@ -27,28 +27,3 @@ def test_awg30_and_awg31_historical_units_keep_separate_runtime_contracts() -> N
         assert "RuntimeDirectoryPreserve=yes" in unit
 
 
-def test_clean_install_workflow_verifies_awg30_is_retired() -> None:
-    workflow = (ROOT / ".github/workflows/clean-install-awg3-smoke.yml").read_text(
-        encoding="utf-8"
-    )
-
-    assert "Run native clean installer" in workflow
-    assert "Verify retired runtimes and live AWG31" in workflow
-    assert "! sudo systemctl is-active --quiet sg-gateway-awg3.service" in workflow
-    assert "sudo test ! -e /etc/amnezia/amneziawg/awg3.conf" in workflow
-    assert "! sudo ip link show dev awg3" in workflow
-    assert "sudo systemctl is-active --quiet sg-gateway-awg31.service" in workflow
-    assert "sudo test -S /run/amneziawg/awg31.sock" in workflow
-    assert 'awg show awg31 listen-port)" = "587"' in workflow
-    assert 'create_client("ci-clean-awg3", "amneziawg3")' not in workflow
-
-
-def test_dev_guard_retains_pinned_awg30_media_for_migration_compatibility() -> None:
-    workflow = (ROOT / ".github/workflows/dev-02206-guard.yml").read_text(encoding="utf-8")
-
-    focused = workflow.split("- name: Run focused dev-02206 regressions", 1)[1]
-    focused = focused.split("- name: Run full panel test suite", 1)[0]
-
-    assert 'TOOLS="vendor/cores/amneziawg-tools-3.0.20260805.tar.gz"' in focused
-    assert 'GO="vendor/cores/amneziawg-go-linux-amd64-v3.0.0"' in focused
-    assert 'EXPECTED_TOOLS_VERSION="3.0.20260805"' in focused

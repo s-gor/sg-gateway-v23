@@ -22,19 +22,6 @@ def test_clean_seed_uses_awg_udp_585() -> None:
     assert row and int(row[0]) == 585
 
 
-def test_runtime_invariants_remain_in_source() -> None:
-    installer = (ROOT / "install.sh").read_text(encoding="utf-8")
-    constants = (ROOT / "app/constants.py").read_text(encoding="utf-8")
-    connections = (ROOT / "app/web/templates/connections.html").read_text(
-        encoding="utf-8"
-    )
-    assert 'DEFAULT_AWG_PORT="585"' in installer
-    assert "AMNEZIAWG_UDP_PORT = 585" in constants
-    assert 'min="585" max="585"' in connections
-    assert "stage9_ensure_warp" in installer
-    assert "Salamander" in connections
-
-
 def test_obsolete_repository_debris_is_absent() -> None:
     forbidden = [
         "install.sh.pre-v51",

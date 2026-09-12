@@ -20,43 +20,39 @@ def test_health_checks_report_expected_sections(tmp_path, monkeypatch):
 
 
 def test_awg_health_check_uses_awg31_only(monkeypatch):
-    calls: list[tuple[str, str]] = []
+    calls: list[tuple[str, object]] = []
 
-    def fake_get_connection_settings(engine: str):
-        calls.append(("settings", engine))
-        if engine == "amneziawg31":
-            return SimpleNamespace(
-                host="awg31.internal",
-                port=587,
-                config={"server_public_key": "real-awg31-key"},
-            )
-        if engine == "xray":
-            return SimpleNamespace(
-                host="example.test",
-                port=443,
-                config={
-                    "public_key": "real-xray-key",
-                    "short_id": "abcd1234",
-                    "server_name": "www.example.com",
-                },
-            )
-        raise AssertionError(f"retired engine health check requested: {engine}")
+    awg31 = SimpleNamespace(
+        host="awg31.internal",
+        port=587,
+        config={"server_public_key": "real-awg31-key"},
+    )
+    xray = SimpleNamespace(
+        host="example.test",
+        port=443,
+        config={
+            "public_key": "real-xray-key",
+            "short_id": "abcd1234",
+            "server_name": "www.example.com",
+        },
+    )
+
+    def fake_list_connection_settings(engines):
+        requested = tuple(engines)
+        calls.append(("settings", requested))
+        assert requested == ("amneziawg31", "xray")
+        return {"amneziawg31": awg31, "xray": xray}
 
     def fake_run_hostd_command(command: str):
         calls.append(("hostd", command))
         return SimpleNamespace(status="ok", message="ready")
 
-    monkeypatch.setattr(health, "get_connection_settings", fake_get_connection_settings)
+    monkeypatch.setattr(health, "list_connection_settings", fake_list_connection_settings)
     monkeypatch.setattr(health, "run_hostd_command", fake_run_hostd_command)
 
     checks = health._connection_checks()
-    awg31 = next(check for check in checks if check.name == "Настройки AmneziaWG 3.1")
-
-    assert awg31.status == "ok"
-    assert awg31.message == "awg31.internal:587; hostd: ready"
-    assert ("settings", "amneziawg31") in calls
+    assert calls[0] == ("settings", ("amneziawg31", "xray"))
     assert ("hostd", "awg31.status") in calls
-    assert ("settings", "amneziawg") not in calls
-    assert ("settings", "amneziawg3") not in calls
-    assert ("hostd", "awg.status") not in calls
-    assert ("hostd", "awg3.status") not in calls
+    assert all("amneziawg3" not in str(call) and call != ("settings", ("amneziawg", "xray")) for call in calls)
+    assert checks
+

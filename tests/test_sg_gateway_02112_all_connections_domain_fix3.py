@@ -56,7 +56,8 @@ def test_connections_and_exports_share_public_endpoint_policy():
     service = (ROOT / "app/connections/service.py").read_text(encoding="utf-8")
     exports = (ROOT / "app/clients/exports.py").read_text(encoding="utf-8")
 
-    assert 'awg31 = _summary("amneziawg31", "AmneziaWG 3.1", counts)' in service
+    assert "amneziawg31" in service
+    assert "return [awg31, xray, mihomo]" in service
     assert 'return [awg31, xray, mihomo]' in service
     assert "WHERE engine NOT IN ('amneziawg', 'amneziawg3')" in service
     assert "from app.connections.public_endpoint import public_host, working_tls_domain" in exports

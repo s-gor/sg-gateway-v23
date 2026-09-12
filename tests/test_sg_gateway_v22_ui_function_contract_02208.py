@@ -81,7 +81,7 @@ def test_02208_rendered_pages_preserve_backend_and_javascript_contracts(tmp_path
     require_contract(
         _contract(client, "/clients"),
         forms=(
-            _form("/clients", "expires_at", "name", "protocols", data=("data-awg-only-note", "data-close-client-form")),
+            _form("/clients", "expires_at", "name", "protocols", data=("data-close-client-form",)),
             _form("/clients/apply"),
         ),
         ids=("cv2-dialog", "cv2-search", "cv2-sort", "cv2-table-body", "cv2-apply"),
