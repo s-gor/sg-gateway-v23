@@ -3050,7 +3050,7 @@ MANAGED_PATHS+=(
 
 create_backup() {
   install -d -m 0700 "$BACKUP_ROOT"
-  [[ -n "$BACKUP_DIR" ]] || BACKUP_DIR="$BACKUP_ROOT/$(date +%Y%m%d-%H%M%S)-before-sg-gateway-02208"
+  [[ -n "$BACKUP_DIR" ]] || BACKUP_DIR="$BACKUP_ROOT/$(date +%Y%m%d-%H%M%S)-before-sg-gateway-02301"
   install -d -m 0700 "$BACKUP_DIR"
 
   local existing=()
@@ -3200,7 +3200,7 @@ stage_prepare_install_context() {
 
   AWG_PORT="$DEFAULT_AWG_PORT"
   AWG3_PORT="$DEFAULT_AWG3_PORT"
-  BACKUP_DIR="$BACKUP_ROOT/$(date +%Y%m%d-%H%M%S)-before-sg-gateway-02208"
+  BACKUP_DIR="$BACKUP_ROOT/$(date +%Y%m%d-%H%M%S)-before-sg-gateway-02301"
 }
 
 stage_vendor_media_contract() {
