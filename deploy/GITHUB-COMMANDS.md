@@ -1,6 +1,6 @@
 # SG-Gateway 0.1.0-022.08 · команды GitHub
 
-Канал: `stable-02208`. Поддерживается Ubuntu 24.04.
+Канал: `dev-02301`. Поддерживается Ubuntu 24.04.
 
 Проверенный production source: `d87663737746b91237098342f9c6c1d37856c88c`.
 
@@ -9,7 +9,7 @@
 Только для нового сервера без установленного SG-Gateway. Clean Install закреплён на точный проверенный source commit:
 
 ```bash
-curl -4 -fsSL https://raw.githubusercontent.com/s-gor/sg-gateway-v22/d87663737746b91237098342f9c6c1d37856c88c/deploy/install-from-github.sh | sudo env SG_GATEWAY_GITHUB_BRANCH=stable-02208 SG_GATEWAY_SOURCE_COMMIT=d87663737746b91237098342f9c6c1d37856c88c bash
+curl -4 -fsSL https://raw.githubusercontent.com/s-gor/sg-gateway-v23/d87663737746b91237098342f9c6c1d37856c88c/deploy/install-from-github.sh | sudo env SG_GATEWAY_GITHUB_BRANCH=dev-02301 SG_GATEWAY_SOURCE_COMMIT=d87663737746b91237098342f9c6c1d37856c88c bash
 ```
 
 ## Обновление
@@ -17,7 +17,7 @@ curl -4 -fsSL https://raw.githubusercontent.com/s-gor/sg-gateway-v22/d8766373774
 Для уже установленного SG-Gateway 22.08. Перед переключением кода Update создаёт Safety Backup и проверяет panel, HostD, HTTPS/Nginx, Clients/credentials и runtime. При критической ошибке выполняется rollback.
 
 ```bash
-curl -4 -fsSL https://raw.githubusercontent.com/s-gor/sg-gateway-v22/stable-02208/deploy/update-from-github.sh | sudo env SG_GATEWAY_GITHUB_BRANCH=stable-02208 bash
+curl -4 -fsSL https://raw.githubusercontent.com/s-gor/sg-gateway-v23/dev-02301/deploy/update-from-github.sh | sudo env SG_GATEWAY_GITHUB_BRANCH=dev-02301 bash
 ```
 
 ## Полное удаление
@@ -25,7 +25,7 @@ curl -4 -fsSL https://raw.githubusercontent.com/s-gor/sg-gateway-v22/stable-0220
 Удаляются приложение, конфигурация, база, резервные копии, SG-службы и установленные SG runtime. Системные пакеты Ubuntu остаются установленными.
 
 ```bash
-curl -4 -fsSL https://raw.githubusercontent.com/s-gor/sg-gateway-v22/stable-02208/deploy/uninstall-from-github.sh | sudo env SG_GATEWAY_GITHUB_BRANCH=stable-02208 bash
+curl -4 -fsSL https://raw.githubusercontent.com/s-gor/sg-gateway-v23/dev-02301/deploy/uninstall-from-github.sh | sudo env SG_GATEWAY_GITHUB_BRANCH=dev-02301 bash
 ```
 
 Для подтверждения необходимо ввести точно:

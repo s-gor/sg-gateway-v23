@@ -2,8 +2,8 @@
 set -Eeuo pipefail
 
 # NaiveProxy runtime self-repair is part of the transactional core update contract.
-REPOSITORY="s-gor/sg-gateway-v22"
-BRANCH="${SG_GATEWAY_GITHUB_BRANCH:-${SG_GATEWAY_UPDATE_BRANCH:-stable-02208}}"
+REPOSITORY="s-gor/sg-gateway-v23"
+BRANCH="${SG_GATEWAY_GITHUB_BRANCH:-${SG_GATEWAY_UPDATE_BRANCH:-dev-02301}}"
 ARCHIVE_URL="https://github.com/${REPOSITORY}/archive/refs/heads/${BRANCH}.tar.gz"
 GIT_URL="https://github.com/${REPOSITORY}.git"
 BOOTSTRAP_GIT_URL="${SG_GATEWAY_GIT_URL:-$GIT_URL}"

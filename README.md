@@ -15,7 +15,7 @@
 ![HTTPS](https://img.shields.io/badge/HTTPS-Let%27s_Encrypt-003A70?logo=letsencrypt&logoColor=white)
 ![Status](https://img.shields.io/badge/status-022.08--STABLE-16A34A)
 
-> **Актуальная версия — 0.1.0-022.08 STABLE.** Стабильный канал: `stable-02208`.
+> **Актуальная версия — 0.1.0-022.08 STABLE.** Стабильный канал: `dev-02301`.
 
 ## Что нового в SG-Gateway 0.1.0-022.08
 
@@ -34,9 +34,9 @@
 
 ```bash
 curl -4 -fsSL \
-  https://raw.githubusercontent.com/s-gor/sg-gateway-v22/d87663737746b91237098342f9c6c1d37856c88c/deploy/install-from-github.sh \
+  https://raw.githubusercontent.com/s-gor/sg-gateway-v23/d87663737746b91237098342f9c6c1d37856c88c/deploy/install-from-github.sh \
 | sudo env \
-  SG_GATEWAY_GITHUB_BRANCH=stable-02208 \
+  SG_GATEWAY_GITHUB_BRANCH=dev-02301 \
   SG_GATEWAY_SOURCE_COMMIT=d87663737746b91237098342f9c6c1d37856c88c \
   bash
 ```
@@ -44,13 +44,13 @@ curl -4 -fsSL \
 ### Update — существующий SG-Gateway
 
 ```bash
-curl -4 -fsSL https://raw.githubusercontent.com/s-gor/sg-gateway-v22/stable-02208/deploy/update-from-github.sh | sudo env SG_GATEWAY_GITHUB_BRANCH=stable-02208 bash
+curl -4 -fsSL https://raw.githubusercontent.com/s-gor/sg-gateway-v23/dev-02301/deploy/update-from-github.sh | sudo env SG_GATEWAY_GITHUB_BRANCH=dev-02301 bash
 ```
 
 ### Full Uninstall — полное удаление SG-Gateway
 
 ```bash
-curl -4 -fsSL https://raw.githubusercontent.com/s-gor/sg-gateway-v22/stable-02208/deploy/uninstall-from-github.sh | sudo env SG_GATEWAY_GITHUB_BRANCH=stable-02208 bash
+curl -4 -fsSL https://raw.githubusercontent.com/s-gor/sg-gateway-v23/dev-02301/deploy/uninstall-from-github.sh | sudo env SG_GATEWAY_GITHUB_BRANCH=dev-02301 bash
 ```
 
 Подтверждение удаления: `DELETE SG-GATEWAY`.

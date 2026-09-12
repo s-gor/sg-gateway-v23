@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-REPOSITORY="s-gor/sg-gateway-v22"
-BRANCH="${SG_GATEWAY_GITHUB_BRANCH:-${SG_GATEWAY_UPDATE_BRANCH:-stable-02208}}"
+REPOSITORY="s-gor/sg-gateway-v23"
+BRANCH="${SG_GATEWAY_GITHUB_BRANCH:-${SG_GATEWAY_UPDATE_BRANCH:-dev-02301}}"
 SOURCE_COMMIT="${SG_GATEWAY_SOURCE_COMMIT:-}"
 ARCHIVE_REF="${SOURCE_COMMIT:-$BRANCH}"
 ARCHIVE_URL="https://github.com/${REPOSITORY}/archive/${ARCHIVE_REF}.tar.gz"
@@ -10,7 +10,7 @@ TEMP_DIR=""
 ARCHIVE=""
 SOURCE_DIR=""
 MIN_FREE_MIB="${SG_GATEWAY_INSTALL_MIN_FREE_MIB:-1024}"
-BOOTSTRAP_LOG="/var/log/sg-gateway-bootstrap-02208.log"
+BOOTSTRAP_LOG="/var/log/sg-gateway-bootstrap-02301.log"
 CURRENT_BOOTSTRAP_LABEL="Подготовка"
 
 if [[ -t 1 ]]; then
@@ -33,7 +33,7 @@ fail() {
   exit 1
 }
 
-[[ "$BRANCH" == "stable-02208" ]] || fail "stable installer is pinned to stable-02208; requested branch: $BRANCH"
+[[ "$BRANCH" == "dev-02301" ]] || fail "development installer is pinned to dev-02301; requested branch: $BRANCH"
 [[ -z "$SOURCE_COMMIT" || "$SOURCE_COMMIT" =~ ^[0-9a-f]{40}$ ]] || fail "SG_GATEWAY_SOURCE_COMMIT must be a lowercase 40-character commit SHA"
 
 cleanup() {
@@ -259,13 +259,13 @@ run_quiet "Подготовка 4/6 · Обновление Ubuntu" prepare_clea
 run_quiet "Подготовка 5/6 · Подготовка инструментов" prepare_bootstrap_tools
 
 TEMP_DIR="$(mktemp -d /tmp/sg-gateway-github-install.XXXXXX)"
-ARCHIVE="$TEMP_DIR/sg-gateway-stable-02208.tar.gz"
+ARCHIVE="$TEMP_DIR/sg-gateway-dev-02301.tar.gz"
 SOURCE_DIR="$TEMP_DIR/source"
 mkdir -p "$SOURCE_DIR"
 run_quiet "Подготовка 6/6 · Загрузка SG-Gateway" download_gateway_source
 
 printf '[SG-Gateway] GitHub source version: %s\n' "$(tr -d '\r\n' < "$SOURCE_DIR/VERSION")"
-printf '[SG-Gateway] STABLE channel: stable-02208\n'
+printf '[SG-Gateway] DEV channel: dev-02301\n'
 printf '[SG-Gateway] Starting the native Ubuntu CLEAN installer...\n'
 SG_GATEWAY_SOURCE_DIR="$SOURCE_DIR" \
 SG_GATEWAY_SOURCE_COMMIT="$SOURCE_COMMIT" \

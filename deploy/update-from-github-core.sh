@@ -2,7 +2,7 @@
 set -Eeuo pipefail
 # SG_GATEWAY_UPDATE_CORE
 
-REPOSITORY="${SG_GATEWAY_GITHUB_REPOSITORY:-s-gor/sg-gateway-v22}"
+REPOSITORY="${SG_GATEWAY_GITHUB_REPOSITORY:-s-gor/sg-gateway-v23}"
 BRANCH="${SG_GATEWAY_GITHUB_BRANCH:-${SG_GATEWAY_UPDATE_BRANCH:-main}}"
 ARCHIVE_URL="https://github.com/${REPOSITORY}/archive/refs/heads/${BRANCH}.tar.gz"
 GIT_URL="${SG_GATEWAY_GIT_URL:-https://github.com/${REPOSITORY}.git}"
