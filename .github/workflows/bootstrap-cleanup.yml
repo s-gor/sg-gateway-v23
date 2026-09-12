@@ -18,29 +18,21 @@ jobs:
           ref: ${{ github.event.pull_request.head.ref }}
           fetch-depth: 0
 
-      - name: Apply final legacy-contract cleanup
+      - name: Apply final 23.01 installer identity fix
         shell: bash
         run: |
           python - <<'PY'
           from pathlib import Path
           import hashlib, subprocess
 
-          replacements = {
-              'tests/test_sg_gateway_02112_final_cumulative_cleanup_r5.py': (
-                  "assert text.count(f'before-sg-gateway-{token}') == 2",
-                  "assert text.count('before-sg-gateway-') == 2",
-              ),
-              'tests/test_sg_gateway_v22_02206_hardening.py': (
-                  "assert installer.count(f'before-sg-gateway-{token}') == 2",
-                  "assert installer.count('before-sg-gateway-') == 2",
-              ),
-          }
-          for path, (old, new) in replacements.items():
-              p = Path(path)
-              s = p.read_text(encoding='utf-8')
-              if old not in s:
-                  raise SystemExit(f'missing expected assertion in {path}')
-              p.write_text(s.replace(old, new), encoding='utf-8', newline='\n')
+          p = Path('install.sh')
+          s = p.read_text(encoding='utf-8')
+          old = 'before-sg-gateway-02208'
+          new = 'before-sg-gateway-02301'
+          count = s.count(old)
+          if count != 2:
+              raise SystemExit(f'expected exactly 2 legacy backup markers, found {count}')
+          p.write_text(s.replace(old, new), encoding='utf-8', newline='\n')
 
           tracked = sorted(subprocess.check_output(['git', 'ls-files'], text=True).splitlines())
           tracked = [x for x in tracked if x != 'SOURCE-SHA256SUMS']
@@ -53,6 +45,6 @@ jobs:
           git config user.email "actions@users.noreply.github.com"
           if ! git diff --quiet; then
             git add -A
-            git commit -m "test: remove stale versioned backup-marker assumptions"
+            git commit -m "fix: complete 23.01 installer identity"
             git push origin HEAD:${{ github.event.pull_request.head.ref }}
           fi
