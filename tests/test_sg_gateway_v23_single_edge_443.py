@@ -16,8 +16,9 @@ def test_xray_tcp_profiles_have_private_unique_backends_and_public_443():
 
 def test_xray_runtime_binds_migrated_tcp_inbounds_to_loopback():
     text = (ROOT / "hostd/sg_hostd/client_runtime.py").read_text(encoding="utf-8")
-    assert 'public_listen = "127.0.0.1"' in text
-    assert '"listen": public_listen' in text
+    assert 'tcp_listen = "127.0.0.1"' in text
+    assert '"listen": tcp_listen' in text
+    assert 'public_listen = "::"' in text
 
 
 def test_installer_owns_one_public_tcp_443_edge_and_no_secondary_tcp_ingress():
@@ -26,7 +27,7 @@ def test_installer_owns_one_public_tcp_443_edge_and_no_secondary_tcp_ingress():
     assert 'XHTTP_TLS_PORT="10445"' in text
     assert 'NAIVEPROXY_INTERNAL_PORT="10447"' in text
     assert text.count('listen 443 reuseport;') == 1
-    assert 'default 127.0.0.1:${SG_GATEWAY_REALITY_INTERNAL_PORT};' in text
+    assert 'default 127.0.0.1:${REALITY_INTERNAL_PORT};' in text
     assert '8444/tcp' not in text
     assert '8445/tcp' not in text
     assert '9443/tcp' not in text
