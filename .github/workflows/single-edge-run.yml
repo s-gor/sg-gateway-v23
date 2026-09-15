@@ -55,6 +55,10 @@ jobs:
               ('    $HOST 127.0.0.1:$TLS_EDGE_INTERNAL_PORT;\n    default $default_backend;', '    $HOST 127.0.0.1:$PANEL_TLS_INTERNAL_PORT;\n$naive_route\n    default $default_backend;'),
               ('    listen $PUBLIC_PORT ssl;\n    listen [::]:$PUBLIC_PORT ssl;', '    listen 127.0.0.1:$PANEL_TLS_INTERNAL_PORT ssl;'),
               ('    error_page 497 =308 https://$domain:$PUBLIC_PORT\\$request_uri;', '    error_page 497 =308 https://$domain\\$request_uri;'),
+              ('"https://$domain:$PUBLIC_PORT/health"', '"https://$domain/health"'),
+              ('Панель HTTPS $PUBLIC_PORT: OK', 'Панель HTTPS 443: OK'),
+              ('панель не отвечает на $PUBLIC_PORT после перезагрузки Nginx', 'панель не отвечает на 443 после перезагрузки Nginx'),
+              ('log "HTTPS настроен: https://$HOST:$PUBLIC_PORT"', 'log "HTTPS настроен: https://$HOST/"'),
           ])
 
           p = Path('tests/test_sg_gateway_v23_single_edge_443.py')
