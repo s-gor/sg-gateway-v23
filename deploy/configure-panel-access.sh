@@ -19,7 +19,7 @@ PLACEHOLDER_SOURCE="$APP_ROOT/assets/placeholder/index.html"
 RESTART_SOURCE="$APP_ROOT/assets/placeholder/restarting.html"
 RENEW_HOOK="/etc/letsencrypt/renewal-hooks/deploy/reload-sg-gateway-nginx.sh"
 PANEL_USER="sg-gateway"; PANEL_GROUP="sg-gateway"
-XRAY_INTERNAL_PORT="10443"; XHTTP_REALITY_INTERNAL_PORT="10444"; TLS_EDGE_INTERNAL_PORT="10447"; PLACEHOLDER_TLS_INTERNAL_PORT="7444"
+XRAY_INTERNAL_PORT="10443"; XHTTP_REALITY_INTERNAL_PORT="10444"; TLS_EDGE_INTERNAL_PORT="10447"; PLACEHOLDER_TLS_INTERNAL_PORT="7444"; PANEL_HTTP_INTERNAL_PORT="10446"
 SG_HTTPS_BACKUP_DIR=""
 SG_HTTPS_COMMITTED=0
 log(){ printf '[SG-Gateway HTTPS] %s\n' "$*"; }
@@ -140,12 +140,7 @@ server {
 server {
     listen 127.0.0.1:$PLACEHOLDER_TLS_INTERNAL_PORT ssl;
     server_name $domain;
-    ssl_certificate $cert;
-    ssl_certificate_key $key;
-    ssl_protocols TLSv1.2 TLSv1.3;
     ssl_session_cache shared:SG_GATEWAY_PLACEHOLDER_TLS:5m;
-    ssl_session_timeout 1d;
-    ssl_session_tickets off;
     root $PLACEHOLDER_ROOT;
     index index.html;
     location = / { try_files /index.html =404; add_header Cache-Control "no-cache" always; add_header X-Content-Type-Options "nosniff" always; add_header X-Frame-Options "SAMEORIGIN" always; add_header Referrer-Policy "strict-origin-when-cross-origin" always; }
@@ -153,17 +148,8 @@ server {
     location / { return 404; }
 }
 server {
-    listen $PUBLIC_PORT ssl;
-    listen [::]:$PUBLIC_PORT ssl;
+    listen 127.0.0.1:$PANEL_HTTP_INTERNAL_PORT;
     server_name $domain;
-    error_page 497 =308 https://$domain:$PUBLIC_PORT\$request_uri;
-    ssl_certificate $cert;
-    ssl_certificate_key $key;
-    ssl_protocols TLSv1.2 TLSv1.3;
-    ssl_session_cache shared:SG_GATEWAY_TLS:10m;
-    ssl_session_timeout 1d;
-    ssl_session_tickets off;
-    add_header Strict-Transport-Security "max-age=31536000" always;
     add_header X-Content-Type-Options "nosniff" always;
     add_header X-Frame-Options "SAMEORIGIN" always;
     add_header Referrer-Policy "strict-origin-when-cross-origin" always;
@@ -231,11 +217,11 @@ wait_panel_contract(){
     code="$(curl --noproxy '*' -ksS --max-time 5 \
       --resolve "$domain:$PUBLIC_PORT:127.0.0.1" \
       -o /dev/null -w '%{http_code}' \
-      "https://$domain:$PUBLIC_PORT/health" 2>/dev/null || true)"
-    [[ "$code" == "200" ]] && { log "Панель HTTPS $PUBLIC_PORT: OK"; return 0; }
+      "https://$domain/health" 2>/dev/null || true)"
+    [[ "$code" == "200" ]] && { log "Панель HTTPS 443: OK"; return 0; }
     sleep 1
   done
-  fail "панель не отвечает на $PUBLIC_PORT после перезагрузки Nginx (HTTP ${code:-000})"
+  fail "панель не отвечает на 443 после перезагрузки Nginx (HTTP ${code:-000})"
 }
 
 verify_https_contract(){
@@ -285,7 +271,7 @@ ln -sfn "$ACME_CONF" "$ACME_LINK"; nginx -t; systemctl enable --now nginx.servic
 set -Eeuo pipefail
 exec /bin/bash /opt/sg-gateway/deploy/configure-panel-access.sh --mode refresh
 EOF
-chmod 0755 "$RENEW_HOOK"; write_state "$HOST" issue "HTTPS, fallback 443 и панель проверены" "$(basename "$backup")"; apply_client_runtime; SG_HTTPS_COMMITTED=1; trap - EXIT ERR INT TERM; log "HTTPS настроен: https://$HOST:$PUBLIC_PORT"; log "Заглушка: http://$HOST/ и https://$HOST/"; }
+chmod 0755 "$RENEW_HOOK"; write_state "$HOST" issue "HTTPS, fallback 443 и панель проверены" "$(basename "$backup")"; apply_client_runtime; SG_HTTPS_COMMITTED=1; trap - EXIT ERR INT TERM; log "HTTPS настроен: https://$HOST/"; log "Заглушка: http://$HOST/ и https://$HOST/"; }
 refresh_https(){ local domain cert key; domain="$(read_state_value domain)"; [[ -n "$domain" ]] || fail "HTTPS ещё не настроен"; cert="/etc/letsencrypt/live/$domain/fullchain.pem"; key="/etc/letsencrypt/live/$domain/privkey.pem"; [[ -s "$cert" && -s "$key" ]] || fail "файлы сертификата не найдены"; ensure_stream_include; write_stream_config "127.0.0.1:$PLACEHOLDER_TLS_INTERNAL_PORT"; write_https_site "$domain" "$cert" "$key"; nginx -t; systemctl reload nginx.service; wait_backend; verify_https_contract "$domain"; write_state "$domain" refresh "Сертификат, fallback 443 и Nginx проверены" "$(read_state_value backup)"; apply_client_runtime; log "HTTPS и fallback 443 обновлены"; }
 renew_https(){ local domain="$(read_state_value domain)"; [[ -n "$domain" ]] || fail "HTTPS ещё не настроен"; certbot renew --cert-name "$domain" --non-interactive; refresh_https; apply_client_runtime; }
 rollback_https(){ local latest current; latest="$(find "$BACKUP_ROOT" -mindepth 1 -maxdepth 1 -type d -name '*-panel-access' -printf '%f\n' | sort | tail -n 1 || true)"; [[ -n "$latest" ]] || fail "нет резервной конфигурации HTTPS"; current="$(create_backup)"; restore_backup "$BACKUP_ROOT/$latest"; if ! nginx -t || ! systemctl reload nginx.service; then restore_backup "$current"; nginx -t >/dev/null 2>&1 && systemctl reload nginx.service >/dev/null 2>&1 || true; fail "резервная конфигурация не принята"; fi; log "Восстановлена конфигурация $latest"; }

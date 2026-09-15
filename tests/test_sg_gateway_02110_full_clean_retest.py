@@ -32,7 +32,7 @@ def test_https_verifier_retries_temporary_404() -> None:
     script = (ROOT / "deploy/configure-panel-access.sh").read_text(encoding="utf-8")
     assert "SG_GATEWAY_02110_HTTPS_VERIFY_RETRY_FIX1" in script
     assert "for attempt in $(seq 1 30)" in script
-    assert "https://$domain:$PUBLIC_PORT/health" in script
+    assert "https://$domain/health" in script
     assert "HTTP ${code:-000}" in script
 
 
@@ -86,7 +86,7 @@ def test_exact_https_shell_functions_survive_two_404_responses(tmp_path: Path) -
     (placeholder / "index.html").write_text("accepted-page\n", encoding="utf-8")
     stream = tmp_path / "stream.conf"
     stream.write_text(
-        "www.bing.com 127.0.0.1:7443;\n"
+        "www.bing.com 127.0.0.1:10443;\n"
         "default 127.0.0.1:7444;\n",
         encoding="utf-8",
     )
@@ -96,7 +96,7 @@ PLACEHOLDER_ROOT={str(placeholder)!r}
 PUBLIC_PORT=63443
 STREAM_CONF={str(stream)!r}
 REALITY_SNI=www.bing.com
-XRAY_INTERNAL_PORT=7443
+XRAY_INTERNAL_PORT=10443
 PLACEHOLDER_TLS_INTERNAL_PORT=7444
 COUNTER={str(counter)!r}
 log() {{ printf '%s\\n' \"$*\"; }}
@@ -131,7 +131,7 @@ verify_https_contract example.test
     assert result.returncode == 0, result.stderr + result.stdout
     assert "HTTP 80: OK" in result.stdout
     assert "HTTPS 443 fallback: OK" in result.stdout
-    assert "Панель HTTPS 63443: OK" in result.stdout
+    assert "Панель HTTPS 443: OK" in result.stdout
 
 
 def test_exact_uninstall_python_cleans_owned_and_shared_stream_blocks(tmp_path: Path) -> None:

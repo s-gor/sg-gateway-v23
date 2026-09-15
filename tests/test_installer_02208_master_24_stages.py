@@ -36,7 +36,7 @@ def test_interactive_parameter_stage_runs_in_foreground():
 def test_naiveproxy_is_a_native_master_stage_not_a_wrapper_injection():
     source = _master()
     assert 'NAIVEPROXY_VERSION="v2.11.2-naive"' in source
-    assert 'NAIVEPROXY_PORT="8447"' in source
+    assert 'NAIVEPROXY_PORT="10447"' in source
     assert "stage_naiveproxy_runtime()" in source
     assert 'run_stage 9 "NaiveProxy runtime" stage_naiveproxy_runtime' in source
     assert 'deploy/install-naiveproxy.sh' not in source
