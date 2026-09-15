@@ -272,7 +272,7 @@ def _values(config: dict[str, Any], legacy_port: int) -> dict[str, Any]:
         "xhttp_reality_xmux_enabled": True,
         "xhttp_reality_server_name": str(config.get("xhttp_reality_server_name") or XHTTP_REALITY_DEFAULT_SNI).strip().lower(),
         "xhttp_reality_target": str(config.get("xhttp_reality_target") or XHTTP_REALITY_DEFAULT_TARGET).strip(),
-        "xhttp_tls_enabled": _bool(config.get("xhttp_tls_enabled"), False),
+                "xhttp_tls_enabled": _bool(config.get("xhttp_tls_enabled"), False),
         "xhttp_tls_port": XHTTP_TLS_INTERNAL_PORT,
         "xhttp_tls_path": _path(config.get("xhttp_tls_path"), "/sg-xhttp-tls"),
         "xhttp_tls_mode": _mode(config.get("xhttp_tls_mode"), "auto"),
@@ -320,7 +320,7 @@ def _prepare(form: Any) -> PreparedXraySettings:
         "xhttp_reality_xmux_enabled": True,
         "xhttp_reality_server_name": str(config.get("xhttp_reality_server_name") or XHTTP_REALITY_DEFAULT_SNI).strip().lower(),
         "xhttp_reality_target": str(config.get("xhttp_reality_target") or XHTTP_REALITY_DEFAULT_TARGET).strip(),
-        "xhttp_tls_enabled": (
+                "xhttp_tls_enabled": (
             bool(form.get("xhttp_tls_enabled"))
             if tls_ready else bool(current["xhttp_tls_enabled"])
         ),
@@ -468,126 +468,189 @@ def overview() -> dict[str, Any]:
     installed_version = _installed_xray_version()
     version_ready = _version_supported(installed_version)
     obfs = safe_status(
-        values["hysteria2_obfs_mode"],
-        values["hysteria2_obfs_password"],
-        installed_version,
+        values["hysteria2_obfs_mode"], values["hysteria2_obfs_password"]
     )
+    obfs.update(
+        {
+            "version_ready": salamander_version_supported(
+                installed_version, str(obfs["minimum_version"])
+            ),
+            "installed_version": installed_version,
+            "base_finalmask_present": bool(values["hysteria2_finalmask"]),
+            "salamander_minimum_version": SALAMANDER_MINIMUM_VERSION,
+            "gecko_minimum_version": GECKO_MINIMUM_VERSION,
+        }
+    )
+
+    def profile(
+        profile_id: str,
+        title: str,
+        transport: str,
+        security: str,
+        port_key: str,
+        enabled_key: str,
+        *,
+        path_key: str = "",
+        tls_required: bool = False,
+        encryption_required: bool = False,
+        note: str,
+        flow: str = "",
+        mode_key: str = "",
+        xmux_enabled_key: str = "",
+    ) -> XrayProfile:
+        enabled = bool(values[enabled_key])
+        obfs_ready = not (
+            profile_id == "hysteria2"
+            and obfs["enabled"]
+            and not obfs["password_configured"]
+        )
+        ready = (
+            enabled
+            and key_ready
+            and version_ready
+            and (tls_ready or not tls_required)
+            and (encryption_ready or not encryption_required)
+            and obfs_ready
+        )
+        if not version_ready:
+            status = f"Нужен Xray {XRAY_MINIMUM_VERSION} или новее"
+        elif tls_required and not tls_ready:
+            status = "Нужен HTTPS"
+        elif encryption_required and not encryption_ready:
+            status = "Нужен VLESS Encryption"
+        elif not obfs_ready:
+            status = "Нужен пароль Hysteria2 obfs"
+        elif not enabled:
+            status = "Выключен"
+        elif service_active and ready:
+            status = "Работает"
+        elif ready:
+            status = "Готов к применению"
+        else:
+            status = "Требует настройки"
+        return XrayProfile(
+            id=profile_id,
+            title=title,
+            transport=transport,
+            security=security,
+            enabled=enabled,
+            port=int(values[port_key]),
+            path=str(values[path_key]) if path_key else "",
+            tls_required=tls_required,
+            ready=ready,
+            status=status,
+            note=note,
+            flow=flow,
+            encryption_required=encryption_required,
+            encryption_ready=encryption_ready if encryption_required else False,
+            mode=str(values[mode_key]) if mode_key else "",
+            xmux_enabled=True if xmux_enabled_key else False,
+            xmux=dict(XHTTP_XMUX_RF) if xmux_enabled_key else None,
+        )
+
     profiles = [
-        XrayProfile(
-            id="reality_tcp",
-            title="VLESS Reality TCP",
-            transport="tcp",
-            security="reality",
-            enabled=bool(values["reality_tcp_enabled"]),
-            port=int(values["reality_tcp_port"]),
-            path="",
-            tls_required=False,
-            ready=service_active and key_ready and version_ready,
-            status="ready" if service_active and key_ready and version_ready else "warning",
-            note="Основной Reality TCP. Порт управляется сервером.",
+        profile(
+            "reality_tcp", "VLESS Reality TCP", "RAW / TCP", "REALITY",
+            "reality_tcp_port", "reality_tcp_enabled",
+            note="Основной прямой Reality inbound с XTLS Vision.",
             flow=REALITY_TCP_FLOW,
         ),
-        XrayProfile(
-            id="xhttp_reality",
-            title="VLESS XHTTP Reality",
-            transport="xhttp",
-            security="reality",
-            enabled=bool(values["xhttp_reality_enabled"]),
-            port=int(values["xhttp_reality_port"]),
-            path=str(values["xhttp_reality_path"]),
-            tls_required=False,
-            ready=service_active and key_ready and encryption_ready and version_ready,
-            status="ready" if service_active and key_ready and encryption_ready and version_ready else "warning",
-            note="Прямой XHTTP Reality без TLS-сертификата.",
+        profile(
+            "xhttp_reality", "VLESS XHTTP Reality", "XHTTP / TCP", "REALITY",
+            "xhttp_reality_port", "xhttp_reality_enabled",
+            path_key="xhttp_reality_path",
             encryption_required=True,
-            encryption_ready=encryption_ready,
-            mode=str(values["xhttp_reality_mode"]),
-            xmux_enabled=True,
-            xmux=dict(XHTTP_XMUX_RF),
+            note="XHTTP + REALITY с обязательными VLESS Encryption и XTLS Vision.",
+            flow=REALITY_TCP_FLOW,
+            mode_key="xhttp_reality_mode",
+            xmux_enabled_key="xhttp_reality_xmux_enabled",
         ),
-        XrayProfile(
-            id="xhttp_tls",
-            title="VLESS XHTTP TLS",
-            transport="xhttp",
-            security="tls",
-            enabled=bool(values["xhttp_tls_enabled"]),
-            port=int(values["xhttp_tls_port"]),
-            path=str(values["xhttp_tls_path"]),
-            tls_required=True,
-            ready=service_active and tls_ready and encryption_ready and version_ready,
-            status="ready" if service_active and tls_ready and encryption_ready and version_ready else "warning",
-            note="TLS-профиль XHTTP, требует HTTPS в Security.",
+        profile(
+            "xhttp_tls", "VLESS XHTTP TLS", "XHTTP / TCP", "TLS",
+            "xhttp_tls_port", "xhttp_tls_enabled",
+            path_key="xhttp_tls_path", tls_required=True,
             encryption_required=True,
-            encryption_ready=encryption_ready,
-            mode=str(values["xhttp_tls_mode"]),
-            xmux_enabled=True,
-            xmux=dict(XHTTP_XMUX_RF),
+            note="XHTTP + TLS с обязательными VLESS Encryption и XTLS Vision.",
+            flow=REALITY_TCP_FLOW,
+            mode_key="xhttp_tls_mode",
+            xmux_enabled_key="xhttp_tls_xmux_enabled",
         ),
-        XrayProfile(
-            id="hysteria2",
-            title="Hysteria 2",
-            transport="udp",
-            security="tls",
-            enabled=bool(values["hysteria2_enabled"]),
-            port=int(values["hysteria2_port"]),
-            path="",
+        profile(
+            "hysteria2", "Hysteria 2", "QUIC / UDP", "TLS",
+            "hysteria2_port", "hysteria2_enabled",
             tls_required=True,
-            ready=service_active and tls_ready and version_ready,
-            status="ready" if service_active and tls_ready and version_ready else "warning",
-            note="Отдельный UDP transport в Xray с TLS.",
-            mode=str(values["hysteria2_obfs_mode"]),
+            note="Hysteria 2 с выбором Off / Salamander / Gecko на отдельном UDP-порту.",
         ),
     ]
     return {
+        "host": settings.host,
         "profiles": profiles,
         "fingerprint": str(values["fingerprint"]),
-        "fingerprints": FINGERPRINT_VALUES,
-        "vless_encryption": vless_encryption,
-        "vless_encryption_ready": encryption_ready,
-        "installed_version": installed_version,
-        "minimum_version": XRAY_MINIMUM_VERSION,
-        "required_version": XRAY_MINIMUM_VERSION,
-        "version_ready": version_ready,
+        "fingerprint_values": FINGERPRINT_VALUES,
+        "fingerprint_default": FINGERPRINT_DEFAULT,
         "tls_ready": tls_ready,
-        "tls_domain": tls.get("domain") or "",
-        "xhttp_modes": XHTTP_MODE_OPTIONS,
-        "xmux_rf": dict(XHTTP_XMUX_RF),
-        "hysteria2_obfs": obfs,
-        "hysteria2_obfs_options": (
-            {"value": SALAMANDER_MODE_NONE, "title": "None"},
-            {"value": SALAMANDER_MODE, "title": "Salamander"},
-            {"value": GECKO_MODE, "title": "Gecko"},
+        "tls_domain": str(tls.get("domain") or ""),
+        "certificate_path": str(tls.get("certificate_path") or ""),
+        "service_active": service_active,
+        "installed_version": installed_version,
+        "required_version": XRAY_MINIMUM_VERSION,
+        "minimum_version": XRAY_MINIMUM_VERSION,
+        "version_ready": version_ready,
+        "xhttp_modes": XHTTP_MODES,
+        "xhttp_mode_options": XHTTP_MODE_OPTIONS,
+        "xhttp_xmux_rf": dict(XHTTP_XMUX_RF),
+        "key_ready": key_ready,
+        "vless_encryption_ready": encryption_ready,
+        "vless_encryption_algorithm": (
+            vless_encryption.split(".", 1)[0] if encryption_ready else ""
         ),
-        "hysteria2_salamander_minimum_version": SALAMANDER_MINIMUM_VERSION,
-        "hysteria2_gecko_minimum_version": GECKO_MINIMUM_VERSION,
+        "hysteria2_obfs": obfs,
+        "enabled_count": sum(1 for item in profiles if item.enabled),
+        "ready_count": sum(1 for item in profiles if item.ready),
     }
 
 
-def prepare(form: Any) -> PreparedXraySettings:
-    return _prepare(form)
-
-
-def begin_update(form: Any) -> SettingsTransaction:
-    settings = get_connection_settings("xray")
+def save(form: Any, *, transactional: bool = False) -> dict[str, Any]:
     prepared = _prepare(form)
-    return begin_settings_transaction(
-        engine="xray",
-        previous_host=settings.host,
-        previous_port=settings.port,
-        previous_config=dict(settings.config),
-        candidate_host=prepared.host,
-        candidate_port=prepared.port,
-        candidate_config=prepared.config,
-    )
+    transaction: SettingsTransaction | None = None
+    if transactional:
+        transaction = begin_settings_transaction(
+            "xray", prepared.host, prepared.port, prepared.config
+        )
+    else:
+        updated = update_connection_settings(
+            "xray", prepared.host, prepared.port, prepared.config
+        )
+        if not updated:
+            raise XrayProfilesError("Настройки Xray не сохранены")
+
+    result = overview()
+    result["transaction_id"] = transaction.id if transaction is not None else None
+    result["salamander_changed"] = prepared.salamander_changed
+    result["salamander_rotated"] = prepared.salamander_rotated
+    return result
 
 
-def commit_update(transaction_id: str) -> None:
-    commit_settings_transaction(transaction_id)
+def rollback_transaction(transaction_id: int, status: str = "rolled_back") -> bool:
+    return rollback_settings_transaction(transaction_id, status=status)
 
 
-def rollback_update(transaction_id: str, *, status: str) -> None:
-    rollback_settings_transaction(transaction_id, status=status)
+def commit_transaction(transaction_id: int) -> bool:
+    return commit_settings_transaction(transaction_id)
 
 
-def pending_update() -> SettingsTransaction | None:
+def pending_transaction() -> SettingsTransaction | None:
     return pending_settings_transaction("xray")
+
+
+def salamander_secret() -> str:
+    settings = get_connection_settings("xray")
+    values = _values(dict(settings.config), int(settings.port or 443))
+    secret = str(values["hysteria2_obfs_password"] or "")
+    if not password_ready(secret):
+        raise XrayProfilesError("Пароль Hysteria2 obfs ещё не создан")
+    return secret
+
+
+def new_salamander_password() -> str:
+    return generate_password()
