@@ -13,13 +13,13 @@ jobs:
         run: |
           python - <<'PY'
           from pathlib import Path
-          import re
           p=Path('.github/workflows/single-edge-finalize3.yml')
           s=p.read_text(encoding='utf-8')
-          s2,count=re.subn(r'(?m)^\s*assert .*PANEL_HTTP_INTERNAL_PORT.*$', '    assert \'PANEL_HTTP_INTERNAL_PORT="10446"\' in access', s)
-          if count != 1:
-              raise SystemExit(f'expected exactly one target assertion, found {count}')
-          p.write_text(s2,encoding='utf-8',newline='\n')
+          old='assert "PANEL_HTTP_INTERNAL_PORT=\\"10446\\"" in access'
+          new="assert 'PANEL_HTTP_INTERNAL_PORT=\"10446\"' in access"
+          if old not in s:
+              raise SystemExit('target assertion not found')
+          p.write_text(s.replace(old,new),encoding='utf-8',newline='\n')
           PY
       - name: Commit repair and remove helper
         run: |
