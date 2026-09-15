@@ -22,7 +22,7 @@ SERVICE = "sg-gateway-naiveproxy.service"
 DEFAULT_PORT = 10447
 XHTTP_TLS_INTERNAL_PORT = 10445
 XHTTP_TLS_DEFAULT_PATH = "/sg-xhttp-tls"
-PANEL_GATEWAY_PORT = 10446
+PLACEHOLDER_HTTP_INTERNAL_PORT = 10446
 USERNAME_RE = re.compile(r"^[A-Za-z0-9_.-]{1,64}$")
 PASSWORD_RE = re.compile(r"^[A-Za-z0-9._~-]{16,256}$")
 
@@ -189,7 +189,7 @@ def _render(settings: dict, users: list[dict]) -> str:
     encode gzip zstd
 {proxy}    @sg_xhttp_tls path {XHTTP_TLS_DEFAULT_PATH} {XHTTP_TLS_DEFAULT_PATH}/*
     reverse_proxy @sg_xhttp_tls h2c://127.0.0.1:{XHTTP_TLS_INTERNAL_PORT}
-    reverse_proxy http://127.0.0.1:{PANEL_GATEWAY_PORT}
+    reverse_proxy http://127.0.0.1:{PLACEHOLDER_HTTP_INTERNAL_PORT}
 }}
 """
 
