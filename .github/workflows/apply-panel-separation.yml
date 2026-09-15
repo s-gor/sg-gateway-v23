@@ -29,7 +29,7 @@ jobs:
                   p.write_text(text.replace(old, new, 1), encoding="utf-8")
                   return
               if new not in text:
-                  raise SystemExit("missing replacement contract in " + path)
+                  raise SystemExit("missing replacement in " + path + ": " + old[:80])
 
           hostd = "hostd/sg_hostd/naiveproxy_runtime.py"
           replace_once(hostd, "PANEL_GATEWAY_PORT = 10446", "PLACEHOLDER_HTTP_INTERNAL_PORT = 10446")
@@ -37,14 +37,37 @@ jobs:
 
           access = "deploy/configure-panel-access.sh"
           replace_once(access, 'XRAY_INTERNAL_PORT="10443"; XHTTP_REALITY_INTERNAL_PORT="10444"; TLS_EDGE_INTERNAL_PORT="10447"; PLACEHOLDER_TLS_INTERNAL_PORT="7444"; PANEL_HTTP_INTERNAL_PORT="10446"', 'XRAY_INTERNAL_PORT="10443"; XHTTP_REALITY_INTERNAL_PORT="10444"; TLS_EDGE_INTERNAL_PORT="10447"; PLACEHOLDER_TLS_INTERNAL_PORT="7444"; PLACEHOLDER_HTTP_INTERNAL_PORT="10446"')
-          old = "server {\n    listen 127.0.0.1:$PANEL_HTTP_INTERNAL_PORT;\n    server_name $domain;\n    add_header X-Content-Type-Options \\\"nosniff\\\" always;"
-          new = "server {\n    listen 127.0.0.1:$PLACEHOLDER_HTTP_INTERNAL_PORT;\n    server_name $domain;\n    root $PLACEHOLDER_ROOT;\n    index index.html;\n    location = / { try_files /index.html =404; add_header Cache-Control \\\"no-cache\\\" always; add_header X-Content-Type-Options \\\"nosniff\\\" always; add_header X-Frame-Options \\\"SAMEORIGIN\\\" always; add_header Referrer-Policy \\\"strict-origin-when-cross-origin\\\" always; }\n    location = /index.html { try_files /index.html =404; add_header Cache-Control \\\"no-cache\\\" always; add_header X-Content-Type-Options \\\"nosniff\\\" always; add_header X-Frame-Options \\\"SAMEORIGIN\\\" always; add_header Referrer-Policy \\\"strict-origin-when-cross-origin\\\" always; }\n    location / { return 404; }\n}\nserver {\n    listen $PUBLIC_PORT ssl;\n    listen [::]:$PUBLIC_PORT ssl;\n    server_name $domain;\n    ssl_certificate $cert;\n    ssl_certificate_key $key;\n    ssl_session_cache shared:SG_GATEWAY_PANEL_TLS:5m;\n    add_header X-Content-Type-Options \\\"nosniff\\\" always;"
-          replace_once(access, old, new)
-          replace_once(access, '\"https://$domain/health\"', '\"https://$domain:$PUBLIC_PORT/health\"')
-          replace_once(access, 'log \"Панель HTTPS 443: OK\"', 'log \"Панель HTTPS $PUBLIC_PORT: OK\"')
-          replace_once(access, 'fail \"панель не отвечает на 443 после перезагрузки Nginx (HTTP ${code:-000})\"', 'fail \"панель не отвечает на $PUBLIC_PORT после перезагрузки Nginx (HTTP ${code:-000})\"')
-          replace_once(access, 'log \"HTTPS настроен: https://$HOST/\"; log \"Заглушка: http://$HOST/ и https://$HOST/\";', 'log \"Панель: https://$HOST:$PUBLIC_PORT/\"; log \"Заглушка: http://$HOST/ и https://$HOST/\";')
-          replace_once(access, 'log \"HTTPS и fallback 443 обновлены\"', 'log \"Панель HTTPS и fallback 443 обновлены\"')
+          old_lines = [
+              'server {',
+              '    listen 127.0.0.1:$PANEL_HTTP_INTERNAL_PORT;',
+              '    server_name $domain;',
+              '    add_header X-Content-Type-Options "nosniff" always;',
+          ]
+          new_lines = [
+              'server {',
+              '    listen 127.0.0.1:$PLACEHOLDER_HTTP_INTERNAL_PORT;',
+              '    server_name $domain;',
+              '    root $PLACEHOLDER_ROOT;',
+              '    index index.html;',
+              '    location = / { try_files /index.html =404; add_header Cache-Control "no-cache" always; add_header X-Content-Type-Options "nosniff" always; add_header X-Frame-Options "SAMEORIGIN" always; add_header Referrer-Policy "strict-origin-when-cross-origin" always; }',
+              '    location = /index.html { try_files /index.html =404; add_header Cache-Control "no-cache" always; add_header X-Content-Type-Options "nosniff" always; add_header X-Frame-Options "SAMEORIGIN" always; add_header Referrer-Policy "strict-origin-when-cross-origin" always; }',
+              '    location / { return 404; }',
+              '}',
+              'server {',
+              '    listen $PUBLIC_PORT ssl;',
+              '    listen [::]:$PUBLIC_PORT ssl;',
+              '    server_name $domain;',
+              '    ssl_certificate $cert;',
+              '    ssl_certificate_key $key;',
+              '    ssl_session_cache shared:SG_GATEWAY_PANEL_TLS:5m;',
+              '    add_header X-Content-Type-Options "nosniff" always;',
+          ]
+          replace_once(access, "\n".join(old_lines), "\n".join(new_lines))
+          replace_once(access, '"https://$domain/health"', '"https://$domain:$PUBLIC_PORT/health"')
+          replace_once(access, 'log "Панель HTTPS 443: OK"', 'log "Панель HTTPS $PUBLIC_PORT: OK"')
+          replace_once(access, 'fail "панель не отвечает на 443 после перезагрузки Nginx (HTTP ${code:-000})"', 'fail "панель не отвечает на $PUBLIC_PORT после перезагрузки Nginx (HTTP ${code:-000})"')
+          replace_once(access, 'log "HTTPS настроен: https://$HOST/"; log "Заглушка: http://$HOST/ и https://$HOST/";', 'log "Панель: https://$HOST:$PUBLIC_PORT/"; log "Заглушка: http://$HOST/ и https://$HOST/";')
+          replace_once(access, 'log "HTTPS и fallback 443 обновлены"', 'log "Панель HTTPS и fallback 443 обновлены"')
 
           for path in ("app/naiveproxy/runtime.py", hostd):
               text = Path(path).read_text(encoding="utf-8")
