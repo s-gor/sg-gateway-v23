@@ -34,8 +34,14 @@ def test_installer_owns_one_public_tcp_443_edge_and_no_secondary_tcp_ingress():
 
 
 def test_awg31_uses_udp_443_independently_of_tcp_edge():
-    text = (ROOT / "app/connections/awg31.py").read_text(encoding="utf-8")
-    assert 'PORT = 443' in text or 'DEFAULT_PORT = 443' in text
+    connection = (ROOT / "app/connections/awg31.py").read_text(encoding="utf-8")
+    lifecycle = (ROOT / "app/clients/awg31_lifecycle.py").read_text(encoding="utf-8")
+    runtime = (ROOT / "hostd/sg_hostd/awg31_runtime.py").read_text(encoding="utf-8")
+    assert 'PORT = 443' in connection or 'DEFAULT_PORT = 443' in connection
+    assert 'ENDPOINT = "awg31.internal:443"' in lifecycle
+    assert 'ListenPort = 443' in runtime
+    assert 'ListenPort = 587' not in runtime
+    assert 'awg31.internal:587' not in lifecycle
 
 
 def test_naiveproxy_backend_is_loopback_and_export_is_public_443():
