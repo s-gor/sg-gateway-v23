@@ -40,6 +40,16 @@ def test_panel_https_is_separate_from_shared_443():
     assert 'log "Заглушка: http://$HOST/ и https://$HOST/"' in access
 
 
+def test_https_bootstraps_shared_tls_edge_before_verification():
+    access = (ROOT / "deploy/configure-panel-access.sh").read_text(encoding="utf-8")
+    assert "bootstrap_tls_edge(){" in access
+    assert "from sg_hostd.naiveproxy_runtime import sync" in access
+    assert 'update_connection_settings("naiveproxy", domain, 10447, config)' in access
+    configure = access[access.index("configure_https(){"):access.index("refresh_https(){")]
+    assert 'bootstrap_tls_edge "$HOST" "$cert_file" "$key_file"' in configure
+    assert configure.index('bootstrap_tls_edge "$HOST" "$cert_file" "$key_file"') < configure.index('verify_https_contract "$HOST"')
+
+
 def test_internal_placeholder_tls_listener_has_certificate_directives():
     access = (ROOT / "deploy/configure-panel-access.sh").read_text(encoding="utf-8")
     marker = "listen 127.0.0.1:$PLACEHOLDER_TLS_INTERNAL_PORT ssl;"
