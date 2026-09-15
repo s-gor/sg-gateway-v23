@@ -39,7 +39,9 @@ def test_https_workflow_switches_default_sni_to_placeholder() -> None:
     assert 'PLACEHOLDER_TLS_INTERNAL_PORT="7444"' in script
     assert 'default 127.0.0.1:$PLACEHOLDER_TLS_INTERNAL_PORT;' in script
     assert 'listen 127.0.0.1:$PLACEHOLDER_TLS_INTERNAL_PORT ssl;' in script
-    assert 'listen $PUBLIC_PORT ssl;' not in script
+    assert 'CONFIGURED_PUBLIC_PORT="$(get_env "$ENV_FILE" SG_GATEWAY_PUBLIC_PORT 63443)"' in script
+    assert 'case "$PUBLIC_PORT" in 22|80|443|' in script
+    assert 'listen $PUBLIC_PORT ssl;' in script
     assert 'verify_https_contract' in script
 
 
