@@ -37,11 +37,18 @@ def test_awg31_uses_udp_443_independently_of_tcp_edge():
     connection = (ROOT / "app/connections/awg31.py").read_text(encoding="utf-8")
     lifecycle = (ROOT / "app/clients/awg31_lifecycle.py").read_text(encoding="utf-8")
     runtime = (ROOT / "hostd/sg_hostd/awg31_runtime.py").read_text(encoding="utf-8")
+    stage3a_common = (ROOT / "app/maintenance/awg31_stage3a_common.py").read_text(encoding="utf-8")
+    stage3a_data = (ROOT / "app/maintenance/awg31_stage3a_data.py").read_text(encoding="utf-8")
     assert 'PORT = 443' in connection or 'DEFAULT_PORT = 443' in connection
     assert 'ENDPOINT = "awg31.internal:443"' in lifecycle
+    assert 'ENDPOINT = "awg31.internal:443"' in stage3a_common
     assert 'ListenPort = 443' in runtime
-    assert 'ListenPort = 587' not in runtime
-    assert 'awg31.internal:587' not in lifecycle
+    assert 'ListenPort = 443' in stage3a_data
+    assert "port = 443" in stage3a_data
+    for text in (lifecycle, runtime, stage3a_common, stage3a_data):
+        assert 'awg31.internal:587' not in text
+        assert 'ListenPort = 587' not in text
+    assert "port = 587" not in stage3a_data
 
 
 def test_naiveproxy_backend_is_loopback_and_export_is_public_443():
