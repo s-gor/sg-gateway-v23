@@ -1,0 +1,44 @@
+name: Regenerate SOURCE-SHA256SUMS
+
+on:
+  push:
+    branches:
+      - feat/2301-single-edge-443
+
+permissions:
+  contents: write
+
+jobs:
+  regenerate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Regenerate tracked source checksums
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from hashlib import sha256
+          from pathlib import Path
+
+          manifest = Path("SOURCE-SHA256SUMS")
+          output = []
+          for raw in manifest.read_text(encoding="utf-8").splitlines():
+              if not raw.strip():
+                  continue
+              _, path = raw.split(None, 1)
+              file_path = Path(path.strip())
+              if not file_path.is_file():
+                  raise SystemExit(f"missing manifest file: {file_path}")
+              output.append(f"{sha256(file_path.read_bytes()).hexdigest()}  {file_path.as_posix()}")
+          manifest.write_text("\n".join(output) + "\n", encoding="utf-8")
+          PY
+          if git diff --quiet -- SOURCE-SHA256SUMS; then
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add SOURCE-SHA256SUMS
+          git commit -m "chore: regenerate source checksums"
+          git push origin HEAD:feat/2301-single-edge-443
