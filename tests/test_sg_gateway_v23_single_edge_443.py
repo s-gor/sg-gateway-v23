@@ -14,10 +14,17 @@ def test_xray_tcp_profiles_have_private_unique_backends_and_public_443():
     assert values["hysteria2_port"] == 8446
 
 
-def test_xray_runtime_binds_migrated_tcp_inbounds_to_loopback():
+def test_xray_runtime_binds_all_single_edge_tcp_backends_to_loopback():
     text = (ROOT / "hostd/sg_hostd/client_runtime.py").read_text(encoding="utf-8")
-    assert 'tcp_listen = "127.0.0.1"' in text
-    assert '"listen": tcp_listen' in text
+    reality = text.split('if "reality_tcp" in enabled_profiles:', 1)[1].split('if "xhttp_reality" in enabled_profiles:', 1)[0]
+    xhttp_reality = text.split('if "xhttp_reality" in enabled_profiles:', 1)[1].split('tls_needed =', 1)[0]
+    xhttp_tls = text.split('if "xhttp_tls" in enabled_profiles:', 1)[1].split('if "hysteria2" in enabled_profiles:', 1)[0]
+    assert 'port=profile.port' in reality
+    assert 'listen="127.0.0.1"' in reality
+    assert 'listen="127.0.0.1"' in xhttp_reality
+    assert '"listen": "127.0.0.1"' in xhttp_tls
+    assert 'listen=public_listen' not in xhttp_reality
+    assert '"listen": tcp_listen' not in xhttp_tls
     assert 'public_listen = "::"' in text
 
 
@@ -27,6 +34,7 @@ def test_xhttp_reality_uses_router_sni_contract_end_to_end():
     assert "dest=XHTTP_REALITY_DEFAULT_TARGET" in runtime
     assert "server_name=XHTTP_REALITY_DEFAULT_SNI" in runtime
     assert "server_name=XHTTP_REALITY_DEFAULT_SNI" in exports
+    assert exports.count("from app.single_edge import PUBLIC_TCP_PORT, XHTTP_REALITY_DEFAULT_SNI") == 1
 
 
 def test_installer_owns_one_public_tcp_443_edge_and_no_secondary_tcp_ingress():
