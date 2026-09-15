@@ -1,0 +1,114 @@
+name: Apply panel separation
+
+on:
+  push:
+    branches:
+      - feat/2301-single-edge-443
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply approved 63443 panel separation
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path: str, old: str, new: str) -> None:
+              p = Path(path)
+              text = p.read_text(encoding="utf-8")
+              if old in text:
+                  text = text.replace(old, new, 1)
+                  p.write_text(text, encoding="utf-8")
+                  return
+              if new not in text:
+                  raise SystemExit(f"expected contract not found in {path}: {old[:80]!r}")
+
+          for path in (
+              "hostd/sg_hostd/naiveproxy_runtime.py",
+          ):
+              replace_once(path, "PANEL_GATEWAY_PORT = 10446", "PLACEHOLDER_HTTP_INTERNAL_PORT = 10446")
+              replace_once(
+                  path,
+                  "reverse_proxy http://127.0.0.1:{PANEL_GATEWAY_PORT}",
+                  "reverse_proxy http://127.0.0.1:{PLACEHOLDER_HTTP_INTERNAL_PORT}",
+              )
+
+          access = "deploy/configure-panel-access.sh"
+          replace_once(
+              access,
+              'XRAY_INTERNAL_PORT="10443"; XHTTP_REALITY_INTERNAL_PORT="10444"; TLS_EDGE_INTERNAL_PORT="10447"; PLACEHOLDER_TLS_INTERNAL_PORT="7444"; PANEL_HTTP_INTERNAL_PORT="10446"',
+              'XRAY_INTERNAL_PORT="10443"; XHTTP_REALITY_INTERNAL_PORT="10444"; TLS_EDGE_INTERNAL_PORT="10447"; PLACEHOLDER_TLS_INTERNAL_PORT="7444"; PLACEHOLDER_HTTP_INTERNAL_PORT="10446"',
+          )
+          replace_once(
+              access,
+              '''server {
+    listen 127.0.0.1:$PANEL_HTTP_INTERNAL_PORT;
+    server_name $domain;
+    add_header X-Content-Type-Options "nosniff" always;''',
+              '''server {
+    listen 127.0.0.1:$PLACEHOLDER_HTTP_INTERNAL_PORT;
+    server_name $domain;
+    root $PLACEHOLDER_ROOT;
+    index index.html;
+    location = / { try_files /index.html =404; add_header Cache-Control "no-cache" always; add_header X-Content-Type-Options "nosniff" always; add_header X-Frame-Options "SAMEORIGIN" always; add_header Referrer-Policy "strict-origin-when-cross-origin" always; }
+    location = /index.html { try_files /index.html =404; add_header Cache-Control "no-cache" always; add_header X-Content-Type-Options "nosniff" always; add_header X-Frame-Options "SAMEORIGIN" always; add_header Referrer-Policy "strict-origin-when-cross-origin" always; }
+    location / { return 404; }
+}
+server {
+    listen $PUBLIC_PORT ssl;
+    listen [::]:$PUBLIC_PORT ssl;
+    server_name $domain;
+    ssl_certificate $cert;
+    ssl_certificate_key $key;
+    ssl_session_cache shared:SG_GATEWAY_PANEL_TLS:5m;
+    add_header X-Content-Type-Options "nosniff" always;''',
+          )
+          replace_once(access, '"https://$domain/health"', '"https://$domain:$PUBLIC_PORT/health"')
+          replace_once(access, 'log "Панель HTTPS 443: OK"', 'log "Панель HTTPS $PUBLIC_PORT: OK"')
+          replace_once(access, 'fail "панель не отвечает на 443 после перезагрузки Nginx (HTTP ${code:-000})"', 'fail "панель не отвечает на $PUBLIC_PORT после перезагрузки Nginx (HTTP ${code:-000})"')
+          replace_once(access, 'log "HTTPS настроен: https://$HOST/"; log "Заглушка: http://$HOST/ и https://$HOST/";', 'log "Панель: https://$HOST:$PUBLIC_PORT/"; log "Заглушка: http://$HOST/ и https://$HOST/";')
+          replace_once(access, 'log "HTTPS и fallback 443 обновлены"', 'log "Панель HTTPS и fallback 443 обновлены"')
+
+          # The application-side Caddy renderer was already changed before this
+          # helper runs. Verify both copies now have the same fallback contract.
+          for path in (
+              "app/naiveproxy/runtime.py",
+              "hostd/sg_hostd/naiveproxy_runtime.py",
+          ):
+              text = Path(path).read_text(encoding="utf-8")
+              if "PANEL_GATEWAY_PORT" in text:
+                  raise SystemExit(f"stale panel gateway reference remains in {path}")
+              if "PLACEHOLDER_HTTP_INTERNAL_PORT = 10446" not in text:
+                  raise SystemExit(f"placeholder HTTP backend missing in {path}")
+
+          manifest = Path("SOURCE-SHA256SUMS")
+          from hashlib import sha256
+          output = []
+          for raw in manifest.read_text(encoding="utf-8").splitlines():
+              if not raw.strip():
+                  continue
+              _, rel = raw.split(None, 1)
+              fp = Path(rel.strip())
+              if not fp.is_file():
+                  raise SystemExit(f"missing manifest file: {fp}")
+              output.append(f"{sha256(fp.read_bytes()).hexdigest()}  {fp.as_posix()}")
+          manifest.write_text("\n".join(output) + "\n", encoding="utf-8")
+          PY
+
+          if git diff --quiet; then
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add hostd/sg_hostd/naiveproxy_runtime.py deploy/configure-panel-access.sh SOURCE-SHA256SUMS
+          git commit -m "fix: separate panel HTTPS from shared 443"
+          git pull --rebase origin feat/2301-single-edge-443
+          git push origin HEAD:feat/2301-single-edge-443
