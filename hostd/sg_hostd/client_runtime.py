@@ -1004,7 +1004,6 @@ def _render_xray_config(rows) -> str:
         or "bing.com:443"
     ).strip()
     public_listen = "::"
-    tcp_listen = "127.0.0.1" if _dual_stack_enabled(runtime) else "0.0.0.0"
 
     grouped: dict[str, list[dict[str, Any]]] = {
         "reality_tcp": [],
@@ -1059,7 +1058,7 @@ def _render_xray_config(rows) -> str:
         # SG_GATEWAY_PLACEHOLDER_80_443_V1
         inbound = reality_tcp_inbound(
             clients=grouped["reality_tcp"],
-            port=int(runtime.get("SG_GATEWAY_REALITY_INTERNAL_PORT") or 7443),
+            port=profile.port,
             listen="127.0.0.1",
             dest=target,
             server_name=server_name,
@@ -1080,7 +1079,7 @@ def _render_xray_config(rows) -> str:
             server_name=XHTTP_REALITY_DEFAULT_SNI,
             private_key=private_key,
             short_id=short_id,
-            listen=public_listen,
+            listen="127.0.0.1",
         )
         inbound["sniffing"] = sniffing
         inbounds.append(inbound)
@@ -1105,7 +1104,7 @@ def _render_xray_config(rows) -> str:
             profile = by_id["xhttp_tls"]
             inbounds.append({
                 "tag": "sg-vless-xhttp-tls",
-                "listen": tcp_listen,
+                "listen": "127.0.0.1",
                 "port": profile.port,
                 "protocol": "vless",
                 "settings": {

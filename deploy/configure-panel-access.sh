@@ -140,6 +140,8 @@ server {
 server {
     listen 127.0.0.1:$PLACEHOLDER_TLS_INTERNAL_PORT ssl;
     server_name $domain;
+    ssl_certificate $cert;
+    ssl_certificate_key $key;
     ssl_session_cache shared:SG_GATEWAY_PLACEHOLDER_TLS:5m;
     root $PLACEHOLDER_ROOT;
     index index.html;

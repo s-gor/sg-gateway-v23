@@ -24,7 +24,7 @@ from app.mihomo.service import build_device_yaml
 from app.net import format_host, format_host_port
 
 from app.security.tls import overview as tls_overview
-from app.single_edge import PUBLIC_TCP_PORT, XHTTP_REALITY_DEFAULT_SNI, XHTTP_REALITY_DEFAULT_SNI
+from app.single_edge import PUBLIC_TCP_PORT, XHTTP_REALITY_DEFAULT_SNI
 from app.xray.profiles import REALITY_TCP_FLOW, overview as xray_profiles_overview
 from app.xray.xmux import XmuxError, effective_client_extra
 from app.xray.sg_panel_vless import reality_tcp_link, xhttp_reality_link
