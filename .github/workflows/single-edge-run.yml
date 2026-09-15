@@ -6,7 +6,6 @@ permissions:
   contents: write
 jobs:
   finish:
-    if: ${{ !startsWith(github.event.head_commit.message || '', 'feat: implement Single Edge 443 complete') }}
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
