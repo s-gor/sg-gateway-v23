@@ -19,7 +19,7 @@ PLACEHOLDER_SOURCE="$APP_ROOT/assets/placeholder/index.html"
 RESTART_SOURCE="$APP_ROOT/assets/placeholder/restarting.html"
 RENEW_HOOK="/etc/letsencrypt/renewal-hooks/deploy/reload-sg-gateway-nginx.sh"
 PANEL_USER="sg-gateway"; PANEL_GROUP="sg-gateway"
-XRAY_INTERNAL_PORT="7443"; PLACEHOLDER_TLS_INTERNAL_PORT="7444"
+XRAY_INTERNAL_PORT="10443"; XHTTP_REALITY_INTERNAL_PORT="10444"; TLS_EDGE_INTERNAL_PORT="10447"; PLACEHOLDER_TLS_INTERNAL_PORT="7444"
 SG_HTTPS_BACKUP_DIR=""
 SG_HTTPS_COMMITTED=0
 log(){ printf '[SG-Gateway HTTPS] %s\n' "$*"; }
@@ -38,6 +38,7 @@ STATE_FILE="$STATE_DIR/tls-state.json"
 BACKUP_ROOT="$STATE_DIR/backups"
 PUBLIC_PORT="${PUBLIC_PORT:-$CONFIGURED_PUBLIC_PORT}"
 REALITY_SNI="$(get_env "$RUNTIME_ENV" SG_GATEWAY_REALITY_SNI www.bing.com)"; REALITY_SNI="${REALITY_SNI,,}"
+XHTTP_REALITY_SNI="$(get_env "$RUNTIME_ENV" SG_GATEWAY_XHTTP_REALITY_SNI www.cloudflare.com)"; XHTTP_REALITY_SNI="${XHTTP_REALITY_SNI,,}"
 [[ "$BACKEND_PORT" =~ ^[0-9]+$ && "$PUBLIC_PORT" =~ ^[0-9]+$ ]] || fail "некорректный порт"
 [[ "$PUBLIC_PORT" == "$CONFIGURED_PUBLIC_PORT" ]] || fail "порт должен совпадать с установленным портом панели $CONFIGURED_PUBLIC_PORT"
 case "$PUBLIC_PORT" in 22|80|443|585|7443|7444|8090|18080) fail "порт $PUBLIC_PORT зарезервирован";; esac
@@ -109,11 +110,13 @@ write_stream_config(){ local default_backend="$1"; cat > "$STREAM_CONF" <<EOF
 map \$ssl_preread_server_name \$sg_gateway_443_backend {
     hostnames;
     $REALITY_SNI 127.0.0.1:$XRAY_INTERNAL_PORT;
+    $XHTTP_REALITY_SNI 127.0.0.1:$XHTTP_REALITY_INTERNAL_PORT;
+    $HOST 127.0.0.1:$TLS_EDGE_INTERNAL_PORT;
     default $default_backend;
 }
 server {
-    listen 443;
-    listen [::]:443;
+    listen 443 reuseport;
+    listen [::]:443 reuseport;
     proxy_pass \$sg_gateway_443_backend;
     ssl_preread on;
     proxy_connect_timeout 10s;

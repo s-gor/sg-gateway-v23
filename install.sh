@@ -43,15 +43,18 @@ DEFAULT_AWG_PORT="585"
 DEFAULT_AWG3_PORT="586"
 DEFAULT_REALITY_TARGET="www.bing.com:443"
 DEFAULT_REALITY_SNI="www.bing.com"
+SG_GATEWAY_XHTTP_REALITY_SNI="${SG_GATEWAY_XHTTP_REALITY_SNI:-www.cloudflare.com}"
+SG_GATEWAY_TLS_EDGE_SNI="${SG_GATEWAY_TLS_EDGE_SNI:-}"
+NAIVEPROXY_INTERNAL_PORT="10447"
 MIHOMO_PORT="2099"
-XHTTP_REALITY_PORT="8444"
-XHTTP_TLS_PORT="8445"
+XHTTP_REALITY_PORT="10444"
+XHTTP_TLS_PORT="10445"
 HYSTERIA2_PORT="8446"
 ANYTLS_PORT="9443"
 TUIC_PORT="10443"
 HOSTD_PORT="8090"
 BACKEND_PORT="18080"
-REALITY_INTERNAL_PORT="7443"
+REALITY_INTERNAL_PORT="10443"
 PLACEHOLDER_TLS_INTERNAL_PORT="7444"
 
 GREEN=$'\033[1;32m'
@@ -2380,12 +2383,14 @@ PYNGINXMAIN
 map \$ssl_preread_server_name \$sg_gateway_443_backend {
     hostnames;
     ${REALITY_SNI} 127.0.0.1:${REALITY_INTERNAL_PORT};
+    ${SG_GATEWAY_XHTTP_REALITY_SNI} 127.0.0.1:${XHTTP_REALITY_PORT};
+    ${SG_GATEWAY_TLS_EDGE_SNI} 127.0.0.1:${NAIVEPROXY_INTERNAL_PORT};
     default 127.0.0.1:${REALITY_INTERNAL_PORT};
 }
 
 server {
-    listen 443;
-    listen [::]:443;
+    listen 443 reuseport;
+    listen [::]:443 reuseport;
     proxy_pass \$sg_gateway_443_backend;
     ssl_preread on;
     proxy_connect_timeout 10s;
@@ -2498,7 +2503,6 @@ stage_firewall_and_network() {
     local rule
     for rule in \
       "${PANEL_PORT}/tcp" "80/tcp" "${XRAY_PORT}/tcp" \
-      "${XHTTP_REALITY_PORT}/tcp" "${XHTTP_TLS_PORT}/tcp" \
       "${HYSTERIA2_PORT}/udp" \
       "${MIHOMO_PORT}/tcp" "${ANYTLS_PORT}/tcp" "${TUIC_PORT}/udp"; do
       ufw allow "$rule"
@@ -3034,7 +3038,7 @@ print_sg_admin_status() {
 NAIVEPROXY_VERSION="v2.11.2-naive"
 NAIVEPROXY_ARCHIVE_SHA256="19eccb7321dd877a5fb4a3dba6ef1b745185188b616c96cc6201f1a1fc0380a8"
 NAIVEPROXY_URL="https://github.com/klzgrad/forwardproxy/releases/download/${NAIVEPROXY_VERSION}/caddy-forwardproxy-naive.tar.xz"
-NAIVEPROXY_PORT="8447"
+NAIVEPROXY_PORT="10447"
 NAIVEPROXY_PREFIX="/opt/sg-gateway/naiveproxy"
 NAIVEPROXY_CONFIG="/etc/sg-gateway/naiveproxy"
 NAIVEPROXY_STATE="/var/lib/sg-gateway/naiveproxy"
@@ -3385,7 +3389,7 @@ with connect() as connection:
         "SELECT port FROM connection_settings WHERE engine='naiveproxy'"
     ).fetchone()
 assert row is not None, "NaiveProxy connection settings are missing"
-assert int(row["port"]) == 8447, row["port"]
+assert int(row["port"]) == 10447, row["port"]
 print("NaiveProxy database seed: OK")
 PYNAIVEDB
 }
@@ -3497,7 +3501,7 @@ with connect() as connection:
         "SELECT host, port FROM connection_settings WHERE engine='naiveproxy'"
     ).fetchone()
 assert row is not None, "NaiveProxy DB row missing"
-assert int(row["port"]) == 8447, row["port"]
+assert int(row["port"]) == 10447, row["port"]
 print("NaiveProxy DB contract: OK")
 PYNAIVEVERIFY
 

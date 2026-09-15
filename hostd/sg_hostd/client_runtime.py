@@ -20,6 +20,7 @@ from app.db import connect, init_db
 from app.maintenance.operations import log_operation
 from app.net import format_host_port
 from app.security.tls import overview as tls_overview
+from app.single_edge import XHTTP_REALITY_DEFAULT_SNI, XHTTP_REALITY_DEFAULT_TARGET
 from app.xray.encryption import VlessEncryptionError, normalize_pair
 from app.xray.profiles import REALITY_TCP_FLOW, XRAY_MINIMUM_VERSION, overview as xray_profiles_overview
 from app.xray.salamander import SalamanderError, merge_finalmask
@@ -1002,7 +1003,8 @@ def _render_xray_config(rows) -> str:
         or runtime.get("SG_GATEWAY_REALITY_TARGET")
         or "bing.com:443"
     ).strip()
-    public_listen = "::" if _dual_stack_enabled(runtime) else "0.0.0.0"
+    public_listen = "::"
+    tcp_listen = "127.0.0.1" if _dual_stack_enabled(runtime) else "0.0.0.0"
 
     grouped: dict[str, list[dict[str, Any]]] = {
         "reality_tcp": [],
@@ -1103,7 +1105,7 @@ def _render_xray_config(rows) -> str:
             profile = by_id["xhttp_tls"]
             inbounds.append({
                 "tag": "sg-vless-xhttp-tls",
-                "listen": public_listen,
+                "listen": tcp_listen,
                 "port": profile.port,
                 "protocol": "vless",
                 "settings": {
@@ -1112,8 +1114,7 @@ def _render_xray_config(rows) -> str:
                 },
                 "streamSettings": {
                     "network": "xhttp",
-                    "security": "tls",
-                    "tlsSettings": tls_settings,
+                    "security": "none",
                     "xhttpSettings": {"path": profile.path, "mode": "auto"},
                 },
                 "sniffing": sniffing,

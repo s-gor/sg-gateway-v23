@@ -234,6 +234,7 @@ def install() -> None:
             NaiveProxySettings(domain=domain, port=int(settings.port or DEFAULT_PORT)),
             user,
             f"{exports._label(client, device)} · NaiveProxy",
+            public_port=443,
         )
         return exports.ClientExport(
             filename=f"sg-gateway-{exports._slug(client, device)}-naiveproxy.txt",

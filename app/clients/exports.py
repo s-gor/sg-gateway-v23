@@ -24,6 +24,7 @@ from app.mihomo.service import build_device_yaml
 from app.net import format_host, format_host_port
 
 from app.security.tls import overview as tls_overview
+from app.single_edge import PUBLIC_TCP_PORT
 from app.xray.profiles import REALITY_TCP_FLOW, overview as xray_profiles_overview
 from app.xray.xmux import XmuxError, effective_client_extra
 from app.xray.sg_panel_vless import reality_tcp_link, xhttp_reality_link
@@ -553,11 +554,17 @@ def build_xray_profile_link(
     short_id = str(server_config.get("short_id") or "")
     vless_encryption = str(server_config.get("vless_encryption") or "").strip()
 
+    public_profile_port = (
+        PUBLIC_TCP_PORT
+        if profile_id in {"reality_tcp", "xhttp_reality", "xhttp_tls"}
+        else profile.port
+    )
+
     if profile_id == "reality_tcp":
         body = reality_tcp_link(
             uuid=user_id,
             host=host,
-            port=profile.port,
+            port=public_profile_port,
             title=f"{_label(client, device)} · {profile.title}",
             fingerprint=fingerprint,
             server_name=server_name,
@@ -571,10 +578,10 @@ def build_xray_profile_link(
             body = xhttp_reality_link(
                 uuid=user_id,
                 host=host,
-                port=profile.port,
+                port=public_profile_port,
                 title=f"{_label(client, device)} · {profile.title}",
                 fingerprint=fingerprint,
-                server_name=server_name,
+                server_name=str(server_config.get("xhttp_reality_server_name") or server_name),
                 public_key=public_key,
                 short_id=short_id,
                 path=profile.path,
@@ -609,7 +616,7 @@ def build_xray_profile_link(
                     separators=(",", ":"),
                 )
             query = urlencode(query_values)
-            endpoint = format_host_port(host, profile.port)
+            endpoint = format_host_port(host, public_profile_port)
             body = f"vless://{user_id}@{endpoint}?{query}#{safe_name}"
     elif profile_id == "hysteria2":
         domain = _working_tls_domain() or str(state.get("tls_domain") or "")
