@@ -2,6 +2,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 
+
 def test_shared_tls_hub_uses_internal_nginx_panel_gateway():
     app_runtime=(ROOT/'app/naiveproxy/runtime.py').read_text(encoding='utf-8')
     hostd_runtime=(ROOT/'hostd/sg_hostd/naiveproxy_runtime.py').read_text(encoding='utf-8')
@@ -20,3 +21,13 @@ def test_shared_tls_hub_uses_internal_nginx_panel_gateway():
     assert 'SG_GATEWAY_02111_RESTORE_RESTART_PAGE_FIX' in access
     assert 'client_max_body_size 0;' in access
     assert '$cookie_security_directive' in access
+
+
+def test_internal_placeholder_tls_listener_has_certificate_directives():
+    access=(ROOT/'deploy/configure-panel-access.sh').read_text(encoding='utf-8')
+    marker='listen 127.0.0.1:$PLACEHOLDER_TLS_INTERNAL_PORT ssl;'
+    start=access.index(marker)
+    end=access.index('\nserver {', start + len(marker))
+    block=access[start:end]
+    assert 'ssl_certificate $cert;' in block
+    assert 'ssl_certificate_key $key;' in block
