@@ -1,16 +1,19 @@
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 
 import pytest
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "hostd"))
+
 from sg_hostd import awg3_runtime, awg31_runtime, client_runtime
 
 from app import db
 from app.clients import awg31_lifecycle as lifecycle
 from app.clients import repository
-
-ROOT = Path(__file__).resolve().parents[1]
 
 
 @pytest.fixture()
@@ -67,7 +70,7 @@ def test_historical_and_current_profiles_keep_distinct_runtime_paths() -> None:
 
 def test_awg31_contract_is_fixed_udp_only() -> None:
     assert lifecycle.PROFILE_ID == "awg31"
-    assert lifecycle.ENDPOINT == "awg31.internal:587"
+    assert lifecycle.ENDPOINT == "awg31.internal:443"
     assert lifecycle.TRANSPORT == "udp"
     assert lifecycle.INTERFACE == "awg31"
     assert lifecycle.NETWORK == "10.131.0.0/24"
@@ -94,7 +97,7 @@ def test_client_create_update_and_awg31_delete_are_isolated(isolated_clients) ->
     before = _credentials(device_id)
     assert set(before) == {"amneziawg31", "xray"}
     awg31_before = before["amneziawg31"]
-    assert awg31_before["endpoint"] == "awg31.internal:587"
+    assert awg31_before["endpoint"] == "awg31.internal:443"
     assert awg31_before["transport"] == "udp"
     assert awg31_before["address"].startswith("10.131.0.")
 
@@ -149,9 +152,9 @@ def test_awg31_renders_separate_server_and_peer_configs(
     assert result["peers"] == 1
     server = (config_root / "awg31.conf").read_text()
     peer = (config_root / "peers" / f"device-{device_id}.conf").read_text()
-    assert "ListenPort = 587" in server
+    assert "ListenPort = 443" in server
     assert "Address = 10.131.0.1/24" in server
-    assert "Endpoint = awg31.internal:587" in peer
+    assert "Endpoint = awg31.internal:443" in peer
     assert "DNS = 1.1.1.1" in peer
 
 
