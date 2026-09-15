@@ -1,0 +1,140 @@
+name: Finalize Single Edge 443
+on:
+  push:
+    branches: [feat/2301-single-edge-443]
+permissions:
+  contents: write
+jobs:
+  finalize:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Apply final shared TLS hub architecture
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          def rw(path, fn):
+              p = Path(path)
+              old = p.read_text(encoding='utf-8')
+              new = fn(old)
+              if new == old:
+                  print('unchanged:', path)
+              else:
+                  p.write_text(new, encoding='utf-8', newline='\n')
+                  print('updated:', path)
+
+          def app_naive(s):
+              if 'PANEL_BACKEND_PORT = 18080' not in s:
+                  s = s.replace('XHTTP_TLS_DEFAULT_PATH = "/sg-xhttp-tls"\n', 'XHTTP_TLS_DEFAULT_PATH = "/sg-xhttp-tls"\nPANEL_BACKEND_PORT = 18080\n')
+              s = s.replace(
+                  '    file_server {\n        root {current.site_root}\n    }',
+                  '    reverse_proxy http://127.0.0.1:{PANEL_BACKEND_PORT}',
+              )
+              return s
+          rw('app/naiveproxy/runtime.py', app_naive)
+
+          def hostd_naive(s):
+              s = s.replace('DEFAULT_PORT = 8447', 'DEFAULT_PORT = 10447')
+              if 'XHTTP_TLS_INTERNAL_PORT = 10445' not in s:
+                  s = s.replace('DEFAULT_PORT = 10447\n', 'DEFAULT_PORT = 10447\nXHTTP_TLS_INTERNAL_PORT = 10445\nXHTTP_TLS_DEFAULT_PATH = "/sg-xhttp-tls"\nPANEL_BACKEND_PORT = 18080\n')
+              s = s.replace('    order forward_proxy before file_server\\n" if users else ""', '    order forward_proxy before reverse_proxy\\n" if users else ""')
+              s = s.replace(':{settings[\'port\']}, {settings[\'domain\']}:{settings[\'port\']} {{', '127.0.0.1:{settings[\'port\']} {{')
+              old = '''{proxy}    file_server {{\n        root /var/lib/sg-gateway/naiveproxy/site\n    }}'''
+              new = '''{proxy}    @sg_xhttp_tls path {XHTTP_TLS_DEFAULT_PATH} {XHTTP_TLS_DEFAULT_PATH}/*\n    reverse_proxy @sg_xhttp_tls h2c://127.0.0.1:{XHTTP_TLS_INTERNAL_PORT}\n    reverse_proxy http://127.0.0.1:{PANEL_BACKEND_PORT}'''
+              s = s.replace(old, new)
+              return s
+          rw('hostd/sg_hostd/naiveproxy_runtime.py', hostd_naive)
+
+          def panel(s):
+              start = s.find('server {\n    listen $PUBLIC_PORT ssl;')
+              if start != -1:
+                  end_marker = '\n}\nEOF\nrm -f'
+                  end = s.find(end_marker, start)
+                  if end == -1:
+                      raise SystemExit('cannot locate end of public panel server block')
+                  s = s[:start] + 'EOF\nrm -f' + s[end + len(end_marker):]
+              s = s.replace('"https://$domain:$PUBLIC_PORT/health"', '"https://$domain/health"')
+              s = s.replace('Панель HTTPS $PUBLIC_PORT: OK', 'Панель HTTPS 443: OK')
+              s = s.replace('панель не отвечает на $PUBLIC_PORT после перезагрузки Nginx', 'панель не отвечает на 443 после перезагрузки Nginx')
+              s = s.replace('log "HTTPS настроен: https://$HOST:$PUBLIC_PORT"', 'log "HTTPS настроен: https://$HOST/"')
+              return s
+          rw('deploy/configure-panel-access.sh', panel)
+
+          def installer(s):
+              if 'SG_GATEWAY_TLS_EDGE_ROUTE=""' not in s:
+                  anchor = 'NAIVEPROXY_INTERNAL_PORT="10447"\n'
+                  repl = anchor + 'SG_GATEWAY_TLS_EDGE_ROUTE=""\n[[ -n "$SG_GATEWAY_TLS_EDGE_SNI" ]] && SG_GATEWAY_TLS_EDGE_ROUTE="    ${SG_GATEWAY_TLS_EDGE_SNI} 127.0.0.1:${NAIVEPROXY_INTERNAL_PORT};"\n'
+                  s = s.replace(anchor, repl, 1)
+              s = s.replace('    ${SG_GATEWAY_TLS_EDGE_SNI} 127.0.0.1:${NAIVEPROXY_INTERNAL_PORT};', '${SG_GATEWAY_TLS_EDGE_ROUTE}')
+              s = s.replace('      "${PANEL_PORT}/tcp" "80/tcp" "${XRAY_PORT}/tcp" \\', '      "80/tcp" "${XRAY_PORT}/tcp" \\')
+              s = s.replace("printf '[SG-Gateway] Панель:       https://%s:%s\\n' \"$final_https_domain\" \"$PANEL_PORT\"", "printf '[SG-Gateway] Панель:       https://%s/\\n' \"$final_https_domain\"")
+              return s
+          rw('install.sh', installer)
+
+          def naive_tests(s):
+              s = s.replace('def settings(port=8447):', 'def settings(port=10447):')
+              s = s.replace('def test_default_port_is_8447_and_never_claims_443():', 'def test_default_port_is_10447_and_never_claims_443():')
+              s = s.replace('assert runtime.DEFAULT_PORT == 8447', 'assert runtime.DEFAULT_PORT == 10447')
+              s = s.replace('assert ":8447, vpn.example.com:8447" in config', 'assert "127.0.0.1:10447" in config')
+              s = s.replace('def test_client_uri_contains_explicit_8447_and_safe_credentials():', 'def test_client_uri_uses_public_443_and_safe_credentials():')
+              s = s.replace('"naive+https://alice.one:safe-password-with-very-long-value@vpn.example.com:8447"', '"naive+https://alice.one:safe-password-with-very-long-value@vpn.example.com:443"')
+              s = s.replace('== 8447', '== 10447')
+              s = s.replace('example.com:8447', 'example.com:10447')
+              s = s.replace('assert ":8447" in config', 'assert "127.0.0.1:10447" in config')
+              return s
+          rw('tests/test_naiveproxy_02207.py', naive_tests)
+
+          def cumulative(s):
+              s = s.replace('assert \'listen 443;\' in installer', 'assert \'listen 443 reuseport;\' in installer')
+              s = s.replace('assert \'listen $PUBLIC_PORT ssl;\' in script', 'assert \'listen $PUBLIC_PORT ssl;\' not in script')
+              if "assert '$HOST 127.0.0.1:$TLS_EDGE_INTERNAL_PORT;' in script" not in s:
+                  s = s.replace("assert 'listen $PUBLIC_PORT ssl;' not in script\n", "assert 'listen $PUBLIC_PORT ssl;' not in script\n    assert '$HOST 127.0.0.1:$TLS_EDGE_INTERNAL_PORT;' in script\n")
+              return s
+          rw('tests/test_sg_gateway_02110_cumulative.py', cumulative)
+
+          def ports(s):
+              s = s.replace('assert prepared.config["hysteria2_port"] == 8446', 'assert prepared.config["hysteria2_port"] == 18446')
+              return s
+          rw('tests/test_sg_gateway_v22_server_managed_ports.py', ports)
+
+          def single_edge_tests(s):
+              extra = '''\n\ndef test_shared_tls_hub_serves_naive_xhttp_tls_and_panel_on_one_domain():\n    app_runtime = (ROOT / "app/naiveproxy/runtime.py").read_text(encoding="utf-8")\n    hostd_runtime = (ROOT / "hostd/sg_hostd/naiveproxy_runtime.py").read_text(encoding="utf-8")\n    access = (ROOT / "deploy/configure-panel-access.sh").read_text(encoding="utf-8")\n    assert "127.0.0.1:{current.port}" in app_runtime\n    assert "reverse_proxy @sg_xhttp_tls h2c://127.0.0.1:{XHTTP_TLS_INTERNAL_PORT}" in app_runtime\n    assert "reverse_proxy http://127.0.0.1:{PANEL_BACKEND_PORT}" in app_runtime\n    assert "127.0.0.1:{settings['port']}" in hostd_runtime\n    assert "reverse_proxy @sg_xhttp_tls h2c://127.0.0.1:{XHTTP_TLS_INTERNAL_PORT}" in hostd_runtime\n    assert "reverse_proxy http://127.0.0.1:{PANEL_BACKEND_PORT}" in hostd_runtime\n    assert "$HOST 127.0.0.1:$TLS_EDGE_INTERNAL_PORT;" in access\n    assert "listen $PUBLIC_PORT ssl;" not in access\n'''
+              if 'test_shared_tls_hub_serves_naive_xhttp_tls_and_panel_on_one_domain' not in s:
+                  s += extra
+              return s
+          rw('tests/test_sg_gateway_v23_single_edge_443.py', single_edge_tests)
+          PY
+      - name: Regenerate source integrity
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import hashlib, subprocess
+          paths = sorted(p for p in subprocess.check_output(['git','ls-files'], text=True).splitlines() if p != 'SOURCE-SHA256SUMS' and not p.startswith('.github/workflows/'))
+          Path('SOURCE-SHA256SUMS').write_text(''.join(f'{hashlib.sha256(Path(p).read_bytes()).hexdigest()}  {p}\n' for p in paths), encoding='utf-8')
+          PY
+      - name: Install test dependencies
+        run: |
+          python -m pip install -r requirements-dev.txt
+          python -m playwright install chromium
+      - name: Verify focused Single Edge contracts
+        run: |
+          python -m pytest -q tests/test_sg_gateway_v23_single_edge_443.py tests/test_naiveproxy_02207.py tests/test_sg_gateway_02110_cumulative.py tests/test_sg_gateway_v22_server_managed_ports.py
+          python -m pytest -q tests/test_preview31_xray_updates.py tests/test_naiveproxy_xray_state_forwarding_2301.py
+          bash -n install.sh
+          bash -n deploy/configure-panel-access.sh
+      - name: Verify full suite
+        run: python -m pytest -q tests
+      - name: Commit verified candidate and remove one-off workflow
+        run: |
+          git config user.name 'SG-Gateway CI'
+          git config user.email 'actions@users.noreply.github.com'
+          git rm .github/workflows/single-edge-finalize.yml
+          git add app/naiveproxy/runtime.py hostd/sg_hostd/naiveproxy_runtime.py install.sh deploy/configure-panel-access.sh tests SOURCE-SHA256SUMS
+          git commit -m 'feat: complete Single Edge 443 shared TLS hub'
+          git push origin HEAD:feat/2301-single-edge-443
