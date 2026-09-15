@@ -1,1 +1,84 @@
 name: SG-Gateway 23.01 CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  bootstrap-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-dev.txt
+
+      - name: Install Chromium for browser tests
+        run: python -m playwright install --with-deps chromium
+
+      - name: Check Python syntax
+        run: |
+          python -B -c "from pathlib import Path; files=list(Path('app').rglob('*.py'))+list(Path('engines').rglob('*.py'))+list(Path('hostd').rglob('*.py'))+list(Path('tests').rglob('*.py')); [compile(p.read_text(encoding='utf-8'), str(p), 'exec') for p in files]; print(f'syntax ok: {len(files)} files')"
+
+      - name: Verify 23.01 repository identity
+        run: python -m pytest -q tests/test_2301_repository_identity.py
+
+      - name: Verify source integrity
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import hashlib, re, subprocess
+
+          rows = Path('SOURCE-SHA256SUMS').read_text(encoding='utf-8').splitlines()
+          listed = {}
+          for line_no, raw in enumerate(rows, 1):
+              if not raw.strip():
+                  continue
+              match = re.fullmatch(r'([0-9a-f]{64})  (.+)', raw)
+              if not match:
+                  raise SystemExit(f'invalid checksum line {line_no}: {raw!r}')
+              digest, rel = match.groups()
+              if rel in listed:
+                  raise SystemExit(f'duplicate checksum path: {rel}')
+              path = Path(rel)
+              if not path.is_file():
+                  raise SystemExit(f'missing checksummed file: {rel}')
+              actual = hashlib.sha256(path.read_bytes()).hexdigest()
+              if actual != digest:
+                  raise SystemExit(f'checksum mismatch: {rel}')
+              listed[rel] = digest
+
+          tracked = set(subprocess.check_output(['git', 'ls-files'], text=True).splitlines())
+          expected = {
+              rel for rel in tracked
+              if rel != 'SOURCE-SHA256SUMS' and not rel.startswith('.github/workflows/')
+          }
+          if set(listed) != expected:
+              missing = sorted(expected - set(listed))
+              stale = sorted(set(listed) - expected)
+              raise SystemExit(f'checksum inventory mismatch; missing={missing[:20]} stale={stale[:20]}')
+          print(f'source integrity ok: {len(listed)} files')
+          PY
+
+      - name: Verify Xray recovery upgrade regression
+        run: python -m pytest -q tests/test_preview31_xray_updates.py
+
+      - name: Verify NaiveProxy Xray-state forwarding regression
+        run: python -m pytest -q tests/test_naiveproxy_xray_state_forwarding_2301.py
+
+      - name: Run full 23.01 test suite
+        run: python -m pytest -q tests
