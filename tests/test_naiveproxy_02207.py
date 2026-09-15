@@ -8,7 +8,7 @@ sys.path.insert(0, str(Path(__file__).parents[1]))
 from app.naiveproxy import runtime
 
 
-def settings(port=8447):
+def settings(port=10447):
     return runtime.NaiveProxySettings(
         domain="vpn.example.com",
         port=port,
@@ -17,11 +17,11 @@ def settings(port=8447):
     )
 
 
-def test_default_port_is_8447_and_never_claims_443():
+def test_default_port_is_10447_and_never_claims_443():
     user = runtime.NaiveProxyUser("alice", "a" * 32)
     config = runtime.render_caddyfile(settings(), [user])
-    assert runtime.DEFAULT_PORT == 8447
-    assert ":8447, vpn.example.com:8447" in config
+    assert runtime.DEFAULT_PORT == 10447
+    assert "127.0.0.1:10447" in config
     assert ":443" not in config
     assert "auto_https off" in config
     assert "auto_https disable_redirects" not in config
@@ -52,11 +52,11 @@ def test_port_validation_rejects_sg_gateway_conflict():
         runtime.validate_port(443, {443: "VLESS Reality"})
 
 
-def test_client_uri_contains_explicit_8447_and_safe_credentials():
+def test_client_uri_uses_public_443_and_safe_credentials():
     user = runtime.NaiveProxyUser("alice.one", "safe-password-with-very-long-value")
     uri = runtime.build_client_uri(settings(), user, "Телефон")
     assert uri.startswith(
-        "naive+https://alice.one:safe-password-with-very-long-value@vpn.example.com:8447"
+        "naive+https://alice.one:safe-password-with-very-long-value@vpn.example.com:443"
     )
     assert uri.endswith("#%D0%A2%D0%B5%D0%BB%D0%B5%D1%84%D0%BE%D0%BD")
 
@@ -70,14 +70,14 @@ def test_runtime_state_is_atomic_and_private(tmp_path):
         config_dir=config_dir,
         state_dir=state_dir,
     )
-    assert json.loads((state_dir / "state.json").read_text())["settings"]["port"] == 8447
+    assert json.loads((state_dir / "state.json").read_text())["settings"]["port"] == 10447
     assert (config_dir / "Caddyfile").stat().st_mode & 0o777 == 0o640
     assert (state_dir / "state.json").stat().st_mode & 0o777 == 0o600
     assert state["users"][0]["password"] == "c" * 32
 
 
 def test_redaction_hides_caddy_and_uri_passwords():
-    text = "basic_auth alice secret-password\nnaive+https://alice:uri-secret@example.com:8447"
+    text = "basic_auth alice secret-password\nnaive+https://alice:uri-secret@example.com:10447"
     redacted = runtime.redact(text)
     assert "secret-password" not in redacted
     assert "uri-secret" not in redacted
@@ -113,7 +113,7 @@ def test_runtime_update_preserves_previous_state(tmp_path):
     runtime.write_runtime(settings(9447), [second], config_dir=config_dir, state_dir=state_dir)
     previous = json.loads((state_dir / "state.json.previous").read_text())
     current = json.loads((state_dir / "state.json").read_text())
-    assert previous["settings"]["port"] == 8447
+    assert previous["settings"]["port"] == 10447
     assert previous["users"][0]["client_id"] == "1"
     assert current["settings"]["port"] == 9447
     assert current["users"][0]["client_id"] == "2"
@@ -122,8 +122,8 @@ def test_runtime_update_preserves_previous_state(tmp_path):
 def test_empty_user_set_disables_proxy_but_keeps_tls_decoy():
     config = runtime.render_caddyfile(settings(), [])
     assert "forward_proxy" not in config
-    assert "file_server" in config
-    assert ":8447" in config
+    assert "reverse_proxy http://127.0.0.1:10446" in config
+    assert "127.0.0.1:10447" in config
 
 
 def test_installer_grants_service_read_only_config_access():

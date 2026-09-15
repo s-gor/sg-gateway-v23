@@ -8,7 +8,7 @@ from typing import Protocol
 ENGINE_ID = "amneziawg31"
 SERVICE = "sg-gateway-awg31.service"
 INTERFACE = "awg31"
-ENDPOINT = "awg31.internal:587"
+ENDPOINT = "awg31.internal:443"
 DNS = "1.1.1.1"
 NETWORK = "10.131.0.0/24"
 

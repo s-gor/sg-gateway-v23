@@ -19,7 +19,7 @@ PLACEHOLDER_SOURCE="$APP_ROOT/assets/placeholder/index.html"
 RESTART_SOURCE="$APP_ROOT/assets/placeholder/restarting.html"
 RENEW_HOOK="/etc/letsencrypt/renewal-hooks/deploy/reload-sg-gateway-nginx.sh"
 PANEL_USER="sg-gateway"; PANEL_GROUP="sg-gateway"
-XRAY_INTERNAL_PORT="7443"; PLACEHOLDER_TLS_INTERNAL_PORT="7444"
+XRAY_INTERNAL_PORT="10443"; XHTTP_REALITY_INTERNAL_PORT="10444"; TLS_EDGE_INTERNAL_PORT="10447"; PLACEHOLDER_TLS_INTERNAL_PORT="7444"; PLACEHOLDER_HTTP_INTERNAL_PORT="10446"
 SG_HTTPS_BACKUP_DIR=""
 SG_HTTPS_COMMITTED=0
 log(){ printf '[SG-Gateway HTTPS] %s\n' "$*"; }
@@ -38,6 +38,7 @@ STATE_FILE="$STATE_DIR/tls-state.json"
 BACKUP_ROOT="$STATE_DIR/backups"
 PUBLIC_PORT="${PUBLIC_PORT:-$CONFIGURED_PUBLIC_PORT}"
 REALITY_SNI="$(get_env "$RUNTIME_ENV" SG_GATEWAY_REALITY_SNI www.bing.com)"; REALITY_SNI="${REALITY_SNI,,}"
+XHTTP_REALITY_SNI="$(get_env "$RUNTIME_ENV" SG_GATEWAY_XHTTP_REALITY_SNI www.cloudflare.com)"; XHTTP_REALITY_SNI="${XHTTP_REALITY_SNI,,}"
 [[ "$BACKEND_PORT" =~ ^[0-9]+$ && "$PUBLIC_PORT" =~ ^[0-9]+$ ]] || fail "некорректный порт"
 [[ "$PUBLIC_PORT" == "$CONFIGURED_PUBLIC_PORT" ]] || fail "порт должен совпадать с установленным портом панели $CONFIGURED_PUBLIC_PORT"
 case "$PUBLIC_PORT" in 22|80|443|585|7443|7444|8090|18080) fail "порт $PUBLIC_PORT зарезервирован";; esac
@@ -109,11 +110,13 @@ write_stream_config(){ local default_backend="$1"; cat > "$STREAM_CONF" <<EOF
 map \$ssl_preread_server_name \$sg_gateway_443_backend {
     hostnames;
     $REALITY_SNI 127.0.0.1:$XRAY_INTERNAL_PORT;
+    $XHTTP_REALITY_SNI 127.0.0.1:$XHTTP_REALITY_INTERNAL_PORT;
+    $HOST 127.0.0.1:$TLS_EDGE_INTERNAL_PORT;
     default $default_backend;
 }
 server {
-    listen 443;
-    listen [::]:443;
+    listen 443 reuseport;
+    listen [::]:443 reuseport;
     proxy_pass \$sg_gateway_443_backend;
     ssl_preread on;
     proxy_connect_timeout 10s;
@@ -139,10 +142,16 @@ server {
     server_name $domain;
     ssl_certificate $cert;
     ssl_certificate_key $key;
-    ssl_protocols TLSv1.2 TLSv1.3;
     ssl_session_cache shared:SG_GATEWAY_PLACEHOLDER_TLS:5m;
-    ssl_session_timeout 1d;
-    ssl_session_tickets off;
+    root $PLACEHOLDER_ROOT;
+    index index.html;
+    location = / { try_files /index.html =404; add_header Cache-Control "no-cache" always; add_header X-Content-Type-Options "nosniff" always; add_header X-Frame-Options "SAMEORIGIN" always; add_header Referrer-Policy "strict-origin-when-cross-origin" always; }
+    location = /index.html { try_files /index.html =404; add_header Cache-Control "no-cache" always; add_header X-Content-Type-Options "nosniff" always; add_header X-Frame-Options "SAMEORIGIN" always; add_header Referrer-Policy "strict-origin-when-cross-origin" always; }
+    location / { return 404; }
+}
+server {
+    listen 127.0.0.1:$PLACEHOLDER_HTTP_INTERNAL_PORT;
+    server_name $domain;
     root $PLACEHOLDER_ROOT;
     index index.html;
     location = / { try_files /index.html =404; add_header Cache-Control "no-cache" always; add_header X-Content-Type-Options "nosniff" always; add_header X-Frame-Options "SAMEORIGIN" always; add_header Referrer-Policy "strict-origin-when-cross-origin" always; }
@@ -153,14 +162,9 @@ server {
     listen $PUBLIC_PORT ssl;
     listen [::]:$PUBLIC_PORT ssl;
     server_name $domain;
-    error_page 497 =308 https://$domain:$PUBLIC_PORT\$request_uri;
     ssl_certificate $cert;
     ssl_certificate_key $key;
-    ssl_protocols TLSv1.2 TLSv1.3;
-    ssl_session_cache shared:SG_GATEWAY_TLS:10m;
-    ssl_session_timeout 1d;
-    ssl_session_tickets off;
-    add_header Strict-Transport-Security "max-age=31536000" always;
+    ssl_session_cache shared:SG_GATEWAY_PANEL_TLS:5m;
     add_header X-Content-Type-Options "nosniff" always;
     add_header X-Frame-Options "SAMEORIGIN" always;
     add_header Referrer-Policy "strict-origin-when-cross-origin" always;
@@ -273,17 +277,33 @@ result=apply_all_clients(); print(json.dumps(result,ensure_ascii=False,indent=2,
 if not result.get('ok'): raise SystemExit(1)
 PY
 )"; then log "$output"; else log "ПРЕДУПРЕЖДЕНИЕ: HTTPS включён, но не все клиентские runtime применились"; printf '%s\n' "$output" >&2; fi; xray_full_access; }
+bootstrap_tls_edge(){ local domain="$1" cert="$2" key="$3" output; if ! output="$(cd "$APP_ROOT" && PYTHONPATH="$APP_ROOT:$APP_ROOT/hostd" "$APP_ROOT/.venv/bin/python" - "$domain" "$cert" "$key" <<'PYEDGE'
+import sys
+from app.connections.settings import get_connection_settings, update_connection_settings
+from sg_hostd.naiveproxy_runtime import sync
+domain, cert, key = sys.argv[1:4]
+current = get_connection_settings("naiveproxy")
+config = dict(current.config)
+config.update({"domain": domain, "certificate_path": cert, "private_key_path": key})
+if not update_connection_settings("naiveproxy", domain, 10447, config):
+    raise SystemExit("shared TLS edge settings update failed")
+result = sync()
+if not result.get("ok", True):
+    raise SystemExit("shared TLS edge runtime apply failed")
+print("Shared TLS edge 443 готов")
+PYEDGE
+)"; then fail "не удалось запустить shared TLS edge на 443"; fi; log "$output"; }
 detect_public_ipv4(){ local token="" value=""; token="$(curl -fsS --connect-timeout 1 --max-time 2 -X PUT -H 'X-aws-ec2-metadata-token-ttl-seconds: 60' http://169.254.169.254/latest/api/token 2>/dev/null || true)"; [[ -z "$token" ]] || value="$(curl -fsS --connect-timeout 1 --max-time 2 -H "X-aws-ec2-metadata-token: $token" http://169.254.169.254/latest/meta-data/public-ipv4 2>/dev/null || true)"; [[ "$value" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]] || value="$(curl -4fsS --max-time 15 https://checkip.amazonaws.com 2>/dev/null | tr -d '[:space:]' || true)"; printf '%s' "$value"; }
 configure_https(){ [[ -n "$HOST" ]] || fail "укажите домен"; HOST="${HOST,,}"; [[ "$HOST" =~ ^([A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,63}$ ]] || fail "некорректное доменное имя"; local public_ip resolved cert_file key_file backup; SG_HTTPS_BACKUP_DIR=""; SG_HTTPS_COMMITTED=0; public_ip="$(detect_public_ipv4)"; resolved="$(getent ahostsv4 "$HOST" | awk '{print $1}' | sort -u || true)"; grep -Fxq "$public_ip" <<<"$resolved" || fail "A-запись домена ещё не указывает на этот сервер"; backup="$(create_backup)"; SG_HTTPS_BACKUP_DIR="$backup"; rollback(){ local rc=$?; trap - EXIT ERR INT TERM; if [[ "${SG_HTTPS_COMMITTED:-0}" -eq 0 && -n "$SG_HTTPS_BACKUP_DIR" ]]; then restore_backup "$SG_HTTPS_BACKUP_DIR"; nginx -t >/dev/null 2>&1 && systemctl reload nginx.service >/dev/null 2>&1 || true; fi; exit "$rc"; }; trap rollback EXIT ERR INT TERM; ensure_stream_include; cat > "$ACME_CONF" <<EOF
 server { listen 80; listen [::]:80; server_name $HOST; location ^~ /.well-known/acme-challenge/ { root $ACME_ROOT; default_type text/plain; } location / { return 404; } }
 EOF
-ln -sfn "$ACME_CONF" "$ACME_LINK"; nginx -t; systemctl enable --now nginx.service; systemctl reload nginx.service; cert_file="/etc/letsencrypt/live/$HOST/fullchain.pem"; key_file="/etc/letsencrypt/live/$HOST/privkey.pem"; if [[ -s "$cert_file" && -s "$key_file" ]] && openssl x509 -checkend 604800 -noout -in "$cert_file" >/dev/null 2>&1; then log "Использую существующий сертификат"; else certbot certonly --webroot -w "$ACME_ROOT" --domain "$HOST" --register-unsafely-without-email --agree-tos --non-interactive --keep-until-expiring; fi; [[ -s "$cert_file" && -s "$key_file" ]] || fail "сертификат не создан"; write_stream_config "127.0.0.1:$PLACEHOLDER_TLS_INTERNAL_PORT"; write_https_site "$HOST" "$cert_file" "$key_file"; nginx -t; systemctl reload nginx.service; wait_backend; verify_https_contract "$HOST"; systemctl enable --now certbot.timer >/dev/null 2>&1 || true; cat > "$RENEW_HOOK" <<'EOF'
+ln -sfn "$ACME_CONF" "$ACME_LINK"; nginx -t; systemctl enable --now nginx.service; systemctl reload nginx.service; cert_file="/etc/letsencrypt/live/$HOST/fullchain.pem"; key_file="/etc/letsencrypt/live/$HOST/privkey.pem"; if [[ -s "$cert_file" && -s "$key_file" ]] && openssl x509 -checkend 604800 -noout -in "$cert_file" >/dev/null 2>&1; then log "Использую существующий сертификат"; else certbot certonly --webroot -w "$ACME_ROOT" --domain "$HOST" --register-unsafely-without-email --agree-tos --non-interactive --keep-until-expiring; fi; [[ -s "$cert_file" && -s "$key_file" ]] || fail "сертификат не создан"; write_stream_config "127.0.0.1:$PLACEHOLDER_TLS_INTERNAL_PORT"; write_https_site "$HOST" "$cert_file" "$key_file"; bootstrap_tls_edge "$HOST" "$cert_file" "$key_file"; nginx -t; systemctl reload nginx.service; wait_backend; verify_https_contract "$HOST"; systemctl enable --now certbot.timer >/dev/null 2>&1 || true; cat > "$RENEW_HOOK" <<'EOF'
 #!/usr/bin/env bash
 set -Eeuo pipefail
 exec /bin/bash /opt/sg-gateway/deploy/configure-panel-access.sh --mode refresh
 EOF
-chmod 0755 "$RENEW_HOOK"; write_state "$HOST" issue "HTTPS, fallback 443 и панель проверены" "$(basename "$backup")"; apply_client_runtime; SG_HTTPS_COMMITTED=1; trap - EXIT ERR INT TERM; log "HTTPS настроен: https://$HOST:$PUBLIC_PORT"; log "Заглушка: http://$HOST/ и https://$HOST/"; }
-refresh_https(){ local domain cert key; domain="$(read_state_value domain)"; [[ -n "$domain" ]] || fail "HTTPS ещё не настроен"; cert="/etc/letsencrypt/live/$domain/fullchain.pem"; key="/etc/letsencrypt/live/$domain/privkey.pem"; [[ -s "$cert" && -s "$key" ]] || fail "файлы сертификата не найдены"; ensure_stream_include; write_stream_config "127.0.0.1:$PLACEHOLDER_TLS_INTERNAL_PORT"; write_https_site "$domain" "$cert" "$key"; nginx -t; systemctl reload nginx.service; wait_backend; verify_https_contract "$domain"; write_state "$domain" refresh "Сертификат, fallback 443 и Nginx проверены" "$(read_state_value backup)"; apply_client_runtime; log "HTTPS и fallback 443 обновлены"; }
+chmod 0755 "$RENEW_HOOK"; write_state "$HOST" issue "HTTPS, fallback 443 и панель проверены" "$(basename "$backup")"; apply_client_runtime; SG_HTTPS_COMMITTED=1; trap - EXIT ERR INT TERM; log "Панель: https://$HOST:$PUBLIC_PORT/"; log "Заглушка: http://$HOST/ и https://$HOST/"; }
+refresh_https(){ local domain cert key; domain="$(read_state_value domain)"; [[ -n "$domain" ]] || fail "HTTPS ещё не настроен"; cert="/etc/letsencrypt/live/$domain/fullchain.pem"; key="/etc/letsencrypt/live/$domain/privkey.pem"; [[ -s "$cert" && -s "$key" ]] || fail "файлы сертификата не найдены"; ensure_stream_include; write_stream_config "127.0.0.1:$PLACEHOLDER_TLS_INTERNAL_PORT"; write_https_site "$domain" "$cert" "$key"; bootstrap_tls_edge "$domain" "$cert" "$key"; nginx -t; systemctl reload nginx.service; wait_backend; verify_https_contract "$domain"; write_state "$domain" refresh "Сертификат, fallback 443 и Nginx проверены" "$(read_state_value backup)"; apply_client_runtime; log "Панель HTTPS и fallback 443 обновлены"; }
 renew_https(){ local domain="$(read_state_value domain)"; [[ -n "$domain" ]] || fail "HTTPS ещё не настроен"; certbot renew --cert-name "$domain" --non-interactive; refresh_https; apply_client_runtime; }
 rollback_https(){ local latest current; latest="$(find "$BACKUP_ROOT" -mindepth 1 -maxdepth 1 -type d -name '*-panel-access' -printf '%f\n' | sort | tail -n 1 || true)"; [[ -n "$latest" ]] || fail "нет резервной конфигурации HTTPS"; current="$(create_backup)"; restore_backup "$BACKUP_ROOT/$latest"; if ! nginx -t || ! systemctl reload nginx.service; then restore_backup "$current"; nginx -t >/dev/null 2>&1 && systemctl reload nginx.service >/dev/null 2>&1 || true; fail "резервная конфигурация не принята"; fi; log "Восстановлена конфигурация $latest"; }
 case "$MODE" in https) configure_https;; renew) renew_https;; rollback) rollback_https;; refresh) refresh_https;; esac

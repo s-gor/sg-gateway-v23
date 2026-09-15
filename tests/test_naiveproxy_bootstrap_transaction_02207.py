@@ -34,7 +34,7 @@ class _Result:
 def _previous():
     return SimpleNamespace(
         host="",
-        port=8447,
+        port=10447,
         config={
             "domain": "",
             "certificate_path": "",
@@ -83,7 +83,7 @@ def test_first_assignment_prepares_https_settings_without_running_hostd(monkeypa
     assert writes == [
         (
             "vpn.example.com",
-            8447,
+            10447,
             {
                 "domain": "vpn.example.com",
                 "certificate_path": "/etc/letsencrypt/live/vpn.example.com/fullchain.pem",

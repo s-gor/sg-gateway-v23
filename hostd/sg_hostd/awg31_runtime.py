@@ -186,7 +186,7 @@ def render() -> dict[str, Any]:
         [
             "[Interface]",
             f"PrivateKey = {private_key}",
-            "ListenPort = 587",
+            "ListenPort = 443",
             "Address = 10.131.0.1/24",
             *config_lines(settings),
             *peer_blocks,

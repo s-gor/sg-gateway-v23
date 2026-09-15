@@ -57,8 +57,8 @@ def test_xray_listener_ports_ignore_forged_form_values(monkeypatch) -> None:
 
     assert prepared.port == 10443
     assert prepared.config["reality_tcp_port"] == 10443
-    assert prepared.config["xhttp_reality_port"] == 18444
-    assert prepared.config["xhttp_tls_port"] == 18445
+    assert prepared.config["xhttp_reality_port"] == 10444
+    assert prepared.config["xhttp_tls_port"] == 10445
     assert prepared.config["hysteria2_port"] == 18446
 
 

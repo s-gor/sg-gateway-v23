@@ -11,7 +11,11 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from urllib.parse import quote
 
-DEFAULT_PORT = 8447
+DEFAULT_PORT = 10447
+PUBLIC_TCP_PORT = 443
+XHTTP_TLS_INTERNAL_PORT = 10445
+XHTTP_TLS_DEFAULT_PATH = "/sg-xhttp-tls"
+PLACEHOLDER_HTTP_INTERNAL_PORT = 10446
 DEFAULT_SERVICE = "sg-gateway-naiveproxy.service"
 DEFAULT_STATE_DIR = Path("/var/lib/sg-gateway/naiveproxy")
 DEFAULT_CONFIG_DIR = Path("/etc/sg-gateway/naiveproxy")
@@ -124,7 +128,7 @@ def render_caddyfile(settings: NaiveProxySettings, users: list[NaiveProxyUser]) 
     )
     # Explicit high-port listener and explicit SG-Gateway certificate avoid any
     # attempt by this Caddy instance to claim ports 80/443 or run ACME itself.
-    order_line = "    order forward_proxy before file_server\n" if active else ""
+    order_line = "    order forward_proxy before reverse_proxy\n" if active else ""
     proxy_block = (
         "    forward_proxy {\n"
         + auth
@@ -132,6 +136,7 @@ def render_caddyfile(settings: NaiveProxySettings, users: list[NaiveProxyUser]) 
         if active
         else ""
     )
+    xhttp_path = XHTTP_TLS_DEFAULT_PATH
     return f"""{{
     admin off
     auto_https off
@@ -140,17 +145,23 @@ def render_caddyfile(settings: NaiveProxySettings, users: list[NaiveProxyUser]) 
     }}
 }}
 
-:{current.port}, {current.domain}:{current.port} {{
+127.0.0.1:{current.port} {{
     tls {current.certificate_path} {current.private_key_path}
     encode gzip zstd
-{proxy_block}    file_server {{
-        root {current.site_root}
-    }}
+{proxy_block}    @sg_xhttp_tls path {xhttp_path} {xhttp_path}/*
+    reverse_proxy @sg_xhttp_tls h2c://127.0.0.1:{XHTTP_TLS_INTERNAL_PORT}
+    reverse_proxy http://127.0.0.1:{PLACEHOLDER_HTTP_INTERNAL_PORT}
 }}
 """
 
 
-def build_client_uri(settings: NaiveProxySettings, user: NaiveProxyUser, label: str = "") -> str:
+def build_client_uri(
+    settings: NaiveProxySettings,
+    user: NaiveProxyUser,
+    label: str = "",
+    *,
+    public_port: int = PUBLIC_TCP_PORT,
+) -> str:
     current = settings.normalized()
     account = _validate_user(user)
     if not account.enabled:
@@ -159,7 +170,7 @@ def build_client_uri(settings: NaiveProxySettings, user: NaiveProxyUser, label: 
     suffix = f"#{fragment}" if fragment else ""
     return (
         f"naive+https://{quote(account.username, safe='')}:{quote(account.password, safe='')}"
-        f"@{current.domain}:{current.port}{suffix}"
+        f"@{current.domain}:{validate_port(public_port)}{suffix}"
     )
 
 
