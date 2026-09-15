@@ -238,7 +238,7 @@ def _service_active() -> bool:
         value = result.returncode == 0
     except (OSError, subprocess.SubprocessError):
         value = False
-    _XRAY_SERVICE_PROBE_CACHE["updated_at"] = now
+    _XRAY_VERSION_PROBE_CACHE["updated_at"] = now
     _XRAY_SERVICE_PROBE_CACHE["value"] = value
     return value
 
