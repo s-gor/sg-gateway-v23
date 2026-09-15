@@ -3,13 +3,14 @@ name: Apply Single Edge TLS/runtime fix
 on:
   push:
     branches: [feat/2301-single-edge-443]
+    paths:
+      - .github/workflows/single-edge-fix.yml
 
 permissions:
   contents: write
 
 jobs:
   fix:
-    if: github.event.head_commit.message == 'ci: apply Single Edge TLS/runtime fix'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
