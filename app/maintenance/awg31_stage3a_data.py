@@ -170,7 +170,7 @@ class DataMixin:
             connection.execute(
                 """
                 INSERT INTO connection_settings(engine, enabled, host, port, config_json)
-                VALUES (?, 1, 'awg31.internal', 587, ?)
+                VALUES (?, 1, 'awg31.internal', 443, ?)
                 """,
                 (ENGINE_ID, serialized),
             )
@@ -178,7 +178,7 @@ class DataMixin:
         connection.execute(
             """
             UPDATE connection_settings
-            SET enabled = 1, host = 'awg31.internal', port = 587, config_json = ?,
+            SET enabled = 1, host = 'awg31.internal', port = 443, config_json = ?,
                 updated_at = CURRENT_TIMESTAMP
             WHERE engine = ?
             """,
@@ -350,7 +350,7 @@ class DataMixin:
             [
                 "[Interface]",
                 f"PrivateKey = {server_private}",
-                "ListenPort = 587",
+                "ListenPort = 443",
                 "Address = 10.131.0.1/24",
                 *self._parameter_lines(settings, header_protection_key),
                 *peer_blocks,
