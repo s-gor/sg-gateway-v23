@@ -24,7 +24,7 @@ from app.mihomo.service import build_device_yaml
 from app.net import format_host, format_host_port
 
 from app.security.tls import overview as tls_overview
-from app.single_edge import PUBLIC_TCP_PORT
+from app.single_edge import PUBLIC_TCP_PORT, XHTTP_REALITY_DEFAULT_SNI
 from app.xray.profiles import REALITY_TCP_FLOW, overview as xray_profiles_overview
 from app.xray.xmux import XmuxError, effective_client_extra
 from app.xray.sg_panel_vless import reality_tcp_link, xhttp_reality_link
@@ -581,7 +581,7 @@ def build_xray_profile_link(
                 port=public_profile_port,
                 title=f"{_label(client, device)} · {profile.title}",
                 fingerprint=fingerprint,
-                server_name=str(server_config.get("xhttp_reality_server_name") or server_name),
+                server_name=XHTTP_REALITY_DEFAULT_SNI,
                 public_key=public_key,
                 short_id=short_id,
                 path=profile.path,

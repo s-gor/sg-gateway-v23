@@ -191,7 +191,7 @@ def test_clean_install_creates_isolated_awg31_runtime_paths_and_service(provisio
     assert "sg-gateway-awg31-userspace.sh" in unit
     assert "IFACE=awg31" in helper
     assert "10.131.0.1/24" in helper
-    assert "ListenPort = 587" in server
+    assert "ListenPort = 443" in server
     assert "tcp" not in (unit + helper + server).lower()
     assert result.created_credentials == 1
     assert result.peer_configs == 2

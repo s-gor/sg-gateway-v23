@@ -2504,7 +2504,7 @@ stage_firewall_and_network() {
   if grep -q '^Status: active' <<<"$ufw_state"; then
     local rule
     for rule in \
-      "80/tcp" "${XRAY_PORT}/tcp" \
+      "80/tcp" "${XRAY_PORT}/tcp" "${XRAY_PORT}/udp" \
       "${HYSTERIA2_PORT}/udp" \
       "${MIHOMO_PORT}/tcp" "${ANYTLS_PORT}/tcp" "${TUIC_PORT}/udp"; do
       ufw allow "$rule"
