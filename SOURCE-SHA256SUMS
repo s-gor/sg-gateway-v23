@@ -388,7 +388,7 @@ e5aec48145bc39046ad671df2193662dc562db8d6b79140ba4dbd9a1a77ec0a7  docs/screensho
 5fd0992c4ad314b16423aaa1ca83108173c429e7f9d8bb6d50414d1a9a17be35  docs/superpowers/plans/2026-09-12-sg-gateway-2301-bootstrap.md
 fbda226d1e91fc4d655a656f507371e7a85ac53d0b28cf9b1dbcd69c08e09f38  docs/superpowers/plans/2026-09-15-single-edge-443.md
 496b3c3f436f85854a66786c62b67105c18b6e26ff868d7e8cddbd0596b30f16  docs/superpowers/specs/2026-09-12-sg-gateway-2301-bootstrap-design.md
-b60da5efb7fbf315e2eeafa822402e28c679182bbb2ea9ae1643381e18818535  docs/superpowers/specs/2026-09-15-single-edge-443-design.md
+13a13538f89e52a9bb2e60065bc2740a482a39bfdc0c7a592565bcfcb1a0e0ec  docs/superpowers/specs/2026-09-15-single-edge-443-design.md
 0bf35a21030038953b76ec93095fab345de0144c814d590420c85c75691f3f61  engines/__init__.py
 3a74b0e4610055ed1fcd5ec0163e752490650f4a09efdd83fb68faac71a1e2c1  engines/amneziawg/__init__.py
 5817e12f1c0209061eb437b5b9fdd7e19553741939734e472743639c48865958  engines/amneziawg/adapter.py
