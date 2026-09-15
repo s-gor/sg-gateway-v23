@@ -1,0 +1,155 @@
+name: Finalize Single Edge 443 v3
+on:
+  push:
+    branches: [feat/2301-single-edge-443]
+permissions:
+  contents: write
+jobs:
+  finalize:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Apply Single Edge shared TLS hub with internal panel gateway
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          def rw(path, fn):
+              p=Path(path); old=p.read_text(encoding='utf-8'); new=fn(old)
+              if new != old:
+                  p.write_text(new,encoding='utf-8',newline='\n'); print('updated',path)
+              else:
+                  print('unchanged',path)
+
+          def app_naive(s):
+              if 'PANEL_GATEWAY_PORT = 10446' not in s:
+                  s=s.replace('XHTTP_TLS_DEFAULT_PATH = "/sg-xhttp-tls"\n','XHTTP_TLS_DEFAULT_PATH = "/sg-xhttp-tls"\nPANEL_GATEWAY_PORT = 10446\n')
+              s=s.replace('    file_server {{\n        root {current.site_root}\n    }}','    reverse_proxy http://127.0.0.1:{PANEL_GATEWAY_PORT}')
+              return s
+          rw('app/naiveproxy/runtime.py', app_naive)
+
+          def hostd_naive(s):
+              s=s.replace('DEFAULT_PORT = 8447','DEFAULT_PORT = 10447')
+              if 'XHTTP_TLS_INTERNAL_PORT = 10445' not in s:
+                  s=s.replace('DEFAULT_PORT = 10447\n','DEFAULT_PORT = 10447\nXHTTP_TLS_INTERNAL_PORT = 10445\nXHTTP_TLS_DEFAULT_PATH = "/sg-xhttp-tls"\nPANEL_GATEWAY_PORT = 10446\n')
+              elif 'PANEL_GATEWAY_PORT = 10446' not in s:
+                  s=s.replace('XHTTP_TLS_DEFAULT_PATH = "/sg-xhttp-tls"\n','XHTTP_TLS_DEFAULT_PATH = "/sg-xhttp-tls"\nPANEL_GATEWAY_PORT = 10446\n')
+              s=s.replace('    order forward_proxy before file_server\\n" if users else ""','    order forward_proxy before reverse_proxy\\n" if users else ""')
+              s=s.replace(':{settings[\'port\']}, {settings[\'domain\']}:{settings[\'port\']} {{','127.0.0.1:{settings[\'port\']} {{')
+              s=s.replace('{proxy}    file_server {{\n        root /var/lib/sg-gateway/naiveproxy/site\n    }}','{proxy}    @sg_xhttp_tls path {XHTTP_TLS_DEFAULT_PATH} {XHTTP_TLS_DEFAULT_PATH}/*\n    reverse_proxy @sg_xhttp_tls h2c://127.0.0.1:{XHTTP_TLS_INTERNAL_PORT}\n    reverse_proxy http://127.0.0.1:{PANEL_GATEWAY_PORT}')
+              return s
+          rw('hostd/sg_hostd/naiveproxy_runtime.py', hostd_naive)
+
+          def panel(s):
+              constants='XRAY_INTERNAL_PORT="10443"; XHTTP_REALITY_INTERNAL_PORT="10444"; TLS_EDGE_INTERNAL_PORT="10447"; PLACEHOLDER_TLS_INTERNAL_PORT="7444"'
+              if 'PANEL_HTTP_INTERNAL_PORT="10446"' not in s:
+                  s=s.replace(constants, constants+'; PANEL_HTTP_INTERNAL_PORT="10446"')
+              s=s.replace('    listen $PUBLIC_PORT ssl;\n    listen [::]:$PUBLIC_PORT ssl;','    listen 127.0.0.1:$PANEL_HTTP_INTERNAL_PORT;')
+              for line in (
+                  '    error_page 497 =308 https://$domain:$PUBLIC_PORT\\$request_uri;\n',
+                  '    ssl_certificate $cert;\n',
+                  '    ssl_certificate_key $key;\n',
+                  '    ssl_protocols TLSv1.2 TLSv1.3;\n',
+                  '    ssl_session_cache shared:SG_GATEWAY_TLS:10m;\n',
+                  '    ssl_session_timeout 1d;\n',
+                  '    ssl_session_tickets off;\n',
+                  '    add_header Strict-Transport-Security "max-age=31536000" always;\n',
+              ):
+                  s=s.replace(line,'')
+              s=s.replace('"https://$domain:$PUBLIC_PORT/health"','"https://$domain/health"')
+              s=s.replace('Панель HTTPS $PUBLIC_PORT: OK','Панель HTTPS 443: OK')
+              s=s.replace('панель не отвечает на $PUBLIC_PORT после перезагрузки Nginx','панель не отвечает на 443 после перезагрузки Nginx')
+              s=s.replace('log "HTTPS настроен: https://$HOST:$PUBLIC_PORT"','log "HTTPS настроен: https://$HOST/"')
+              return s
+          rw('deploy/configure-panel-access.sh', panel)
+
+          def installer(s):
+              if 'SG_GATEWAY_TLS_EDGE_ROUTE=""' not in s:
+                  a='NAIVEPROXY_INTERNAL_PORT="10447"\n'
+                  s=s.replace(a,a+'SG_GATEWAY_TLS_EDGE_ROUTE=""\n[[ -n "$SG_GATEWAY_TLS_EDGE_SNI" ]] && SG_GATEWAY_TLS_EDGE_ROUTE="    ${SG_GATEWAY_TLS_EDGE_SNI} 127.0.0.1:${NAIVEPROXY_INTERNAL_PORT};"\n',1)
+              s=s.replace('    ${SG_GATEWAY_TLS_EDGE_SNI} 127.0.0.1:${NAIVEPROXY_INTERNAL_PORT};','${SG_GATEWAY_TLS_EDGE_ROUTE}')
+              s=s.replace('      "${PANEL_PORT}/tcp" "80/tcp" "${XRAY_PORT}/tcp" \\','      "80/tcp" "${XRAY_PORT}/tcp" \\')
+              s=s.replace("printf '[SG-Gateway] Панель:       https://%s:%s\\n' \"$final_https_domain\" \"$PANEL_PORT\"", "printf '[SG-Gateway] Панель:       https://%s/\\n' \"$final_https_domain\"")
+              return s
+          rw('install.sh', installer)
+
+          replacements = {
+            'tests/test_naiveproxy_02207.py': [
+              ('def settings(port=8447):','def settings(port=10447):'),
+              ('def test_default_port_is_8447_and_never_claims_443():','def test_default_port_is_10447_and_never_claims_443():'),
+              ('assert runtime.DEFAULT_PORT == 8447','assert runtime.DEFAULT_PORT == 10447'),
+              ('assert ":8447, vpn.example.com:8447" in config','assert "127.0.0.1:10447" in config'),
+              ('def test_client_uri_contains_explicit_8447_and_safe_credentials():','def test_client_uri_uses_public_443_and_safe_credentials():'),
+              ('@vpn.example.com:8447','@vpn.example.com:443'),
+              ('["port"] == 8447','["port"] == 10447'),
+              ('example.com:8447','example.com:10447'),
+              ('assert ":8447" in config','assert "127.0.0.1:10447" in config'),
+              ('assert "file_server" in config','assert "reverse_proxy http://127.0.0.1:10446" in config'),
+            ],
+            'tests/test_sg_gateway_02110_cumulative.py': [
+              ('REALITY_INTERNAL_PORT="7443"','REALITY_INTERNAL_PORT="10443"'),
+              ('XRAY_INTERNAL_PORT="7443"','XRAY_INTERNAL_PORT="10443"'),
+              ("assert 'listen 443;' in installer","assert 'listen 443 reuseport;' in installer"),
+              ("assert 'listen $PUBLIC_PORT ssl;' in script","assert 'listen $PUBLIC_PORT ssl;' not in script"),
+            ],
+            'tests/test_sg_gateway_v22_server_managed_ports.py': [
+              ('assert prepared.config["xhttp_reality_port"] == 18444','assert prepared.config["xhttp_reality_port"] == 10444'),
+              ('assert prepared.config["xhttp_tls_port"] == 18445','assert prepared.config["xhttp_tls_port"] == 10445'),
+              ('assert prepared.config["hysteria2_port"] == 8446','assert prepared.config["hysteria2_port"] == 18446'),
+            ],
+            'tests/test_installer_02208_master_24_stages.py': [('NAIVEPROXY_PORT="8447"','NAIVEPROXY_PORT="10447"')],
+            'tests/test_installer_preserves_https_on_update.py': [('https://%s:%s','https://%s/')],
+            'tests/test_naiveproxy_bootstrap_transaction_02207.py': [('8447,','10447,')],
+            'tests/test_naiveproxy_transaction_hardening_02207.py': [(':8447, vpn.example.com:8447','127.0.0.1:10447')],
+            'tests/test_sg_gateway_02110_full_clean_retest.py': [
+              ('https://$domain:$PUBLIC_PORT/health','https://$domain/health'),
+              ('Панель HTTPS 63443: OK','Панель HTTPS 443: OK'),
+              ('if [[ "$url" == *":63443/health" ]]; then','if [[ "$url" == https://*/health ]]; then'),
+              ('XRAY_INTERNAL_PORT=7443','XRAY_INTERNAL_PORT=10443'),
+              ('www.bing.com 127.0.0.1:7443;','www.bing.com 127.0.0.1:10443;'),
+            ],
+            'tests/test_sg_gateway_v22_awg31_stage2_api_ui.py': [('awg31.internal:587','awg31.internal:443')],
+          }
+          for name,pairs in replacements.items():
+              def edit(s,pairs=pairs):
+                  for a,b in pairs: s=s.replace(a,b)
+                  return s
+              rw(name,edit)
+
+          def single_edge(s):
+              extra='''\n\ndef test_shared_tls_hub_uses_internal_nginx_panel_gateway():\n    app_runtime=(ROOT/"app/naiveproxy/runtime.py").read_text(encoding="utf-8")\n    hostd_runtime=(ROOT/"hostd/sg_hostd/naiveproxy_runtime.py").read_text(encoding="utf-8")\n    access=(ROOT/"deploy/configure-panel-access.sh").read_text(encoding="utf-8")\n    assert "127.0.0.1:{current.port}" in app_runtime\n    assert "reverse_proxy @sg_xhttp_tls h2c://127.0.0.1:{XHTTP_TLS_INTERNAL_PORT}" in app_runtime\n    assert "reverse_proxy http://127.0.0.1:{PANEL_GATEWAY_PORT}" in app_runtime\n    assert "127.0.0.1:{settings['port']}" in hostd_runtime\n    assert "reverse_proxy @sg_xhttp_tls h2c://127.0.0.1:{XHTTP_TLS_INTERNAL_PORT}" in hostd_runtime\n    assert "reverse_proxy http://127.0.0.1:{PANEL_GATEWAY_PORT}" in hostd_runtime\n    assert "$HOST 127.0.0.1:$TLS_EDGE_INTERNAL_PORT;" in access\n    assert "PANEL_HTTP_INTERNAL_PORT=\"10446\"" in access\n    assert "listen 127.0.0.1:$PANEL_HTTP_INTERNAL_PORT;" in access\n    assert "listen $PUBLIC_PORT ssl;" not in access\n    assert "SG_GATEWAY_FULL_BACKUP_UPLOAD_FIX1" in access\n    assert "SG_GATEWAY_02111_RESTORE_RESTART_PAGE_FIX" in access\n    assert "client_max_body_size 0;" in access\n    assert "$cookie_security_directive" in access\n'''
+              if 'test_shared_tls_hub_uses_internal_nginx_panel_gateway' not in s: s+=extra
+              return s
+          rw('tests/test_sg_gateway_v23_single_edge_443.py',single_edge)
+          PY
+      - name: Regenerate source integrity
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import hashlib,subprocess
+          paths=sorted(p for p in subprocess.check_output(['git','ls-files'],text=True).splitlines() if p!='SOURCE-SHA256SUMS' and not p.startswith('.github/workflows/'))
+          Path('SOURCE-SHA256SUMS').write_text(''.join(f'{hashlib.sha256(Path(p).read_bytes()).hexdigest()}  {p}\n' for p in paths),encoding='utf-8')
+          PY
+      - run: python -m pip install -r requirements-dev.txt
+      - run: python -m playwright install chromium
+      - name: Focused verification
+        run: |
+          python -m pytest -q tests/test_sg_gateway_v23_single_edge_443.py tests/test_naiveproxy_02207.py tests/test_sg_gateway_02110_cumulative.py tests/test_sg_gateway_v22_server_managed_ports.py tests/test_sg_gateway_02111_backup_domain_release.py tests/test_sg_gateway_021_https_nginx_compat.py tests/test_sg_gateway_v22_full_backup_upload_unlimited.py
+          python -m pytest -q tests/test_preview31_xray_updates.py tests/test_naiveproxy_xray_state_forwarding_2301.py
+          bash -n install.sh
+          bash -n deploy/configure-panel-access.sh
+      - name: Full verification
+        run: python -m pytest -q tests
+      - name: Commit verified candidate
+        run: |
+          git config user.name 'SG-Gateway CI'
+          git config user.email 'actions@users.noreply.github.com'
+          git rm .github/workflows/single-edge-finalize3.yml
+          git add app/naiveproxy/runtime.py hostd/sg_hostd/naiveproxy_runtime.py install.sh deploy/configure-panel-access.sh tests SOURCE-SHA256SUMS
+          git commit -m 'feat: complete Single Edge 443 shared TLS hub'
+          git push origin HEAD:feat/2301-single-edge-443
