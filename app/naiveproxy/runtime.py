@@ -15,7 +15,7 @@ DEFAULT_PORT = 10447
 PUBLIC_TCP_PORT = 443
 XHTTP_TLS_INTERNAL_PORT = 10445
 XHTTP_TLS_DEFAULT_PATH = "/sg-xhttp-tls"
-PANEL_GATEWAY_PORT = 10446
+PLACEHOLDER_HTTP_INTERNAL_PORT = 10446
 DEFAULT_SERVICE = "sg-gateway-naiveproxy.service"
 DEFAULT_STATE_DIR = Path("/var/lib/sg-gateway/naiveproxy")
 DEFAULT_CONFIG_DIR = Path("/etc/sg-gateway/naiveproxy")
@@ -150,7 +150,7 @@ def render_caddyfile(settings: NaiveProxySettings, users: list[NaiveProxyUser]) 
     encode gzip zstd
 {proxy_block}    @sg_xhttp_tls path {xhttp_path} {xhttp_path}/*
     reverse_proxy @sg_xhttp_tls h2c://127.0.0.1:{XHTTP_TLS_INTERNAL_PORT}
-    reverse_proxy http://127.0.0.1:{PANEL_GATEWAY_PORT}
+    reverse_proxy http://127.0.0.1:{PLACEHOLDER_HTTP_INTERNAL_PORT}
 }}
 """
 
