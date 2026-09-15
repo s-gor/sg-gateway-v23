@@ -37,6 +37,7 @@ jobs:
 
           access = "deploy/configure-panel-access.sh"
           replace_once(access, 'XRAY_INTERNAL_PORT="10443"; XHTTP_REALITY_INTERNAL_PORT="10444"; TLS_EDGE_INTERNAL_PORT="10447"; PLACEHOLDER_TLS_INTERNAL_PORT="7444"; PANEL_HTTP_INTERNAL_PORT="10446"', 'XRAY_INTERNAL_PORT="10443"; XHTTP_REALITY_INTERNAL_PORT="10444"; TLS_EDGE_INTERNAL_PORT="10447"; PLACEHOLDER_TLS_INTERNAL_PORT="7444"; PLACEHOLDER_HTTP_INTERNAL_PORT="10446"')
+
           old_lines = [
               'server {',
               '    listen 127.0.0.1:$PANEL_HTTP_INTERNAL_PORT;',
@@ -69,6 +70,51 @@ jobs:
           replace_once(access, 'log "HTTPS настроен: https://$HOST/"; log "Заглушка: http://$HOST/ и https://$HOST/";', 'log "Панель: https://$HOST:$PUBLIC_PORT/"; log "Заглушка: http://$HOST/ и https://$HOST/";')
           replace_once(access, 'log "HTTPS и fallback 443 обновлены"', 'log "Панель HTTPS и fallback 443 обновлены"')
 
+          bootstrap_lines = [
+              'bootstrap_tls_edge(){ local domain="$1" cert="$2" key="$3" output; if ! output="$(cd "$APP_ROOT" && PYTHONPATH="$APP_ROOT:$APP_ROOT/hostd" "$APP_ROOT/.venv/bin/python" - "$domain" "$cert" "$key" <<\'PYEDGE\'',
+              'import sys',
+              'from app.connections.settings import get_connection_settings, update_connection_settings',
+              'from sg_hostd.naiveproxy_runtime import sync',
+              'domain, cert, key = sys.argv[1:4]',
+              'current = get_connection_settings("naiveproxy")',
+              'config = dict(current.config)',
+              'config.update({"domain": domain, "certificate_path": cert, "private_key_path": key})',
+              'if not update_connection_settings("naiveproxy", domain, 10447, config):',
+              '    raise SystemExit("shared TLS edge settings update failed")',
+              'result = sync()',
+              'if not result.get("ok", True):',
+              '    raise SystemExit("shared TLS edge runtime apply failed")',
+              'print("Shared TLS edge 443 готов")',
+              'PYEDGE',
+              ')"; then fail "не удалось запустить shared TLS edge на 443"; fi; log "$output"; }',
+              '',
+          ]
+          bootstrap = "\n".join(bootstrap_lines)
+          p = Path(access)
+          text = p.read_text(encoding="utf-8")
+          marker = 'detect_public_ipv4(){'
+          if 'bootstrap_tls_edge(){' not in text:
+              if marker not in text:
+                  raise SystemExit("bootstrap insertion marker missing")
+              text = text.replace(marker, bootstrap + marker, 1)
+              p.write_text(text, encoding="utf-8")
+
+          p = Path(access)
+          text = p.read_text(encoding="utf-8")
+          old = 'write_stream_config "127.0.0.1:$PLACEHOLDER_TLS_INTERNAL_PORT"; write_https_site "$HOST" "$cert_file" "$key_file"; nginx -t; systemctl reload nginx.service; wait_backend; verify_https_contract "$HOST";'
+          new = 'write_stream_config "127.0.0.1:$PLACEHOLDER_TLS_INTERNAL_PORT"; write_https_site "$HOST" "$cert_file" "$key_file"; bootstrap_tls_edge "$HOST" "$cert_file" "$key_file"; nginx -t; systemctl reload nginx.service; wait_backend; verify_https_contract "$HOST";'
+          if old in text:
+              text = text.replace(old, new, 1)
+          elif new not in text:
+              raise SystemExit("configure HTTPS bootstrap marker missing")
+          old_refresh = 'write_stream_config "127.0.0.1:$PLACEHOLDER_TLS_INTERNAL_PORT"; write_https_site "$domain" "$cert" "$key"; nginx -t; systemctl reload nginx.service; wait_backend; verify_https_contract "$domain";'
+          new_refresh = 'write_stream_config "127.0.0.1:$PLACEHOLDER_TLS_INTERNAL_PORT"; write_https_site "$domain" "$cert" "$key"; bootstrap_tls_edge "$domain" "$cert" "$key"; nginx -t; systemctl reload nginx.service; wait_backend; verify_https_contract "$domain";'
+          if old_refresh in text:
+              text = text.replace(old_refresh, new_refresh, 1)
+          elif new_refresh not in text:
+              raise SystemExit("refresh HTTPS bootstrap marker missing")
+          p.write_text(text, encoding="utf-8")
+
           for path in ("app/naiveproxy/runtime.py", hostd):
               text = Path(path).read_text(encoding="utf-8")
               if "PANEL_GATEWAY_PORT" in text or "PLACEHOLDER_HTTP_INTERNAL_PORT = 10446" not in text:
@@ -90,6 +136,6 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add hostd/sg_hostd/naiveproxy_runtime.py deploy/configure-panel-access.sh SOURCE-SHA256SUMS
-          git commit -m "fix: separate panel HTTPS from shared 443"
+          git commit -m "fix: bootstrap shared TLS edge on clean install"
           git pull --rebase origin feat/2301-single-edge-443
           git push origin HEAD:feat/2301-single-edge-443
