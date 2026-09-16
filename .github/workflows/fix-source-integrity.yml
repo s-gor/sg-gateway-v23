@@ -1,0 +1,60 @@
+name: Repair Source Integrity
+
+on:
+  push:
+    branches:
+      - feat/2301-single-edge-443
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/2301-single-edge-443
+          fetch-depth: 0
+      - name: Remove temporary workflow
+        run: git rm -f .github/workflows/fix-source-integrity.yml
+      - name: Rebuild source integrity inventory
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import hashlib, subprocess
+          tracked = sorted(subprocess.check_output(['git', 'ls-files'], text=True).splitlines())
+          expected = [p for p in tracked if p != 'SOURCE-SHA256SUMS' and not p.startswith('.github/workflows/')]
+          lines = [f'{hashlib.sha256(Path(p).read_bytes()).hexdigest()}  {p}' for p in expected]
+          Path('SOURCE-SHA256SUMS').write_text('\n'.join(lines) + '\n', encoding='utf-8', newline='\n')
+          assert 'app/maintenance/udp443_compat.py' in expected
+          print(f'source integrity rebuilt: {len(expected)} files')
+          PY
+      - name: Verify inventory
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import hashlib, re, subprocess
+          rows = Path('SOURCE-SHA256SUMS').read_text(encoding='utf-8').splitlines()
+          listed = {}
+          for raw in rows:
+              if not raw.strip():
+                  continue
+              m = re.fullmatch(r'([0-9a-f]{64})  (.+)', raw)
+              assert m, raw
+              digest, rel = m.groups()
+              assert hashlib.sha256(Path(rel).read_bytes()).hexdigest() == digest, rel
+              listed[rel] = digest
+          tracked = set(subprocess.check_output(['git','ls-files'], text=True).splitlines())
+          expected = {p for p in tracked if p != 'SOURCE-SHA256SUMS' and not p.startswith('.github/workflows/')}
+          assert set(listed) == expected, (sorted(expected-set(listed)), sorted(set(listed)-expected))
+          print(f'source integrity ok: {len(listed)} files')
+          PY
+      - name: Commit repaired inventory
+        run: |
+          git config user.name 'SG-Gateway CI'
+          git config user.email 'actions@users.noreply.github.com'
+          git add -A
+          git diff --cached --check
+          git commit -m 'fix: include UDP443 compatibility module in source integrity [integrity-repaired]'
+          git push origin HEAD:feat/2301-single-edge-443
