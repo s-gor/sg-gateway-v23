@@ -1,0 +1,83 @@
+name: UDP Edge Update Fix
+
+on:
+  push:
+    branches:
+      - feat/2301-single-edge-443
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: "!contains(github.event.head_commit.message, '[udp-edge-update-fixed]')"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/2301-single-edge-443
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-dev.txt
+          python -m playwright install --with-deps chromium
+      - name: Apply production patch
+        run: python .github/scripts/patch_udp_edge_update.py
+      - name: Remove temporary fix infrastructure
+        run: |
+          git rm -f .github/workflows/udp-edge-update-red.yml
+          git rm -f .github/workflows/udp-edge-update-fix.yml
+          git rm -f .github/scripts/patch_udp_edge_update.py
+      - name: Rebuild source integrity inventory
+        run: |
+          git add -A
+          python - <<'PY'
+          from pathlib import Path
+          import hashlib, subprocess
+          tracked = sorted(subprocess.check_output(['git', 'ls-files'], text=True).splitlines())
+          expected = [p for p in tracked if p != 'SOURCE-SHA256SUMS' and not p.startswith('.github/workflows/')]
+          lines = [f'{hashlib.sha256(Path(p).read_bytes()).hexdigest()}  {p}' for p in expected]
+          Path('SOURCE-SHA256SUMS').write_text('\n'.join(lines) + '\n', encoding='utf-8', newline='\n')
+          print(f'source integrity rebuilt: {len(expected)} files')
+          PY
+          git add SOURCE-SHA256SUMS
+      - name: Verify shell syntax
+        run: bash -n deploy/update-from-github-core.sh
+      - name: Verify UDP edge rollout regression
+        run: python -m pytest -q tests/test_2301_udp_edge_update_rollout.py
+      - name: Verify Single Edge contract
+        run: python -m pytest -q tests/test_2301_single_edge_all_protocol_443.py
+      - name: Verify source integrity
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import hashlib, re, subprocess
+          rows = Path('SOURCE-SHA256SUMS').read_text(encoding='utf-8').splitlines()
+          listed = {}
+          for raw in rows:
+              if not raw.strip():
+                  continue
+              m = re.fullmatch(r'([0-9a-f]{64})  (.+)', raw)
+              assert m, raw
+              digest, rel = m.groups()
+              assert hashlib.sha256(Path(rel).read_bytes()).hexdigest() == digest, rel
+              listed[rel] = digest
+          tracked = set(subprocess.check_output(['git', 'ls-files'], text=True).splitlines())
+          expected = {p for p in tracked if p != 'SOURCE-SHA256SUMS' and not p.startswith('.github/workflows/')}
+          assert set(listed) == expected, (sorted(expected-set(listed)), sorted(set(listed)-expected))
+          print(f'source integrity ok: {len(listed)} files')
+          PY
+      - name: Run full suite
+        run: python -m pytest -q tests
+      - name: Commit verified production fix
+        run: |
+          git config user.name 'SG-Gateway CI'
+          git config user.email 'actions@users.noreply.github.com'
+          git add -A
+          git diff --cached --check
+          git commit -m 'fix: roll out UDP edge service during update [udp-edge-update-fixed]'
+          git push origin HEAD:feat/2301-single-edge-443
