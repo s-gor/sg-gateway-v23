@@ -1,0 +1,62 @@
+name: Apply shared TLS SNI fix
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.event.pull_request.head.ref == 'feat/2301-single-edge-443'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/2301-single-edge-443
+      - name: Apply SNI-preserving loopback listener fix
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import hashlib, subprocess
+
+          replacements = {
+              Path('app/naiveproxy/runtime.py'): (
+                  "127.0.0.1:{current.port} {\n    tls",
+                  "https://{current.domain}:{current.port} {\n    bind 127.0.0.1\n    tls",
+              ),
+              Path('hostd/sg_hostd/naiveproxy_runtime.py'): (
+                  "127.0.0.1:{settings['port']} {\n    tls",
+                  "https://{settings['domain']}:{settings['port']} {\n    bind 127.0.0.1\n    tls",
+              ),
+          }
+          for path, (old, new) in replacements.items():
+              body = path.read_text(encoding='utf-8')
+              count = body.count(old)
+              if count != 1:
+                  raise SystemExit(f'{path}: expected one old listener, got {count}')
+              path.write_text(body.replace(old, new, 1), encoding='utf-8', newline='\n')
+
+          tracked = subprocess.check_output(['git', 'ls-files'], text=True).splitlines()
+          rows = []
+          for rel in tracked:
+              if rel == 'SOURCE-SHA256SUMS' or rel.startswith('.github/workflows/'):
+                  continue
+              digest = hashlib.sha256(Path(rel).read_bytes()).hexdigest()
+              rows.append(f'{digest}  {rel}')
+          Path('SOURCE-SHA256SUMS').write_text('\n'.join(rows) + '\n', encoding='utf-8', newline='\n')
+          PY
+          git diff --check
+          git status --short
+      - name: Commit and push
+        run: |
+          if git diff --quiet; then
+            echo 'No changes required'
+            exit 0
+          fi
+          git config user.name 'sg-gateway-ci'
+          git config user.email 'sg-gateway-ci@users.noreply.github.com'
+          git add app/naiveproxy/runtime.py hostd/sg_hostd/naiveproxy_runtime.py tests/test_2301_single_edge_tls_hub.py SOURCE-SHA256SUMS
+          git commit -m 'fix: preserve TLS SNI on shared edge'
+          git push origin HEAD:feat/2301-single-edge-443
