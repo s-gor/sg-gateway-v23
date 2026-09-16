@@ -28,28 +28,37 @@ jobs:
           rc=$?
           set -e
           test "$rc" -ne 0
-      - name: Align patcher with current Xray prepare block
+      - name: Patch Xray prepare and trim helper
         run: |
           python - <<'PY'
           from pathlib import Path
-          p = Path('tools/apply_udp443_compat_patch.py')
+
+          p = Path('app/xray/profiles.py')
           s = p.read_text(encoding='utf-8')
-          start = s.index("profiles_old =")
-          end = s.index('replace_once("app/xray/profiles.py"', start)
-          block = '''profiles_old = \'\'\'        requested_obfs = normalise_mode(
+          old = '''        requested_obfs = normalise_mode(
               form.get("hysteria2_obfs_mode", current["hysteria2_obfs_mode"])
           )
-          base_finalmask = ensure_base_has_no_salamander(current["hysteria2_finalmask"])\'\'\'
-          profiles_new = \'\'\'        requested_obfs = normalise_mode(
+          base_finalmask = ensure_base_has_no_salamander(current["hysteria2_finalmask"])'''.replace('          ', '')
+          new = '''        requested_obfs = normalise_mode(
               form.get("hysteria2_obfs_mode", current["hysteria2_obfs_mode"])
           )
           if values["hysteria2_enabled"] and requested_obfs == SALAMANDER_MODE_NONE:
               requested_obfs = SALAMANDER_MODE
-          base_finalmask = ensure_base_has_no_salamander(current["hysteria2_finalmask"])\'\'\'
-          '''.replace('          ', '')
-          p.write_text(s[:start] + block + s[end:], encoding='utf-8', newline='\n')
+          base_finalmask = ensure_base_has_no_salamander(current["hysteria2_finalmask"])'''.replace('          ', '')
+          if s.count(old) != 1:
+              raise SystemExit(f'app/xray/profiles.py exact block count={s.count(old)}')
+          p.write_text(s.replace(old, new, 1), encoding='utf-8', newline='\n')
+
+          q = Path('tools/apply_udp443_compat_patch.py')
+          body = q.read_text(encoding='utf-8')
+          start = body.index('profiles_old =')
+          marker = 'replace_once("app/xray/profiles.py", profiles_old, profiles_new)'
+          finish = body.index(marker, start) + len(marker)
+          while finish < len(body) and body[finish] in '\r\n':
+              finish += 1
+          q.write_text(body[:start] + body[finish:], encoding='utf-8', newline='\n')
           PY
-      - name: Apply production patch
+      - name: Apply remaining production patch
         run: python tools/apply_udp443_compat_patch.py
       - name: Remove temporary helpers
         run: git rm tools/apply_udp443_compat_patch.py .github/workflows/udp443-compat-fix.yml
