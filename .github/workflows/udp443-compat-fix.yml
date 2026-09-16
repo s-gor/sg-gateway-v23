@@ -57,7 +57,7 @@ jobs:
       - name: Apply remaining production patch
         run: python tools/apply_udp443_compat_patch.py
       - name: Remove temporary helpers
-        run: git rm tools/apply_udp443_compat_patch.py .github/workflows/udp443-compat-fix.yml
+        run: git rm -f tools/apply_udp443_compat_patch.py .github/workflows/udp443-compat-fix.yml
       - name: Refresh source integrity
         run: |
           python - <<'PY'
