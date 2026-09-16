@@ -22,6 +22,7 @@ from app.connections.awg31 import (
     validate_parameters,
 )
 from app.maintenance.awg31_stage3a_common import DNS, ENDPOINT, ENGINE_ID, INTERFACE, NETWORK
+from app.single_edge import AWG31_UDP_INTERNAL_PORT
 
 
 class DataMixin:
@@ -350,7 +351,7 @@ class DataMixin:
             [
                 "[Interface]",
                 f"PrivateKey = {server_private}",
-                "ListenPort = 443",
+                f"ListenPort = {AWG31_UDP_INTERNAL_PORT}",
                 "Address = 10.131.0.1/24",
                 *self._parameter_lines(settings, header_protection_key),
                 *peer_blocks,

@@ -627,7 +627,7 @@ def build_xray_profile_link(
         }
         obfs_mode = str(server_config.get("hysteria2_obfs_mode") or "none").strip().lower()
         obfs_password = str(server_config.get("hysteria2_obfs_password") or "").strip()
-        endpoint = format_host_port(host, profile.port)
+        endpoint = format_host_port(host, public_profile_port)
         if obfs_mode in {"salamander", "gecko"}:
             if not obfs_password:
                 body = ""

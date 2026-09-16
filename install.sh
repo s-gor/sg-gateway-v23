@@ -2503,7 +2503,7 @@ EOF
 install_udp_edge_service() {
   install -m 0644 "$PREFIX/deploy/sg-gateway-udp-edge.service" /etc/systemd/system/sg-gateway-udp-edge.service
   systemctl daemon-reload
-  systemctl enable sg-gateway-udp-edge.service
+  systemctl enable --now "$UDP_EDGE_SERVICE"
 }
 
 stage_firewall_and_network() {
@@ -3423,7 +3423,7 @@ restore_update_runtime_services() {
   local service
   for service in \
     mihomo.service sg-gateway-awg.service sg-gateway-awg3.service \
-    sg-gateway-awg31.service sg-gateway-singbox.service sg-gateway-naiveproxy.service; do
+    sg-gateway-awg31.service sg-gateway-singbox.service sg-gateway-naiveproxy.service sg-gateway-udp-edge.service; do
     if service_was_enabled_before_update "$service"; then
       systemctl_with_retry enable "$service"
     fi
