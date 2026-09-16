@@ -32,6 +32,27 @@ jobs:
           text = path.read_text(encoding='utf-8')
           text = text.replace('start = text.index("def _apply_singbox()")', 'start = text.index("def _render_singbox_config(")')
           text = text.replace('end = text.index("def apply_split_mihomo_singbox_runtime()")', 'end = text.index("def _sync_singbox_client_configs(")')
+          helper_anchor = '''def replace_exact_count(path: str, old: str, new: str, expected: int) -> None:\n'''
+          helper = '''def replace_first_of_two(path: str, old: str, new: str) -> None:\n    p = Path(path)\n    text = p.read_text(encoding="utf-8")\n    count = text.count(old)\n    if count != 2:\n        raise SystemExit(f"{path}: expected two occurrences before split replacement, got {count}: {old[:100]!r}")\n    p.write_text(text.replace(old, new, 1), encoding="utf-8", newline="\\n")\n\n\n'''
+          if 'def replace_first_of_two(' not in text:
+              if helper_anchor not in text:
+                  raise SystemExit('helper insertion anchor missing')
+              text = text.replace(helper_anchor, helper + helper_anchor, 1)
+          text = text.replace(
+              'replace_once(path, \'f"    port: {settings[\\\'mieru_port\\\']}"\', \'f"    port: {MIERU_TCP_INTERNAL_PORT}"\')',
+              'replace_first_of_two(path, \'f"    port: {settings[\\\'mieru_port\\\']}"\', \'f"    port: {MIERU_TCP_INTERNAL_PORT}"\')',
+              1,
+          )
+          text = text.replace(
+              'replace_once(path, \'f"    port: {settings[\\\'anytls_port\\\']}"\', \'f"    port: {ANYTLS_TCP_INTERNAL_PORT}"\')',
+              'replace_first_of_two(path, \'f"    port: {settings[\\\'anytls_port\\\']}"\', \'f"    port: {ANYTLS_TCP_INTERNAL_PORT}"\')',
+              1,
+          )
+          text = text.replace(
+              'replace_once(path, \'f"    port: {settings[\\\'tuic_port\\\']}"\', \'f"    port: {TUIC_UDP_INTERNAL_PORT}"\')',
+              'replace_first_of_two(path, \'f"    port: {settings[\\\'tuic_port\\\']}"\', \'f"    port: {TUIC_UDP_INTERNAL_PORT}"\')',
+              1,
+          )
           path.write_text(text, encoding='utf-8', newline='\n')
           PY
           python tools/single_edge_apply.py
