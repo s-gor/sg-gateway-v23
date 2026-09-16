@@ -1,0 +1,218 @@
+name: Fix Nginx Refresh Self-Heal
+
+on:
+  push:
+    branches:
+      - feat/2301-single-edge-443
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-dev.txt
+          python -m playwright install --with-deps chromium
+      - name: Remove temporary workflow from candidate tree
+        run: rm -f .github/workflows/fix-nginx-refresh-selfheal.yml
+      - name: Add regression test and prove RED
+        run: |
+          cat >> tests/test_2301_single_edge_tls_hub.py <<'PYTEST'
+
+
+def test_refresh_uses_explicit_domain_and_updater_self_heals_managed_stream_config():
+    access = (ROOT / "deploy/configure-panel-access.sh").read_text(encoding="utf-8")
+    updater = (ROOT / "deploy/update-from-github-core.sh").read_text(encoding="utf-8")
+
+    assert 'write_stream_config(){ local default_backend="$1" domain="$2";' in access
+    assert '$domain 127.0.0.1:$TLS_EDGE_INTERNAL_PORT;' in access
+
+    configure = access[access.index("configure_https(){"):access.index("refresh_https(){")]
+    assert 'write_stream_config "127.0.0.1:$PLACEHOLDER_TLS_INTERNAL_PORT" "$HOST"' in configure
+
+    refresh = access[access.index("refresh_https(){"):access.index("renew_https(){")]
+    assert 'write_stream_config "127.0.0.1:$PLACEHOLDER_TLS_INTERNAL_PORT" "$domain"' in refresh
+
+    assert 'refresh_stream_config(){' in access
+    stream_refresh = access[access.index("refresh_stream_config(){"):access.index("renew_https(){")]
+    assert 'write_stream_config "127.0.0.1:$PLACEHOLDER_TLS_INTERNAL_PORT" "$domain"' in stream_refresh
+    assert "bootstrap_tls_edge" not in stream_refresh
+    assert "apply_client_runtime" not in stream_refresh
+    assert 'stream-refresh) refresh_stream_config' in access
+
+    assert "NGINX_REPAIRED=0" in updater
+    assert "repair_managed_nginx_if_needed()" in updater
+    assert '"$PREFIX/deploy/configure-panel-access.sh" --mode stream-refresh' in updater
+    assert 'if (( NGINX_REPAIRED == 1 )); then' in updater
+    assert "[%s/10]" in updater
+    assert 'run_stage 7 "Repair managed Nginx Single Edge config if needed" repair_managed_nginx_if_needed' in updater
+    assert 'run_stage 8 "Проверка HTTPS, credentials, Nginx и runtime" verify_final' in updater
+    assert 'run_stage 9 "UDP/443 Hysteria2/TUIC compatibility migration" run_udp443_compat_migration' in updater
+    assert 'run_stage 10 "UDP/443 edge service rollout" ensure_udp_edge_service' in updater
+PYTEST
+          if python -m pytest -q tests/test_2301_single_edge_tls_hub.py -k refresh_uses_explicit_domain_and_updater_self_heals_managed_stream_config; then
+            echo 'Expected RED regression did not fail' >&2
+            exit 1
+          fi
+          echo 'RED confirmed'
+      - name: Apply production fix
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          access_path = Path('deploy/configure-panel-access.sh')
+          access = access_path.read_text(encoding='utf-8')
+          replacements = [
+              (
+                  "usage(){ printf '%s\\n' 'configure-panel-access.sh --mode https --host panel.example.com --port 63443' 'configure-panel-access.sh --mode renew|rollback|refresh'; }",
+                  "usage(){ printf '%s\\n' 'configure-panel-access.sh --mode https --host panel.example.com --port 63443' 'configure-panel-access.sh --mode renew|rollback|refresh|stream-refresh'; }",
+              ),
+              (
+                  '[[ "$MODE" =~ ^(https|renew|rollback|refresh)$ ]] || { usage; exit 1; }',
+                  '[[ "$MODE" =~ ^(https|renew|rollback|refresh|stream-refresh)$ ]] || { usage; exit 1; }',
+              ),
+              (
+                  'write_stream_config(){ local default_backend="$1"; cat > "$STREAM_CONF" <<EOF',
+                  'write_stream_config(){ local default_backend="$1" domain="$2"; [[ -n "$domain" ]] || fail "не задан домен для stream routing"; cat > "$STREAM_CONF" <<EOF',
+              ),
+              (
+                  '    $HOST 127.0.0.1:$TLS_EDGE_INTERNAL_PORT;',
+                  '    $domain 127.0.0.1:$TLS_EDGE_INTERNAL_PORT;',
+              ),
+              (
+                  'write_stream_config "127.0.0.1:$PLACEHOLDER_TLS_INTERNAL_PORT"; write_https_site "$HOST"',
+                  'write_stream_config "127.0.0.1:$PLACEHOLDER_TLS_INTERNAL_PORT" "$HOST"; write_https_site "$HOST"',
+              ),
+              (
+                  'write_stream_config "127.0.0.1:$PLACEHOLDER_TLS_INTERNAL_PORT"; write_https_site "$domain"',
+                  'write_stream_config "127.0.0.1:$PLACEHOLDER_TLS_INTERNAL_PORT" "$domain"; write_https_site "$domain"',
+              ),
+              (
+                  'renew_https(){ local domain="$(read_state_value domain)";',
+                  'refresh_stream_config(){ local domain; domain="$(read_state_value domain)"; [[ -n "$domain" ]] || fail "HTTPS ещё не настроен"; ensure_stream_include; write_stream_config "127.0.0.1:$PLACEHOLDER_TLS_INTERNAL_PORT" "$domain"; nginx -t; systemctl reload nginx.service; log "Single Edge stream-конфигурация обновлена"; }\nrenew_https(){ local domain="$(read_state_value domain)";',
+              ),
+              (
+                  'case "$MODE" in https) configure_https;; renew) renew_https;; rollback) rollback_https;; refresh) refresh_https;; esac',
+                  'case "$MODE" in https) configure_https;; renew) renew_https;; rollback) rollback_https;; refresh) refresh_https;; stream-refresh) refresh_stream_config;; esac',
+              ),
+          ]
+          for old, new in replacements:
+              if old not in access:
+                  raise SystemExit(f'configure-panel-access patch anchor not found: {old[:120]}')
+              access = access.replace(old, new, 1)
+          access_path.write_text(access, encoding='utf-8')
+
+          updater_path = Path('deploy/update-from-github-core.sh')
+          updater = updater_path.read_text(encoding='utf-8')
+          replacements = [
+              (
+                  'ASSETS_RECOVERY_SOURCE=""\n',
+                  'ASSETS_RECOVERY_SOURCE=""\nNGINX_REPAIRED=0\n',
+              ),
+              (
+                  "printf '%s[SG-Gateway Update] [%s/7]%s %s\\n'",
+                  "printf '%s[SG-Gateway Update] [%s/10]%s %s\\n'",
+              ),
+              (
+                  'verify_final() {\n',
+                  '''repair_managed_nginx_if_needed() {
+  if nginx -t >/dev/null 2>&1; then
+    return 0
+  fi
+
+  local state
+  state="$(https_state)"
+  eval "$state"
+  [[ "${HTTPS_READY:-0}" == "1" && -n "${HTTPS_DOMAIN:-}" ]] || \\
+    fail "Nginx on-disk config is invalid and HTTPS state is unavailable for managed repair"
+  [[ -x "$PREFIX/deploy/configure-panel-access.sh" ]] || \\
+    fail "managed Nginx repair helper is unavailable"
+
+  printf '[SG-Gateway Update] Existing managed Nginx config is invalid; rebuilding Single Edge stream routing.\\n'
+  "$PREFIX/deploy/configure-panel-access.sh" --mode stream-refresh
+  nginx -t >/dev/null
+  NGINX_REPAIRED=1
+}
+
+verify_final() {
+''',
+              ),
+              (
+                  '''  before="$(cat "$BACKUP_DIR/nginx-before.sha256")"
+  after="$(fingerprint_paths \\
+    "$NGINX_CONFIG" \\
+    "$NGINX_SITE_AVAILABLE" \\
+    "$NGINX_SITE_ENABLED" \\
+    "$NGINX_STREAM_CONFIG")"
+  [[ "$before" == "$after" ]] || fail "Nginx configuration changed during Update"
+''',
+                  '''  before="$(cat "$BACKUP_DIR/nginx-before.sha256")"
+  after="$(fingerprint_paths \\
+    "$NGINX_CONFIG" \\
+    "$NGINX_SITE_AVAILABLE" \\
+    "$NGINX_SITE_ENABLED" \\
+    "$NGINX_STREAM_CONFIG")"
+  if (( NGINX_REPAIRED == 1 )); then
+    [[ "$before" != "$after" ]] || fail "managed Nginx repair did not change the invalid configuration"
+  else
+    [[ "$before" == "$after" ]] || fail "Nginx configuration changed during Update"
+  fi
+''',
+              ),
+              (
+                  '''  run_stage 6 "AWG31 Stage3A migration внутри Update transaction" run_stage3a_migration
+  run_stage 7 "Проверка HTTPS, credentials, Nginx и runtime" verify_final
+  run_stage 8 "UDP/443 Hysteria2/TUIC compatibility migration" run_udp443_compat_migration
+  run_stage 9 "UDP/443 edge service rollout" ensure_udp_edge_service
+''',
+                  '''  run_stage 6 "AWG31 Stage3A migration внутри Update transaction" run_stage3a_migration
+  run_stage 7 "Repair managed Nginx Single Edge config if needed" repair_managed_nginx_if_needed
+  run_stage 8 "Проверка HTTPS, credentials, Nginx и runtime" verify_final
+  run_stage 9 "UDP/443 Hysteria2/TUIC compatibility migration" run_udp443_compat_migration
+  run_stage 10 "UDP/443 edge service rollout" ensure_udp_edge_service
+''',
+              ),
+          ]
+          for old, new in replacements:
+              if old not in updater:
+                  raise SystemExit(f'updater patch anchor not found: {old[:120]}')
+              updater = updater.replace(old, new, 1)
+          updater_path.write_text(updater, encoding='utf-8')
+          PY
+          bash -n deploy/configure-panel-access.sh
+          bash -n deploy/update-from-github-core.sh
+      - name: Rebuild source integrity
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import hashlib, subprocess
+          tracked = subprocess.check_output(['git', 'ls-files'], text=True).splitlines()
+          files = sorted(rel for rel in tracked if rel != 'SOURCE-SHA256SUMS' and not rel.startswith('.github/workflows/'))
+          rows = [f"{hashlib.sha256(Path(rel).read_bytes()).hexdigest()}  {rel}\n" for rel in files]
+          Path('SOURCE-SHA256SUMS').write_text(''.join(rows), encoding='utf-8')
+          print(f'source integrity rebuilt: {len(rows)} files')
+          PY
+      - name: Verify targeted contracts
+        run: |
+          python -m pytest -q tests/test_2301_single_edge_tls_hub.py tests/test_2301_single_edge_all_protocol_443.py tests/test_2301_udp_edge_update_rollout.py
+      - name: Verify full suite
+        run: python -m pytest -q tests
+      - name: Commit verified fix
+        run: |
+          git config user.name 'SG-Gateway CI'
+          git config user.email 'actions@users.noreply.github.com'
+          git add deploy/configure-panel-access.sh deploy/update-from-github-core.sh tests/test_2301_single_edge_tls_hub.py SOURCE-SHA256SUMS
+          git add -u .github/workflows/fix-nginx-refresh-selfheal.yml
+          git diff --cached --check
+          git commit -m 'fix: self-heal broken Single Edge nginx refresh'
+          git push origin HEAD:feat/2301-single-edge-443
