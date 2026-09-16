@@ -31,17 +31,16 @@ jobs:
           from pathlib import Path
           path = Path('deploy/update-from-github-core.sh')
           text = path.read_text(encoding='utf-8')
-          old = '''  systemctl daemon-reload
-          systemctl enable --now "$UDP_EDGE_SERVICE"
-          '''
-          new = '''  systemctl daemon-reload
-          if systemctl is-active --quiet "$AWG31_SERVICE"; then
-            systemctl restart "$AWG31_SERVICE"
-            systemctl is-active --quiet "$AWG31_SERVICE" || \\
-              fail "AWG31 service failed to restart with private UDP backend"
-          fi
-          systemctl enable --now "$UDP_EDGE_SERVICE"
-          '''
+          old = '  systemctl daemon-reload\n  systemctl enable --now "$UDP_EDGE_SERVICE"\n'
+          new = (
+              '  systemctl daemon-reload\n'
+              '  if systemctl is-active --quiet "$AWG31_SERVICE"; then\n'
+              '    systemctl restart "$AWG31_SERVICE"\n'
+              '    systemctl is-active --quiet "$AWG31_SERVICE" || \\\n'
+              '      fail "AWG31 service failed to restart with private UDP backend"\n'
+              '  fi\n'
+              '  systemctl enable --now "$UDP_EDGE_SERVICE"\n'
+          )
           if old not in text:
               raise SystemExit('updater patch anchor not found')
           path.write_text(text.replace(old, new, 1), encoding='utf-8')
