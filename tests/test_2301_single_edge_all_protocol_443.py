@@ -59,6 +59,29 @@ def test_awg31_server_runtime_binds_private_udp_backend_only():
         assert '"ListenPort = 443"' not in source
 
 
+def test_awg31_udp_backend_isolated_in_private_network_namespace():
+    single_edge = (ROOT / "app/single_edge.py").read_text(encoding="utf-8")
+    edge = (ROOT / "app/udp_edge/server.py").read_text(encoding="utf-8")
+    launcher = (ROOT / "deploy/sg-gateway-awg31-userspace.sh").read_text(encoding="utf-8")
+
+    assert 'AWG31_UDP_BACKEND_HOST = "169.254.31.2"' in single_edge
+    assert '"awg31": (AWG31_UDP_BACKEND_HOST, AWG31_UDP_INTERNAL_PORT)' in edge
+    assert 'NETNS="sg-awg31-backend"' in launcher
+    assert 'VETH_HOST="sgawg31h"' in launcher
+    assert 'VETH_NS="sgawg31n"' in launcher
+    assert 'HOST_BACKEND_CIDR="169.254.31.1/30"' in launcher
+    assert 'NS_BACKEND_CIDR="169.254.31.2/30"' in launcher
+    assert 'ip netns add "$NETNS"' in launcher
+    assert 'ip link add "$VETH_HOST" type veth peer name "$VETH_NS"' in launcher
+    assert 'ip link set "$VETH_NS" netns "$NETNS"' in launcher
+    assert 'ip netns exec "$NETNS" ip link set lo up' in launcher
+    assert 'ip netns exec "$NETNS" "$AWG_GO" --foreground "$IFACE" &' in launcher
+    assert 'ip netns exec "$NETNS" ip link show "$IFACE"' in launcher
+    assert 'ip netns exec "$NETNS" ip link set "$IFACE" netns 1' in launcher
+    assert 'ip netns delete "$NETNS"' in launcher
+    assert '\n"$AWG_GO" --foreground "$IFACE" &' not in launcher
+
+
 def test_udp_edge_is_managed_service_and_only_public_udp_owner():
     assert (ROOT / "app/udp_edge/__init__.py").is_file()
     assert (ROOT / "app/udp_edge/classifier.py").is_file()
