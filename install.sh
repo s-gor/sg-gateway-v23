@@ -53,6 +53,7 @@ XHTTP_REALITY_PORT="10444"
 XHTTP_TLS_PORT="10445"
 HYSTERIA2_PORT="10452"
 ANYTLS_PORT="10449"
+ANYTLS_ALPN="sg-anytls"
 TUIC_PORT="10453"
 HOSTD_PORT="8090"
 BACKEND_PORT="18080"
@@ -2384,12 +2385,22 @@ PYNGINXMAIN
   cat > /etc/nginx/stream-conf.d/sg-gateway-443.conf <<EOF
 # SG_GATEWAY_PLACEHOLDER_80_443_V3
 # Before a certificate exists, unknown SNI remains on the Reality listener.
-map \$ssl_preread_server_name \$sg_gateway_443_backend {
+map \$ssl_preread_server_name \$sg_gateway_sni_backend {
     hostnames;
     ${REALITY_SNI} 127.0.0.1:${REALITY_INTERNAL_PORT};
     ${SG_GATEWAY_XHTTP_REALITY_SNI} 127.0.0.1:${XHTTP_REALITY_PORT};
 ${SG_GATEWAY_TLS_EDGE_ROUTE}
     default 127.0.0.1:${REALITY_INTERNAL_PORT};
+}
+
+map \$ssl_preread_protocol \$sg_gateway_protocol_backend {
+    "" 127.0.0.1:${MIHOMO_PORT};
+    default \$sg_gateway_sni_backend;
+}
+
+map \$ssl_preread_alpn_protocols \$sg_gateway_443_backend {
+    ~\b${ANYTLS_ALPN}\b 127.0.0.1:${ANYTLS_PORT};
+    default \$sg_gateway_protocol_backend;
 }
 
 server {

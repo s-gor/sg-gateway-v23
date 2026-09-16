@@ -19,7 +19,7 @@ PLACEHOLDER_SOURCE="$APP_ROOT/assets/placeholder/index.html"
 RESTART_SOURCE="$APP_ROOT/assets/placeholder/restarting.html"
 RENEW_HOOK="/etc/letsencrypt/renewal-hooks/deploy/reload-sg-gateway-nginx.sh"
 PANEL_USER="sg-gateway"; PANEL_GROUP="sg-gateway"
-XRAY_INTERNAL_PORT="10443"; XHTTP_REALITY_INTERNAL_PORT="10444"; TLS_EDGE_INTERNAL_PORT="10447"; PLACEHOLDER_TLS_INTERNAL_PORT="7444"; PLACEHOLDER_HTTP_INTERNAL_PORT="10446"
+XRAY_INTERNAL_PORT="10443"; XHTTP_REALITY_INTERNAL_PORT="10444"; TLS_EDGE_INTERNAL_PORT="10447"; PLACEHOLDER_TLS_INTERNAL_PORT="7444"; PLACEHOLDER_HTTP_INTERNAL_PORT="10446"; MIERU_TCP_INTERNAL_PORT="10448"; ANYTLS_TCP_INTERNAL_PORT="10449"; ANYTLS_ALPN="sg-anytls"
 SG_HTTPS_BACKUP_DIR=""
 SG_HTTPS_COMMITTED=0
 log(){ printf '[SG-Gateway HTTPS] %s\n' "$*"; }
@@ -107,12 +107,20 @@ PY
 nginx_cookie_security_directive(){ local version="$(nginx -v 2>&1 | sed -n 's#^nginx version: nginx/\([^ ]*\).*$#\1#p')"; if [[ -n "$version" ]] && command -v dpkg >/dev/null 2>&1 && dpkg --compare-versions "$version" ge '1.19.3'; then printf '%s' 'proxy_cookie_flags ~ secure httponly samesite=lax;'; else printf '%s' 'proxy_cookie_path / "/; Secure; HttpOnly; SameSite=Lax";'; fi; }
 write_stream_config(){ local default_backend="$1"; cat > "$STREAM_CONF" <<EOF
 # SG_GATEWAY_PLACEHOLDER_80_443_V3
-map \$ssl_preread_server_name \$sg_gateway_443_backend {
+map \$ssl_preread_server_name \$sg_gateway_sni_backend {
     hostnames;
     $REALITY_SNI 127.0.0.1:$XRAY_INTERNAL_PORT;
     $XHTTP_REALITY_SNI 127.0.0.1:$XHTTP_REALITY_INTERNAL_PORT;
     $HOST 127.0.0.1:$TLS_EDGE_INTERNAL_PORT;
     default $default_backend;
+}
+map \$ssl_preread_protocol \$sg_gateway_protocol_backend {
+    "" 127.0.0.1:$MIERU_TCP_INTERNAL_PORT;
+    default \$sg_gateway_sni_backend;
+}
+map \$ssl_preread_alpn_protocols \$sg_gateway_443_backend {
+    ~\b$ANYTLS_ALPN\b 127.0.0.1:$ANYTLS_TCP_INTERNAL_PORT;
+    default \$sg_gateway_protocol_backend;
 }
 server {
     listen 443 reuseport;
