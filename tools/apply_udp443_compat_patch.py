@@ -1,0 +1,186 @@
+from pathlib import Path
+
+
+def replace_once(path: str, old: str, new: str) -> None:
+    p = Path(path)
+    text = p.read_text(encoding="utf-8")
+    count = text.count(old)
+    if count != 1:
+        raise SystemExit(f"{path}: expected one exact match, got {count}")
+    p.write_text(text.replace(old, new, 1), encoding="utf-8", newline="\n")
+
+
+profiles_old = '''    requested_obfs = normalise_mode(
+        form.get("hysteria2_obfs_mode") or values["hysteria2_obfs_mode"]
+    )
+    rotate_requested = bool(form.get("hysteria2_obfs_rotate"))'''
+profiles_new = '''    requested_obfs = normalise_mode(
+        form.get("hysteria2_obfs_mode") or values["hysteria2_obfs_mode"]
+    )
+    # Single Edge UDP/443 must be deterministic. Plain Hysteria2 and TUIC
+    # are both QUIC, so enabled Hysteria2 always carries a managed marker.
+    # Gecko remains valid when explicitly selected.
+    if values["hysteria2_enabled"] and requested_obfs == SALAMANDER_MODE_NONE:
+        requested_obfs = SALAMANDER_MODE
+    rotate_requested = bool(form.get("hysteria2_obfs_rotate"))'''
+replace_once("app/xray/profiles.py", profiles_old, profiles_new)
+
+compat_body = '''from __future__ import annotations
+
+import copy
+from typing import Any
+
+from app.connections.settings import get_connection_settings
+from app.xray.salamander import (
+    GECKO_MODE,
+    SALAMANDER_MODE,
+    SALAMANDER_MODE_NONE,
+    SalamanderError,
+    ensure_base_has_no_salamander,
+    generate_password,
+    normalise_mode,
+    password_ready,
+)
+from app.xray.settings_transactions import (
+    begin as begin_settings_transaction,
+    pending as pending_settings_transaction,
+    rollback as rollback_settings_transaction,
+)
+
+
+class Udp443CompatibilityError(RuntimeError):
+    pass
+
+
+def normalise_hysteria2_config(config: dict[str, Any]) -> tuple[dict[str, Any], bool]:
+    original = copy.deepcopy(dict(config or {}))
+    candidate = copy.deepcopy(original)
+    if not bool(candidate.get("hysteria2_enabled")):
+        return candidate, False
+
+    try:
+        mode = normalise_mode(candidate.get("hysteria2_obfs_mode") or SALAMANDER_MODE_NONE)
+    except SalamanderError:
+        mode = SALAMANDER_MODE
+    if mode == SALAMANDER_MODE_NONE:
+        mode = SALAMANDER_MODE
+
+    password = str(candidate.get("hysteria2_obfs_password") or "").strip()
+    if not password_ready(password):
+        password = generate_password()
+
+    base = ensure_base_has_no_salamander(candidate.get("hysteria2_finalmask") or {})
+    candidate.update(
+        {
+            "hysteria2_obfs_mode": mode,
+            "hysteria2_obfs_password": password,
+            "hysteria2_finalmask": base,
+            "hysteria2_salamander_managed": True,
+        }
+    )
+    return candidate, candidate != original
+
+
+def migrate() -> dict[str, Any]:
+    settings = get_connection_settings("xray")
+    candidate, changed = normalise_hysteria2_config(dict(settings.config))
+    if not changed:
+        return {"changed": False, "mode": str(candidate.get("hysteria2_obfs_mode") or "none")}
+
+    transaction = begin_settings_transaction("xray", settings.host, int(settings.port), candidate)
+    try:
+        from sg_hostd.client_runtime import apply_xray_runtime
+
+        result = apply_xray_runtime()
+        if not bool(result.get("ok")):
+            raise Udp443CompatibilityError(str(result.get("message") or "Xray compatibility apply failed"))
+    except Exception:
+        current = pending_settings_transaction("xray")
+        if current is not None and current.id == transaction.id:
+            rollback_settings_transaction(transaction.id, status="rolled_back_udp443_compat_error")
+        raise
+
+    applied = get_connection_settings("xray")
+    applied_config = dict(applied.config)
+    mode = normalise_mode(applied_config.get("hysteria2_obfs_mode") or SALAMANDER_MODE_NONE)
+    if mode not in {SALAMANDER_MODE, GECKO_MODE} or not password_ready(applied_config.get("hysteria2_obfs_password")):
+        raise Udp443CompatibilityError("Hysteria2 UDP/443 compatibility invariant was not persisted")
+    return {"changed": True, "mode": mode}
+
+
+def main() -> None:
+    result = migrate()
+    if result["changed"]:
+        print(f"[SG-Gateway UDP443] Hysteria2 compatibility applied: {result['mode']}")
+    else:
+        print(f"[SG-Gateway UDP443] Hysteria2 compatibility already valid: {result['mode']}")
+
+
+if __name__ == "__main__":
+    main()
+'''
+Path("app/maintenance/udp443_compat.py").write_text(compat_body, encoding="utf-8", newline="\n")
+
+runtime_import_old = "from app.xray.settings_transactions import commit as commit_settings_transaction, pending as pending_settings_transaction, rollback as rollback_settings_transaction, update_candidate_config as update_settings_candidate_config\n"
+runtime_import_new = "from app.xray.settings_transactions import begin as begin_settings_transaction, commit as commit_settings_transaction, pending as pending_settings_transaction, rollback as rollback_settings_transaction, update_candidate_config as update_settings_candidate_config\nfrom app.maintenance.udp443_compat import normalise_hysteria2_config\n"
+replace_once("hostd/sg_hostd/client_runtime.py", runtime_import_old, runtime_import_new)
+
+runtime_apply_old = '''def _apply_xray(*, force_profiles: bool = False) -> EngineResult:
+    engine = "xray"
+    settings_transaction = pending_settings_transaction(engine)
+    rows = _deployment_rows(engine)
+    ids = [int(row["client_id"]) for row in rows]'''
+runtime_apply_new = '''def _apply_xray(*, force_profiles: bool = False) -> EngineResult:
+    engine = "xray"
+    settings_transaction = pending_settings_transaction(engine)
+    rows = _deployment_rows(engine)
+    settings = get_connection_settings(engine)
+    compatible_config, compatibility_changed = normalise_hysteria2_config(dict(settings.config))
+    if compatibility_changed:
+        if settings_transaction is not None:
+            if not update_settings_candidate_config(settings_transaction.id, compatible_config):
+                raise ClientRuntimeError("Не удалось обновить pending Xray transaction для UDP/443")
+            settings_transaction = pending_settings_transaction(engine)
+        elif not rows and not force_profiles:
+            update_connection_settings(engine, settings.host, int(settings.port), compatible_config)
+        else:
+            settings_transaction = begin_settings_transaction(
+                engine, settings.host, int(settings.port), compatible_config
+            )
+    ids = [int(row["client_id"]) for row in rows]'''
+replace_once("hostd/sg_hostd/client_runtime.py", runtime_apply_old, runtime_apply_new)
+
+core_var_old = 'NGINX_STREAM_CONFIG="$(system_path /etc/nginx/stream-conf.d/sg-gateway-443.conf)"\nPANEL_UNIT="$(system_path /etc/systemd/system/sg-gateway.service)"'
+core_var_new = 'NGINX_STREAM_CONFIG="$(system_path /etc/nginx/stream-conf.d/sg-gateway-443.conf)"\nXRAY_CONFIG="$(system_path /usr/local/etc/xray/config.json)"\nPANEL_UNIT="$(system_path /etc/systemd/system/sg-gateway.service)"'
+replace_once("deploy/update-from-github-core.sh", core_var_old, core_var_new)
+
+core_protected_old = '''    "$LETSENCRYPT_DIR" "$DATA_DIR/security/tls-state.json" \\
+    "$AWG2_CONFIG" "$AWG2_UNIT" \\'''
+core_protected_new = '''    "$LETSENCRYPT_DIR" "$DATA_DIR/security/tls-state.json" "$XRAY_CONFIG" \\
+    "$AWG2_CONFIG" "$AWG2_UNIT" \\'''
+replace_once("deploy/update-from-github-core.sh", core_protected_old, core_protected_new)
+
+core_function_anchor = '''verify_final() {
+  local before after'''
+core_function_insert = '''run_udp443_compat_migration() {
+  PYTHONPATH="$PREFIX:$PREFIX/hostd" \\
+  SG_GATEWAY_APP_ROOT="$PREFIX" \\
+  SG_GATEWAY_CONFIG_DIR="$CONFIG_DIR" \\
+  SG_GATEWAY_DATA_DIR="$DATA_DIR" \\
+  "$PREFIX/.venv/bin/python" -B -m app.maintenance.udp443_compat
+}
+
+verify_final() {
+  local before after'''
+replace_once("deploy/update-from-github-core.sh", core_function_anchor, core_function_insert)
+
+core_main_old = '''  run_stage 6 "AWG31 Stage3A migration внутри Update transaction" run_stage3a_migration
+  run_stage 7 "Проверка HTTPS, credentials, Nginx и runtime" verify_final
+
+  # Repair a runtime'''
+core_main_new = '''  run_stage 6 "AWG31 Stage3A migration внутри Update transaction" run_stage3a_migration
+  run_stage 7 "Проверка HTTPS, credentials, Nginx и runtime" verify_final
+  run_stage 8 "UDP/443 Hysteria2/TUIC compatibility migration" run_udp443_compat_migration
+
+  # Repair a runtime'''
+replace_once("deploy/update-from-github-core.sh", core_main_old, core_main_new)
