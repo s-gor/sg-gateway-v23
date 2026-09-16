@@ -35,25 +35,21 @@ jobs:
 
           p = Path('app/xray/profiles.py')
           s = p.read_text(encoding='utf-8')
-          old = '''        requested_obfs = normalise_mode(
-              form.get("hysteria2_obfs_mode", current["hysteria2_obfs_mode"])
+          marker = '        base_finalmask = ensure_base_has_no_salamander(current["hysteria2_finalmask"])'
+          replacement = (
+              '        if values["hysteria2_enabled"] and requested_obfs == SALAMANDER_MODE_NONE:\n'
+              '            requested_obfs = SALAMANDER_MODE\n'
+              + marker
           )
-          base_finalmask = ensure_base_has_no_salamander(current["hysteria2_finalmask"])'''.replace('          ', '')
-          new = '''        requested_obfs = normalise_mode(
-              form.get("hysteria2_obfs_mode", current["hysteria2_obfs_mode"])
-          )
-          if values["hysteria2_enabled"] and requested_obfs == SALAMANDER_MODE_NONE:
-              requested_obfs = SALAMANDER_MODE
-          base_finalmask = ensure_base_has_no_salamander(current["hysteria2_finalmask"])'''.replace('          ', '')
-          if s.count(old) != 1:
-              raise SystemExit(f'app/xray/profiles.py exact block count={s.count(old)}')
-          p.write_text(s.replace(old, new, 1), encoding='utf-8', newline='\n')
+          if s.count(marker) != 1:
+              raise SystemExit(f'app/xray/profiles.py stable marker count={s.count(marker)}')
+          p.write_text(s.replace(marker, replacement, 1), encoding='utf-8', newline='\n')
 
           q = Path('tools/apply_udp443_compat_patch.py')
           body = q.read_text(encoding='utf-8')
           start = body.index('profiles_old =')
-          marker = 'replace_once("app/xray/profiles.py", profiles_old, profiles_new)'
-          finish = body.index(marker, start) + len(marker)
+          helper_marker = 'replace_once("app/xray/profiles.py", profiles_old, profiles_new)'
+          finish = body.index(helper_marker, start) + len(helper_marker)
           while finish < len(body) and body[finish] in '\r\n':
               finish += 1
           q.write_text(body[:start] + body[finish:], encoding='utf-8', newline='\n')
