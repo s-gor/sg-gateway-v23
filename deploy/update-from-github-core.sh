@@ -66,6 +66,7 @@ ASSETS_FINGERPRINT=""
 ASSETS_RECOVERY_DIR=""
 ASSETS_RECOVERY_SOURCE=""
 NGINX_REPAIRED=0
+NGINX_PREUPDATE_ACTIVE=0
 
 RUNTIME_FILES=(
   amneziawg-tools-3.0.20260805.tar.gz
@@ -634,6 +635,11 @@ verify_runtime_states_unchanged() {
     [[ -n "$service" ]] || continue
     case "$service" in
       "$PANEL_SERVICE"|"$HOSTD_SERVICE"|"$AWG31_SERVICE") continue ;;
+      "nginx.service")
+        if (( NGINX_REPAIRED == 1 )); then
+          continue
+        fi
+        ;;
     esac
     now=0
     now_enabled=0
@@ -1129,11 +1135,12 @@ preflight() {
   validate_backup_policy
 
   local command
-  for command in curl tar gzip python3 sha256sum systemctl du df find sort; do
+  for command in curl tar gzip python3 sha256sum systemctl nginx du df find sort; do
     command -v "$command" >/dev/null 2>&1 || fail "required command is missing: $command"
   done
 
-  systemctl is-active --quiet nginx.service || fail "nginx.service is not active before update"
+  NGINX_PREUPDATE_ACTIVE=0
+  systemctl is-active --quiet nginx.service && NGINX_PREUPDATE_ACTIVE=1 || true
   systemctl is-active --quiet "$HOSTD_SERVICE" || fail "$HOSTD_SERVICE is not active before update"
   systemctl is-active --quiet "$PANEL_SERVICE" || fail "$PANEL_SERVICE is not active before update"
 
@@ -1144,11 +1151,25 @@ preflight() {
   local state
   state="$(https_state)"
   eval "$state"
+
+  if (( NGINX_PREUPDATE_ACTIVE == 0 )); then
+    if nginx -t >/dev/null 2>&1; then
+      fail "nginx.service is not active before update"
+    fi
+    [[ "${HTTPS_READY:-0}" == "1" && -n "${HTTPS_DOMAIN:-}" && -f "$NGINX_STREAM_CONFIG" ]] || \
+      fail "nginx.service is inactive with invalid config and managed HTTPS state is unavailable for repair"
+    printf '[SG-Gateway Update] Nginx is inactive with invalid managed config; managed Nginx repair will run after Safety Backup.\n'
+  fi
+
   if [[ "${HTTPS_READY:-0}" == "1" ]]; then
     printf '[SG-Gateway Update] HTTPS: %s:%s\n' "$HTTPS_DOMAIN" "$PANEL_PORT"
-    curl --noproxy '*' -fsS --max-time 12 \
-      --resolve "${HTTPS_DOMAIN}:${PANEL_PORT}:127.0.0.1" \
-      "https://${HTTPS_DOMAIN}:${PANEL_PORT}/health" >/dev/null
+    if (( NGINX_PREUPDATE_ACTIVE == 1 )); then
+      curl --noproxy '*' -fsS --max-time 12 \
+        --resolve "${HTTPS_DOMAIN}:${PANEL_PORT}:127.0.0.1" \
+        "https://${HTTPS_DOMAIN}:${PANEL_PORT}/health" >/dev/null
+    else
+      printf '[SG-Gateway Update] HTTPS health check deferred until managed Nginx repair.\n'
+    fi
   else
     printf '[SG-Gateway Update] HTTPS: not configured; IP/HTTP mode will be preserved.\n'
   fi
@@ -1739,7 +1760,11 @@ main() {
   printf '%s[SG-Gateway Update] SG-Gateway safely updated.%s\n' "$GREEN" "$RESET"
   printf '[SG-Gateway Update] VERSION: %s\n' "$new_version"
   printf '[SG-Gateway Update] Safety Backup: %s\n' "$BACKUP_DIR"
-  printf '[SG-Gateway Update] TLS certificates/Nginx/AWG3 runtime/VPN cores were not modified.\n'
+  if (( NGINX_REPAIRED == 1 )); then
+    printf '[SG-Gateway Update] TLS certificates/AWG3 runtime/VPN cores were not modified; managed Nginx stream config was repaired.\n'
+  else
+    printf '[SG-Gateway Update] TLS certificates/Nginx/AWG3 runtime/VPN cores were not modified.\n'
+  fi
   printf '[SG-Gateway Update] ============================================================\n'
 }
 
