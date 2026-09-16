@@ -40,6 +40,8 @@ AWG3_UNIT="$(system_path /etc/systemd/system/sg-gateway-awg3.service)"
 AWG31_CONFIG="$(system_path /etc/amnezia/amneziawg/awg31)"
 AWG31_STATE="$(system_path /var/lib/sg-gateway/awg31)"
 AWG31_UNIT="$(system_path /etc/systemd/system/sg-gateway-awg31.service)"
+UDP_EDGE_SERVICE="sg-gateway-udp-edge.service"
+UDP_EDGE_UNIT="$(system_path /etc/systemd/system/sg-gateway-udp-edge.service)"
 AWG3_ROOT="$PREFIX/awg3"
 NAIVE_SERVICE="sg-gateway-naiveproxy.service"
 NAIVE_ROOT="$PREFIX/naiveproxy"
@@ -189,6 +191,7 @@ ensure_safety_backup_space() {
     "$NGINX_STREAM_CONFIG"
     "$PANEL_UNIT"
     "$HOSTD_UNIT"
+    "$UDP_EDGE_UNIT"
   )
   while IFS= read -r candidate; do
     [[ -n "$candidate" ]] && candidates+=("$candidate")
@@ -613,7 +616,7 @@ capture_service_states() {
   : > "$output"
   for service in \
     nginx.service xray.service mihomo.service sg-gateway-awg.service "$AWG3_SERVICE" "$AWG31_SERVICE" \
-    sg-gateway-singbox.service "$NAIVE_SERVICE" "$HOSTD_SERVICE" "$PANEL_SERVICE"; do
+    sg-gateway-singbox.service "$NAIVE_SERVICE" "$UDP_EDGE_SERVICE" "$HOSTD_SERVICE" "$PANEL_SERVICE"; do
     active=0
     enabled=0
     failed=0
@@ -813,7 +816,8 @@ create_safety_backup() {
     etc/systemd/system/sg-hostd.service \
     etc/systemd/system/sg-gateway-awg.service \
     etc/systemd/system/sg-gateway-awg3.service \
-    etc/systemd/system/sg-gateway-awg31.service; do
+    etc/systemd/system/sg-gateway-awg31.service \
+    etc/systemd/system/sg-gateway-udp-edge.service; do
     if [[ -e "$SYSTEM_ROOT/$relative" || -L "$SYSTEM_ROOT/$relative" ]]; then
       existing+=("$relative")
     fi
@@ -859,7 +863,7 @@ create_safety_backup() {
 rollback_update() {
   (( BACKUP_READY == 1 )) || return 0
   printf '\n%s[SG-Gateway Update] ROLLBACK:%s restoring the pre-update server state...\n' "$YELLOW" "$RESET"
-  systemctl stop "$PANEL_SERVICE" "$HOSTD_SERVICE" "$AWG3_SERVICE" "$AWG31_SERVICE" >/dev/null 2>&1 || true
+  systemctl stop "$PANEL_SERVICE" "$HOSTD_SERVICE" "$AWG3_SERVICE" "$AWG31_SERVICE" "$UDP_EDGE_SERVICE" >/dev/null 2>&1 || true
 
   local path
   for path in \
@@ -877,7 +881,8 @@ rollback_update() {
     "$HOSTD_UNIT" \
     "$AWG2_UNIT" \
     "$AWG3_UNIT" \
-    "$AWG31_UNIT"; do
+    "$AWG31_UNIT" \
+    "$UDP_EDGE_UNIT"; do
     rm -rf -- "$path"
   done
 
@@ -1475,6 +1480,10 @@ deploy_source() {
   [[ -f "$PREFIX/deploy/sg-gateway-awg3.service" ]] || \
     fail "deployed AWG3 systemd unit is missing"
   install -m 0644 "$PREFIX/deploy/sg-gateway-awg3.service" "$AWG3_UNIT"
+
+  [[ -f "$PREFIX/deploy/sg-gateway-udp-edge.service" ]] || \
+    fail "deployed UDP edge systemd unit is missing"
+  install -m 0644 "$PREFIX/deploy/sg-gateway-udp-edge.service" "$UDP_EDGE_UNIT"
   systemctl daemon-reload
   if [[ "$SYSTEM_ROOT" == / ]]; then
     chmod -R a+rX "$PREFIX/.venv"
@@ -1562,6 +1571,8 @@ verify_final() {
 
   cmp -s "$PREFIX/deploy/sg-gateway-awg3.service" "$AWG3_UNIT" || \
     fail "installed AWG3 systemd unit does not match deployed source"
+  cmp -s "$PREFIX/deploy/sg-gateway-udp-edge.service" "$UDP_EDGE_UNIT" || \
+    fail "installed UDP edge systemd unit does not match deployed source"
 
   verify_runtime_states_unchanged "$BACKUP_DIR/service-state.tsv"
   nginx -t >/dev/null
@@ -1645,6 +1656,21 @@ PYPANELSTATE
   runuser -u sg-gateway -- test -r "$PANEL_UPDATE_STATE"
 }
 
+ensure_udp_edge_service() {
+  [[ -f "$PREFIX/deploy/sg-gateway-udp-edge.service" ]] || \
+    fail "deployed UDP edge systemd unit is missing"
+  cmp -s "$PREFIX/deploy/sg-gateway-udp-edge.service" "$UDP_EDGE_UNIT" || \
+    fail "installed UDP edge systemd unit does not match deployed source"
+
+  systemctl daemon-reload
+  systemctl enable --now "$UDP_EDGE_SERVICE"
+  # enable --now does not restart an already-running dispatcher after source
+  # replacement, so restart explicitly to guarantee the new Python code is live.
+  systemctl restart "$UDP_EDGE_SERVICE"
+  systemctl is-active --quiet "$UDP_EDGE_SERVICE" || \
+    fail "UDP edge service failed to start"
+}
+
 main() {
   printf '\n%s[SG-Gateway Update]%s Dedicated panel-only Update\n' "$CYAN" "$RESET"
   printf '[SG-Gateway Update] This mode does NOT install packages, Certbot, Nginx or VPN cores.\n\n'
@@ -1661,6 +1687,7 @@ main() {
   run_stage 6 "AWG31 Stage3A migration внутри Update transaction" run_stage3a_migration
   run_stage 7 "Проверка HTTPS, credentials, Nginx и runtime" verify_final
   run_stage 8 "UDP/443 Hysteria2/TUIC compatibility migration" run_udp443_compat_migration
+  run_stage 9 "UDP/443 edge service rollout" ensure_udp_edge_service
 
   # Repair a runtime that was already missing before this Update only after
   # all pre-existing protected runtime has passed the immutability checks.
