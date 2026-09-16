@@ -8,12 +8,14 @@ def test_shared_tls_hub_uses_placeholder_not_panel_gateway():
     hostd_runtime = (ROOT / "hostd/sg_hostd/naiveproxy_runtime.py").read_text(encoding="utf-8")
     access = (ROOT / "deploy/configure-panel-access.sh").read_text(encoding="utf-8")
 
-    assert "127.0.0.1:{current.port}" in app_runtime
+    assert "https://{current.domain}:{current.port}" in app_runtime
+    assert "bind 127.0.0.1" in app_runtime
     assert "reverse_proxy @sg_xhttp_tls h2c://127.0.0.1:{XHTTP_TLS_INTERNAL_PORT}" in app_runtime
     assert "reverse_proxy http://127.0.0.1:{PLACEHOLDER_HTTP_INTERNAL_PORT}" in app_runtime
     assert "PANEL_GATEWAY_PORT" not in app_runtime
 
-    assert "127.0.0.1:{settings['port']}" in hostd_runtime
+    assert "https://{settings['domain']}:{settings['port']}" in hostd_runtime
+    assert "bind 127.0.0.1" in hostd_runtime
     assert "reverse_proxy @sg_xhttp_tls h2c://127.0.0.1:{XHTTP_TLS_INTERNAL_PORT}" in hostd_runtime
     assert "reverse_proxy http://127.0.0.1:{PLACEHOLDER_HTTP_INTERNAL_PORT}" in hostd_runtime
     assert "PANEL_GATEWAY_PORT" not in hostd_runtime
