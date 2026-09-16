@@ -14,7 +14,7 @@ def test_update_installs_enables_and_verifies_udp_edge_service_before_finish():
     assert 'systemctl enable --now "$UDP_EDGE_SERVICE"' in updater
     assert 'cmp -s "$PREFIX/deploy/sg-gateway-udp-edge.service" "$UDP_EDGE_UNIT"' in updater
 
-    rollout = updater.index('run_stage 9 "UDP/443 edge service rollout" ensure_udp_edge_service')
+    rollout = updater.index('run_stage 10 "UDP/443 edge service rollout" ensure_udp_edge_service')
     finish = updater.index("UPDATE_FINISHED=1")
     assert rollout < finish
 
