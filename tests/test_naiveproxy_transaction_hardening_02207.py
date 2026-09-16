@@ -188,6 +188,6 @@ def test_first_apply_commits_only_validated_tls_and_config(
     assert result["ok"] is True
     assert runtime.TLS_CERTIFICATE.read_text(encoding="utf-8") == "new-cert"
     assert runtime.TLS_PRIVATE_KEY.read_text(encoding="utf-8") == "new-key"
-    assert "127.0.0.1:10447" in runtime.CONFIG_PATH.read_text(
-        encoding="utf-8"
-    )
+    config = runtime.CONFIG_PATH.read_text(encoding="utf-8")
+    assert "https://vpn.example.com:10447" in config
+    assert "bind 127.0.0.1" in config
