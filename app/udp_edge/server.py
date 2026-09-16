@@ -9,11 +9,17 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
-from app.single_edge import AWG31_UDP_INTERNAL_PORT, HYSTERIA2_UDP_INTERNAL_PORT, PUBLIC_UDP_PORT, TUIC_UDP_INTERNAL_PORT
+from app.single_edge import (
+    AWG31_UDP_BACKEND_HOST,
+    AWG31_UDP_INTERNAL_PORT,
+    HYSTERIA2_UDP_INTERNAL_PORT,
+    PUBLIC_UDP_PORT,
+    TUIC_UDP_INTERNAL_PORT,
+)
 from app.udp_edge.classifier import Protocol, classify_initial_datagram, load_classifier_config
 
 BACKENDS: dict[Protocol, tuple[str, int]] = {
-    "awg31": ("127.0.0.1", AWG31_UDP_INTERNAL_PORT),
+    "awg31": (AWG31_UDP_BACKEND_HOST, AWG31_UDP_INTERNAL_PORT),
     "hysteria2": ("127.0.0.1", HYSTERIA2_UDP_INTERNAL_PORT),
     "tuic": ("127.0.0.1", TUIC_UDP_INTERNAL_PORT),
 }
