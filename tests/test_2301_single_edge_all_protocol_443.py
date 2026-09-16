@@ -63,6 +63,7 @@ def test_awg31_udp_backend_isolated_in_private_network_namespace():
     single_edge = (ROOT / "app/single_edge.py").read_text(encoding="utf-8")
     edge = (ROOT / "app/udp_edge/server.py").read_text(encoding="utf-8")
     launcher = (ROOT / "deploy/sg-gateway-awg31-userspace.sh").read_text(encoding="utf-8")
+    updater = (ROOT / "deploy/update-from-github-core.sh").read_text(encoding="utf-8")
 
     assert 'AWG31_UDP_BACKEND_HOST = "169.254.31.2"' in single_edge
     assert '"awg31": (AWG31_UDP_BACKEND_HOST, AWG31_UDP_INTERNAL_PORT)' in edge
@@ -80,6 +81,11 @@ def test_awg31_udp_backend_isolated_in_private_network_namespace():
     assert 'ip netns exec "$NETNS" ip link set "$IFACE" netns 1' in launcher
     assert 'ip netns delete "$NETNS"' in launcher
     assert '\n"$AWG_GO" --foreground "$IFACE" &' not in launcher
+
+    assert 'if systemctl is-active --quiet "$AWG31_SERVICE"; then' in updater
+    awg_restart = updater.index('systemctl restart "$AWG31_SERVICE"')
+    edge_restart = updater.index('systemctl restart "$UDP_EDGE_SERVICE"')
+    assert awg_restart < edge_restart
 
 
 def test_udp_edge_is_managed_service_and_only_public_udp_owner():
