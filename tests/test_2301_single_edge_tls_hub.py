@@ -60,3 +60,28 @@ def test_internal_placeholder_tls_listener_has_certificate_directives():
     block = access[start:end]
     assert "ssl_certificate $cert;" in block
     assert "ssl_certificate_key $key;" in block
+
+
+def test_tcp_443_edge_routes_anytls_by_alpn_and_mieru_as_non_tls():
+    installer = (ROOT / "install.sh").read_text(encoding="utf-8")
+    access = (ROOT / "deploy/configure-panel-access.sh").read_text(encoding="utf-8")
+
+    assert 'ANYTLS_ALPN="sg-anytls"' in installer
+    assert 'map \\$ssl_preread_server_name \\$sg_gateway_sni_backend {' in installer
+    assert 'map \\$ssl_preread_protocol \\$sg_gateway_protocol_backend {' in installer
+    assert '"" 127.0.0.1:${MIHOMO_PORT};' in installer
+    assert 'default \\$sg_gateway_sni_backend;' in installer
+    assert 'map \\$ssl_preread_alpn_protocols \\$sg_gateway_443_backend {' in installer
+    assert '~\\b${ANYTLS_ALPN}\\b 127.0.0.1:${ANYTLS_PORT};' in installer
+    assert 'default \\$sg_gateway_protocol_backend;' in installer
+
+    assert 'MIERU_TCP_INTERNAL_PORT="10448"' in access
+    assert 'ANYTLS_TCP_INTERNAL_PORT="10449"' in access
+    assert 'ANYTLS_ALPN="sg-anytls"' in access
+    assert 'map \\$ssl_preread_server_name \\$sg_gateway_sni_backend {' in access
+    assert 'map \\$ssl_preread_protocol \\$sg_gateway_protocol_backend {' in access
+    assert '"" 127.0.0.1:$MIERU_TCP_INTERNAL_PORT;' in access
+    assert 'default \\$sg_gateway_sni_backend;' in access
+    assert 'map \\$ssl_preread_alpn_protocols \\$sg_gateway_443_backend {' in access
+    assert '~\\b$ANYTLS_ALPN\\b 127.0.0.1:$ANYTLS_TCP_INTERNAL_PORT;' in access
+    assert 'default \\$sg_gateway_protocol_backend;' in access
