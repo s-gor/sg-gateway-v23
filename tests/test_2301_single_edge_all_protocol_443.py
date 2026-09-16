@@ -153,3 +153,23 @@ def test_update_transaction_migrates_existing_plain_hysteria_before_finish():
     migration = updater.index('run_stage 9 "UDP/443 Hysteria2/TUIC compatibility migration"')
     finish = updater.index("UPDATE_FINISHED=1")
     assert migration < finish
+
+
+def test_update_can_recover_inactive_nginx_when_managed_stream_config_is_broken():
+    updater = (ROOT / "deploy/update-from-github-core.sh").read_text(encoding="utf-8")
+    access = (ROOT / "deploy/configure-panel-access.sh").read_text(encoding="utf-8")
+
+    preflight = updater[updater.index("preflight() {"):updater.index("resolve_source_commit() {")]
+    assert 'systemctl is-active --quiet nginx.service || fail "nginx.service is not active before update"' not in preflight
+    assert 'NGINX_PREUPDATE_ACTIVE=0' in updater
+    assert 'nginx -t >/dev/null 2>&1' in preflight
+    assert 'managed Nginx repair will run after Safety Backup' in preflight
+    assert 'HTTPS health check deferred until managed Nginx repair' in preflight
+
+    states = updater[updater.index("verify_runtime_states_unchanged() {"):updater.index("https_state() {")]
+    assert '"nginx.service")' in states
+    assert 'NGINX_REPAIRED == 1' in states
+
+    stream_refresh = access[access.index("refresh_stream_config(){"):access.index("renew_https(){")]
+    assert 'systemctl is-active --quiet nginx.service' in stream_refresh
+    assert 'systemctl start nginx.service' in stream_refresh
