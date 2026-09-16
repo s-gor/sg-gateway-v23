@@ -20,7 +20,7 @@ def test_shared_tls_hub_uses_placeholder_not_panel_gateway():
     assert "reverse_proxy http://127.0.0.1:{PLACEHOLDER_HTTP_INTERNAL_PORT}" in hostd_runtime
     assert "PANEL_GATEWAY_PORT" not in hostd_runtime
 
-    assert "$HOST 127.0.0.1:$TLS_EDGE_INTERNAL_PORT;" in access
+    assert "$domain 127.0.0.1:$TLS_EDGE_INTERNAL_PORT;" in access
     assert 'PLACEHOLDER_HTTP_INTERNAL_PORT="10446"' in access
     assert "PANEL_HTTP_INTERNAL_PORT" not in access
     assert "listen 127.0.0.1:$PLACEHOLDER_HTTP_INTERNAL_PORT;" in access
