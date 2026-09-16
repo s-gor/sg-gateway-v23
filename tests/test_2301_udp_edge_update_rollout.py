@@ -27,3 +27,12 @@ def test_update_rollback_tracks_udp_edge_service_state():
 
     rollback = updater[updater.index("rollback_update()") : updater.index("on_error()")]
     assert '"$UDP_EDGE_SERVICE"' in rollback
+
+
+def test_udp_edge_unit_uses_persistent_writable_gateway_data_dir():
+    unit = (ROOT / "deploy/sg-gateway-udp-edge.service").read_text(encoding="utf-8")
+
+    assert "ProtectSystem=strict" in unit
+    assert "Environment=SG_GATEWAY_DATA_DIR=/var/lib/sg-gateway" in unit
+    assert "ReadWritePaths=/var/lib/sg-gateway" in unit
+    assert "Environment=SG_GATEWAY_DATA_DIR=data" not in unit
