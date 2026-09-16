@@ -65,15 +65,8 @@ jobs:
 
           p = Path('app/maintenance/udp443_compat.py')
           s = p.read_text(encoding='utf-8')
-          old = '''def migrate() -> dict[str, Any]:
-    settings = get_connection_settings("xray")
-    candidate, changed = normalise_hysteria2_config(dict(settings.config))'''
-          new = '''def migrate() -> dict[str, Any]:
-    try:
-        settings = get_connection_settings("xray")
-    except KeyError:
-        return {"changed": False, "mode": "absent"}
-    candidate, changed = normalise_hysteria2_config(dict(settings.config))'''
+          old = 'def migrate() -> dict[str, Any]:\n    settings = get_connection_settings("xray")\n    candidate, changed = normalise_hysteria2_config(dict(settings.config))'
+          new = 'def migrate() -> dict[str, Any]:\n    try:\n        settings = get_connection_settings("xray")\n    except KeyError:\n        return {"changed": False, "mode": "absent"}\n    candidate, changed = normalise_hysteria2_config(dict(settings.config))'
           if s.count(old) != 1:
               raise SystemExit(f'app/maintenance/udp443_compat.py legacy-Xray anchor count={s.count(old)}')
           p.write_text(s.replace(old, new, 1), encoding='utf-8', newline='\n')
