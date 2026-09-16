@@ -1,4 +1,5 @@
 from pathlib import Path
+from types import SimpleNamespace
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -71,3 +72,55 @@ def test_udp_edge_is_managed_service_and_only_public_udp_owner():
     assert "sg-gateway-awg31.service sg-gateway-singbox.service sg-gateway-naiveproxy.service sg-gateway-udp-edge.service; do" in installer
     for legacy in ('"8446/udp"', '"10443/udp"', '"2099/udp"'):
         assert legacy not in installer
+
+
+def test_hysteria2_single_edge_forces_managed_salamander(monkeypatch):
+    import app.xray.profiles as profiles
+
+    current_config = {
+        "fingerprint": "firefox",
+        "reality_tcp_enabled": True,
+        "xhttp_reality_enabled": False,
+        "xhttp_tls_enabled": False,
+        "hysteria2_enabled": True,
+        "hysteria2_port": 443,
+        "hysteria2_obfs_mode": "none",
+        "hysteria2_obfs_password": "",
+        "hysteria2_finalmask": {},
+        "hysteria2_uri_scheme": "hysteria2",
+    }
+    settings = SimpleNamespace(host="vpn.example", port=443, config=current_config)
+    monkeypatch.setattr(
+        profiles,
+        "_config",
+        lambda: (settings, dict(current_config), {"https_ready": True}),
+    )
+    monkeypatch.setattr(profiles, "_installed_xray_version", lambda: "26.9.9")
+
+    prepared = profiles._prepare(
+        {
+            "host": "vpn.example",
+            "fingerprint": "firefox",
+            "reality_tcp_enabled": "on",
+            "xhttp_reality_path": "/sg-xhttp-reality",
+            "xhttp_reality_mode": "stream-one",
+            "xhttp_tls_path": "/sg-xhttp-tls",
+            "xhttp_tls_mode": "auto",
+            "hysteria2_enabled": "on",
+            "hysteria2_obfs_mode": "none",
+        }
+    )
+
+    assert prepared.config["hysteria2_obfs_mode"] == profiles.SALAMANDER_MODE
+    assert profiles.password_ready(prepared.config["hysteria2_obfs_password"])
+    assert prepared.config["hysteria2_salamander_managed"] is True
+
+
+def test_update_transaction_migrates_existing_plain_hysteria_before_finish():
+    updater = (ROOT / "deploy/update-from-github-core.sh").read_text(encoding="utf-8")
+    assert "app.maintenance.udp443_compat" in updater
+    assert "run_udp443_compat_migration" in updater
+    assert "XRAY_CONFIG" in updater
+    migration = updater.index('run_stage 8 "UDP/443 Hysteria2/TUIC compatibility migration"')
+    finish = updater.index("UPDATE_FINISHED=1")
+    assert migration < finish
