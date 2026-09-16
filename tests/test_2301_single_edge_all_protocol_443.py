@@ -21,6 +21,9 @@ def test_xray_hysteria_is_private_and_public_export_is_443():
     assert "HYSTERIA2_UDP_INTERNAL_PORT" in runtime
     assert '"listen": "127.0.0.1"' in runtime
     assert '"reality_tcp", "xhttp_reality", "xhttp_tls", "hysteria2"' in exports
+    hysteria = exports[exports.index('elif profile_id == "hysteria2":'):exports.index('\n    else:\n        body = ""', exports.index('elif profile_id == "hysteria2":'))]
+    assert "endpoint = format_host_port(host, public_profile_port)" in hysteria
+    assert "endpoint = format_host_port(host, profile.port)" not in hysteria
 
 
 def test_split_mihomo_backends_are_private():
@@ -46,6 +49,13 @@ def test_all_non_xray_exports_use_public_443_constants():
     assert "build_tuic_link" in exports and "PUBLIC_UDP_PORT" in exports
 
 
+def test_awg31_server_runtime_binds_private_udp_backend_only():
+    data = (ROOT / "app/maintenance/awg31_stage3a_data.py").read_text(encoding="utf-8")
+    assert "AWG31_UDP_INTERNAL_PORT" in data
+    assert 'f"ListenPort = {AWG31_UDP_INTERNAL_PORT}"' in data
+    assert '"ListenPort = 443"' not in data
+
+
 def test_udp_edge_is_managed_service_and_only_public_udp_owner():
     assert (ROOT / "app/udp_edge/__init__.py").is_file()
     assert (ROOT / "app/udp_edge/classifier.py").is_file()
@@ -54,5 +64,8 @@ def test_udp_edge_is_managed_service_and_only_public_udp_owner():
     installer = (ROOT / "install.sh").read_text(encoding="utf-8")
     assert "sg-gateway-udp-edge.service" in installer
     assert '"443/udp"' in installer
+    assert '"${PANEL_PORT}/tcp" "443/tcp" "443/udp"' in installer
+    assert 'systemctl enable --now "$UDP_EDGE_SERVICE"' in installer
+    assert "sg-gateway-awg31.service sg-gateway-singbox.service sg-gateway-naiveproxy.service sg-gateway-udp-edge.service; do" in installer
     for legacy in ('"8446/udp"', '"10443/udp"', '"2099/udp"'):
         assert legacy not in installer
