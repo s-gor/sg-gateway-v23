@@ -53,6 +53,15 @@ jobs:
               'replace_first_of_two(path, \'f"    port: {settings[\\\'tuic_port\\\']}"\', \'f"    port: {TUIC_UDP_INTERNAL_PORT}"\')',
               1,
           )
+          old_alpn = '''    replace_once(\n        path,\n        'f"    sni: {_yaml_string(settings[\\'domain\\'])}",\\n                    "    udp: true",',\n        'f"    sni: {_yaml_string(settings[\\'domain\\'])}",\\n                    f"    alpn: [{_yaml_string(ANYTLS_ALPN)}]",\\n                    "    udp: true",',\n    )\n'''
+          new_alpn = '''    replace_once(\n        path,\n        '"    alpn: [h2, http/1.1]"',\n        'f"    alpn: [{_yaml_string(ANYTLS_ALPN)}]"',\n    )\n'''
+          if old_alpn not in text:
+              raise SystemExit('AnyTLS client ALPN patch anchor missing')
+          text = text.replace(old_alpn, new_alpn, 1)
+          old_firewall = '      "80/tcp" "443/tcp" "443/udp"; do'
+          if text.count(old_firewall) != 1:
+              raise SystemExit(f'firewall replacement anchor count={text.count(old_firewall)}')
+          text = text.replace(old_firewall, '      "80/tcp" "${PANEL_PORT}/tcp" "443/tcp" "443/udp"; do', 1)
           path.write_text(text, encoding='utf-8', newline='\n')
           PY
           python tools/single_edge_apply.py
