@@ -13,6 +13,9 @@ MIERU_TCP_INTERNAL_PORT = 10448
 ANYTLS_TCP_INTERNAL_PORT = 10449
 
 # UDP private backends behind sg-gateway-udp-edge.service.
+# AWG31 runs in its own network namespace; this link-local address exists only
+# on the host-only veth between the dispatcher and the AWG31 socket namespace.
+AWG31_UDP_BACKEND_HOST = "169.254.31.2"
 AWG31_UDP_INTERNAL_PORT = 10451
 HYSTERIA2_UDP_INTERNAL_PORT = 10452
 TUIC_UDP_INTERNAL_PORT = 10453
