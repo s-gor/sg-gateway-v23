@@ -36,8 +36,7 @@ jobs:
               '  systemctl daemon-reload\n'
               '  if systemctl is-active --quiet "$AWG31_SERVICE"; then\n'
               '    systemctl restart "$AWG31_SERVICE"\n'
-              '    systemctl is-active --quiet "$AWG31_SERVICE" || \\\n'
-              '      fail "AWG31 service failed to restart with private UDP backend"\n'
+              '    systemctl is-active --quiet "$AWG31_SERVICE" || fail "AWG31 service failed to restart with private UDP backend"\n'
               '  fi\n'
               '  systemctl enable --now "$UDP_EDGE_SERVICE"\n'
           )
