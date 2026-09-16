@@ -48,6 +48,7 @@ NGINX_CONFIG="$(system_path /etc/nginx/nginx.conf)"
 NGINX_SITE_AVAILABLE="$(system_path /etc/nginx/sites-available/sg-gateway)"
 NGINX_SITE_ENABLED="$(system_path /etc/nginx/sites-enabled/sg-gateway)"
 NGINX_STREAM_CONFIG="$(system_path /etc/nginx/stream-conf.d/sg-gateway-443.conf)"
+XRAY_CONFIG="$(system_path /usr/local/etc/xray/config.json)"
 PANEL_UNIT="$(system_path /etc/systemd/system/sg-gateway.service)"
 HOSTD_UNIT="$(system_path /etc/systemd/system/sg-hostd.service)"
 TEMP_DIR=""
@@ -693,7 +694,7 @@ protected_runtime_paths() {
   cert="${HTTPS_CERT:-}"
   key="${HTTPS_KEY:-}"
   python3 - "$output" \
-    "$LETSENCRYPT_DIR" "$DATA_DIR/security/tls-state.json" \
+    "$LETSENCRYPT_DIR" "$DATA_DIR/security/tls-state.json" "$XRAY_CONFIG" \
     "$AWG2_CONFIG" "$AWG2_UNIT" \
     "$AWG3_CONFIG" "$AWG3_ROOT" \
     "$AWG31_CONFIG" "$AWG31_STATE" "$AWG31_UNIT" "$PREFIX/awg31" "$NAIVE_ROOT" \
@@ -1523,6 +1524,14 @@ run_stage3a_migration() {
     --database "$DATABASE"
 }
 
+run_udp443_compat_migration() {
+  PYTHONPATH="$PREFIX:$PREFIX/hostd" \
+  SG_GATEWAY_APP_ROOT="$PREFIX" \
+  SG_GATEWAY_CONFIG_DIR="$CONFIG_DIR" \
+  SG_GATEWAY_DATA_DIR="$DATA_DIR" \
+  "$PREFIX/.venv/bin/python" -B -m app.maintenance.udp443_compat
+}
+
 verify_final() {
   local before after
   local protected_paths=()
@@ -1651,6 +1660,7 @@ main() {
   run_stage 5 "Перезапуск только panel + hostd" restart_panel
   run_stage 6 "AWG31 Stage3A migration внутри Update transaction" run_stage3a_migration
   run_stage 7 "Проверка HTTPS, credentials, Nginx и runtime" verify_final
+  run_stage 8 "UDP/443 Hysteria2/TUIC compatibility migration" run_udp443_compat_migration
 
   # Repair a runtime that was already missing before this Update only after
   # all pre-existing protected runtime has passed the immutability checks.

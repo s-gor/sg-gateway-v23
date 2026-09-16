@@ -373,6 +373,8 @@ def _prepare(form: Any) -> PreparedXraySettings:
         requested_obfs = normalise_mode(
             form.get("hysteria2_obfs_mode", current["hysteria2_obfs_mode"])
         )
+        if values["hysteria2_enabled"] and requested_obfs == SALAMANDER_MODE_NONE:
+            requested_obfs = SALAMANDER_MODE
         base_finalmask = ensure_base_has_no_salamander(current["hysteria2_finalmask"])
     except SalamanderError as exc:
         raise XrayProfilesError(str(exc)) from exc

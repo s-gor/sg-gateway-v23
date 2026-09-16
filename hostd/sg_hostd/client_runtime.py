@@ -33,7 +33,8 @@ from app.single_edge import (
 from app.xray.encryption import VlessEncryptionError, normalize_pair
 from app.xray.profiles import REALITY_TCP_FLOW, XRAY_MINIMUM_VERSION, overview as xray_profiles_overview
 from app.xray.salamander import SalamanderError, merge_finalmask
-from app.xray.settings_transactions import commit as commit_settings_transaction, pending as pending_settings_transaction, rollback as rollback_settings_transaction, update_candidate_config as update_settings_candidate_config
+from app.xray.settings_transactions import begin as begin_settings_transaction, commit as commit_settings_transaction, pending as pending_settings_transaction, rollback as rollback_settings_transaction, update_candidate_config as update_settings_candidate_config
+from app.maintenance.udp443_compat import normalise_hysteria2_config
 from app.xray.sg_panel_vless import reality_tcp_inbound, xhttp_reality_inbound
 
 
@@ -1233,6 +1234,19 @@ def _apply_xray(*, force_profiles: bool = False) -> EngineResult:
     engine = "xray"
     settings_transaction = pending_settings_transaction(engine)
     rows = _deployment_rows(engine)
+    settings = get_connection_settings(engine)
+    compatible_config, compatibility_changed = normalise_hysteria2_config(dict(settings.config))
+    if compatibility_changed:
+        if settings_transaction is not None:
+            if not update_settings_candidate_config(settings_transaction.id, compatible_config):
+                raise ClientRuntimeError("Не удалось обновить pending Xray transaction для UDP/443")
+            settings_transaction = pending_settings_transaction(engine)
+        elif not rows and not force_profiles:
+            update_connection_settings(engine, settings.host, int(settings.port), compatible_config)
+        else:
+            settings_transaction = begin_settings_transaction(
+                engine, settings.host, int(settings.port), compatible_config
+            )
     ids = [int(row["client_id"]) for row in rows]
     previous = _status_snapshot(engine)
 
