@@ -26,6 +26,14 @@ jobs:
           python -m pip install -r requirements-dev.txt
       - name: Apply runtime and export changes
         run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('tools/single_edge_apply.py')
+          text = path.read_text(encoding='utf-8')
+          text = text.replace('start = text.index("def _apply_singbox()")', 'start = text.index("def _render_singbox_config(")')
+          text = text.replace('end = text.index("def apply_split_mihomo_singbox_runtime()")', 'end = text.index("def _sync_singbox_client_configs(")')
+          path.write_text(text, encoding='utf-8', newline='\n')
+          PY
           python tools/single_edge_apply.py
       - name: Check Python syntax
         run: |
