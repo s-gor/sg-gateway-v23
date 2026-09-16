@@ -1,0 +1,68 @@
+name: Close final AWG31 regression
+
+on:
+  push:
+    branches:
+      - feat/2301-single-edge-443
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/2301-single-edge-443
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-dev.txt
+          python -m playwright install --with-deps chromium
+      - name: Apply verified alignment plus final Stage1 assertion
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import textwrap
+
+          workflow = Path('.github/workflows/single-edge-regression-align.yml').read_text(encoding='utf-8')
+          marker = "          python - <<'PY'\n"
+          block = workflow.split(marker, 1)[1].split("\n          PY", 1)[0]
+          exec(compile(textwrap.dedent(block), '<single-edge-alignment>', 'exec'))
+
+          p = Path('tests/test_sg_gateway_v22_awg31_stage1_core.py')
+          text = p.read_text(encoding='utf-8')
+          old = '    assert "ListenPort = 443" in server\n'
+          if text.count(old) != 1:
+              raise SystemExit(f'Stage1 ListenPort anchor count={text.count(old)}')
+          p.write_text(text.replace(old, '    assert "ListenPort = 10451" in server\n', 1), encoding='utf-8', newline='\n')
+          PY
+      - name: Refresh source checksums
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import hashlib, subprocess
+          tracked = subprocess.check_output(['git','ls-files','--cached','--others','--exclude-standard'], text=True).splitlines()
+          paths = sorted(path for path in tracked if path != 'SOURCE-SHA256SUMS' and not path.startswith('.github/workflows/'))
+          body = ''.join(f'{hashlib.sha256(Path(path).read_bytes()).hexdigest()}  {path}\n' for path in paths)
+          Path('SOURCE-SHA256SUMS').write_text(body, encoding='utf-8', newline='\n')
+          PY
+      - name: Focused regressions
+        run: |
+          python -m pytest -q tests/test_2301_single_edge_all_protocol_443.py tests/test_2301_udp_edge_classifier.py tests/test_sg_gateway_v22_awg31_stage1_core.py tests/test_sg_gateway_v22_awg31_stage3a_install_update.py tests/test_sg_gateway_v23_single_edge_443.py
+      - name: Full suite
+        run: python -m pytest -q tests
+      - name: Commit verified fix
+        run: |
+          git add hostd/sg_hostd/awg31_runtime.py tests SOURCE-SHA256SUMS
+          git diff --cached --check
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "fix: complete single-edge UDP backend contract"
+          git push origin HEAD:feat/2301-single-edge-443
