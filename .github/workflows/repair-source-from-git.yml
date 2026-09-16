@@ -1,0 +1,62 @@
+name: Repair Source Integrity From Git
+
+on:
+  push:
+    branches:
+      - feat/2301-single-edge-443
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    if: "!contains(github.event.head_commit.message, '[git-blob-integrity]')"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/2301-single-edge-443
+          fetch-depth: 1
+      - name: Remove temporary workflow
+        run: git rm -f .github/workflows/repair-source-from-git.yml
+      - name: Rebuild inventory from committed Git blobs
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import hashlib, subprocess
+          tracked = sorted(subprocess.check_output(['git','ls-files'], text=True).splitlines())
+          expected = [p for p in tracked if p != 'SOURCE-SHA256SUMS' and not p.startswith('.github/workflows/')]
+          lines = []
+          for p in expected:
+              blob = subprocess.check_output(['git','show',f'HEAD:{p}'])
+              lines.append(f'{hashlib.sha256(blob).hexdigest()}  {p}')
+          Path('SOURCE-SHA256SUMS').write_text('\n'.join(lines) + '\n', encoding='utf-8', newline='\n')
+          print(f'git-blob source integrity rebuilt: {len(expected)} files')
+          PY
+          git add SOURCE-SHA256SUMS
+      - name: Verify current checkout against inventory
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import hashlib, re, subprocess
+          listed = {}
+          for raw in Path('SOURCE-SHA256SUMS').read_text(encoding='utf-8').splitlines():
+              if not raw.strip(): continue
+              m = re.fullmatch(r'([0-9a-f]{64})  (.+)', raw); assert m, raw
+              digest, rel = m.groups()
+              actual = hashlib.sha256(Path(rel).read_bytes()).hexdigest()
+              assert actual == digest, (rel, digest, actual)
+              listed[rel] = digest
+          tracked = set(subprocess.check_output(['git','ls-files'], text=True).splitlines())
+          expected = {p for p in tracked if p != 'SOURCE-SHA256SUMS' and not p.startswith('.github/workflows/')}
+          assert set(listed) == expected, (sorted(expected-set(listed)), sorted(set(listed)-expected))
+          print(f'source integrity ok: {len(listed)} files')
+          PY
+      - name: Commit repaired manifest
+        run: |
+          git config user.name 'SG-Gateway CI'
+          git config user.email 'actions@users.noreply.github.com'
+          git add -A
+          git diff --cached --check
+          git commit -m 'fix: derive source integrity from committed blobs [git-blob-integrity]'
+          git push origin HEAD:feat/2301-single-edge-443
