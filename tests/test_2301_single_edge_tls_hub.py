@@ -85,3 +85,35 @@ def test_tcp_443_edge_routes_anytls_by_alpn_and_mieru_as_non_tls():
     assert 'map \\$ssl_preread_alpn_protocols \\$sg_gateway_443_backend {' in access
     assert '~\\b$ANYTLS_ALPN\\b 127.0.0.1:$ANYTLS_TCP_INTERNAL_PORT;' in access
     assert 'default \\$sg_gateway_protocol_backend;' in access
+
+
+
+def test_refresh_uses_explicit_domain_and_updater_self_heals_managed_stream_config():
+    access = (ROOT / "deploy/configure-panel-access.sh").read_text(encoding="utf-8")
+    updater = (ROOT / "deploy/update-from-github-core.sh").read_text(encoding="utf-8")
+
+    assert 'write_stream_config(){ local default_backend="$1" domain="$2";' in access
+    assert '$domain 127.0.0.1:$TLS_EDGE_INTERNAL_PORT;' in access
+
+    configure = access[access.index("configure_https(){"):access.index("refresh_https(){")]
+    assert 'write_stream_config "127.0.0.1:$PLACEHOLDER_TLS_INTERNAL_PORT" "$HOST"' in configure
+
+    refresh = access[access.index("refresh_https(){"):access.index("refresh_stream_config(){")]
+    assert 'write_stream_config "127.0.0.1:$PLACEHOLDER_TLS_INTERNAL_PORT" "$domain"' in refresh
+
+    assert 'refresh_stream_config(){' in access
+    stream_refresh = access[access.index("refresh_stream_config(){"):access.index("renew_https(){")]
+    assert 'write_stream_config "127.0.0.1:$PLACEHOLDER_TLS_INTERNAL_PORT" "$domain"' in stream_refresh
+    assert "bootstrap_tls_edge" not in stream_refresh
+    assert "apply_client_runtime" not in stream_refresh
+    assert 'stream-refresh) refresh_stream_config' in access
+
+    assert "NGINX_REPAIRED=0" in updater
+    assert "repair_managed_nginx_if_needed()" in updater
+    assert '"$PREFIX/deploy/configure-panel-access.sh" --mode stream-refresh' in updater
+    assert 'if (( NGINX_REPAIRED == 1 )); then' in updater
+    assert "[%s/10]" in updater
+    assert 'run_stage 7 "Repair managed Nginx Single Edge config if needed" repair_managed_nginx_if_needed' in updater
+    assert 'run_stage 8 "Проверка HTTPS, credentials, Nginx и runtime" verify_final' in updater
+    assert 'run_stage 9 "UDP/443 Hysteria2/TUIC compatibility migration" run_udp443_compat_migration' in updater
+    assert 'run_stage 10 "UDP/443 edge service rollout" ensure_udp_edge_service' in updater

@@ -24,10 +24,10 @@ SG_HTTPS_BACKUP_DIR=""
 SG_HTTPS_COMMITTED=0
 log(){ printf '[SG-Gateway HTTPS] %s\n' "$*"; }
 fail(){ printf '[SG-Gateway HTTPS] ОШИБКА: %s\n' "$*" >&2; exit 1; }
-usage(){ printf '%s\n' 'configure-panel-access.sh --mode https --host panel.example.com --port 63443' 'configure-panel-access.sh --mode renew|rollback|refresh'; }
+usage(){ printf '%s\n' 'configure-panel-access.sh --mode https --host panel.example.com --port 63443' 'configure-panel-access.sh --mode renew|rollback|refresh|stream-refresh'; }
 while [[ $# -gt 0 ]]; do case "$1" in --mode) MODE="${2:-}"; shift 2;; --host) HOST="${2:-}"; shift 2;; --port) PUBLIC_PORT="${2:-}"; shift 2;; -h|--help) usage; exit 0;; *) fail "неизвестный параметр: $1";; esac; done
 [[ $EUID -eq 0 ]] || fail "запустите скрипт от root"
-[[ "$MODE" =~ ^(https|renew|rollback|refresh)$ ]] || { usage; exit 1; }
+[[ "$MODE" =~ ^(https|renew|rollback|refresh|stream-refresh)$ ]] || { usage; exit 1; }
 [[ -f "$ENV_FILE" && -f "$RUNTIME_ENV" ]] || fail "не найдены файлы установленного SG-Gateway"
 get_env(){ local file="$1" key="$2" default="$3" value; value="$(grep -E "^${key}=" "$file" 2>/dev/null | tail -1 | cut -d= -f2- || true)"; printf '%s' "${value:-$default}"; }
 BACKEND_PORT="$(get_env "$ENV_FILE" SG_GATEWAY_PORT 18080)"
@@ -105,13 +105,13 @@ p.write_text(b,encoding='utf-8',newline='\n')
 PY
 }
 nginx_cookie_security_directive(){ local version="$(nginx -v 2>&1 | sed -n 's#^nginx version: nginx/\([^ ]*\).*$#\1#p')"; if [[ -n "$version" ]] && command -v dpkg >/dev/null 2>&1 && dpkg --compare-versions "$version" ge '1.19.3'; then printf '%s' 'proxy_cookie_flags ~ secure httponly samesite=lax;'; else printf '%s' 'proxy_cookie_path / "/; Secure; HttpOnly; SameSite=Lax";'; fi; }
-write_stream_config(){ local default_backend="$1"; cat > "$STREAM_CONF" <<EOF
+write_stream_config(){ local default_backend="$1" domain="$2"; [[ -n "$domain" ]] || fail "не задан домен для stream routing"; cat > "$STREAM_CONF" <<EOF
 # SG_GATEWAY_PLACEHOLDER_80_443_V3
 map \$ssl_preread_server_name \$sg_gateway_sni_backend {
     hostnames;
     $REALITY_SNI 127.0.0.1:$XRAY_INTERNAL_PORT;
     $XHTTP_REALITY_SNI 127.0.0.1:$XHTTP_REALITY_INTERNAL_PORT;
-    $HOST 127.0.0.1:$TLS_EDGE_INTERNAL_PORT;
+    $domain 127.0.0.1:$TLS_EDGE_INTERNAL_PORT;
     default $default_backend;
 }
 map \$ssl_preread_protocol \$sg_gateway_protocol_backend {
@@ -305,13 +305,14 @@ detect_public_ipv4(){ local token="" value=""; token="$(curl -fsS --connect-time
 configure_https(){ [[ -n "$HOST" ]] || fail "укажите домен"; HOST="${HOST,,}"; [[ "$HOST" =~ ^([A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,63}$ ]] || fail "некорректное доменное имя"; local public_ip resolved cert_file key_file backup; SG_HTTPS_BACKUP_DIR=""; SG_HTTPS_COMMITTED=0; public_ip="$(detect_public_ipv4)"; resolved="$(getent ahostsv4 "$HOST" | awk '{print $1}' | sort -u || true)"; grep -Fxq "$public_ip" <<<"$resolved" || fail "A-запись домена ещё не указывает на этот сервер"; backup="$(create_backup)"; SG_HTTPS_BACKUP_DIR="$backup"; rollback(){ local rc=$?; trap - EXIT ERR INT TERM; if [[ "${SG_HTTPS_COMMITTED:-0}" -eq 0 && -n "$SG_HTTPS_BACKUP_DIR" ]]; then restore_backup "$SG_HTTPS_BACKUP_DIR"; nginx -t >/dev/null 2>&1 && systemctl reload nginx.service >/dev/null 2>&1 || true; fi; exit "$rc"; }; trap rollback EXIT ERR INT TERM; ensure_stream_include; cat > "$ACME_CONF" <<EOF
 server { listen 80; listen [::]:80; server_name $HOST; location ^~ /.well-known/acme-challenge/ { root $ACME_ROOT; default_type text/plain; } location / { return 404; } }
 EOF
-ln -sfn "$ACME_CONF" "$ACME_LINK"; nginx -t; systemctl enable --now nginx.service; systemctl reload nginx.service; cert_file="/etc/letsencrypt/live/$HOST/fullchain.pem"; key_file="/etc/letsencrypt/live/$HOST/privkey.pem"; if [[ -s "$cert_file" && -s "$key_file" ]] && openssl x509 -checkend 604800 -noout -in "$cert_file" >/dev/null 2>&1; then log "Использую существующий сертификат"; else certbot certonly --webroot -w "$ACME_ROOT" --domain "$HOST" --register-unsafely-without-email --agree-tos --non-interactive --keep-until-expiring; fi; [[ -s "$cert_file" && -s "$key_file" ]] || fail "сертификат не создан"; write_stream_config "127.0.0.1:$PLACEHOLDER_TLS_INTERNAL_PORT"; write_https_site "$HOST" "$cert_file" "$key_file"; bootstrap_tls_edge "$HOST" "$cert_file" "$key_file"; nginx -t; systemctl reload nginx.service; wait_backend; verify_https_contract "$HOST"; systemctl enable --now certbot.timer >/dev/null 2>&1 || true; cat > "$RENEW_HOOK" <<'EOF'
+ln -sfn "$ACME_CONF" "$ACME_LINK"; nginx -t; systemctl enable --now nginx.service; systemctl reload nginx.service; cert_file="/etc/letsencrypt/live/$HOST/fullchain.pem"; key_file="/etc/letsencrypt/live/$HOST/privkey.pem"; if [[ -s "$cert_file" && -s "$key_file" ]] && openssl x509 -checkend 604800 -noout -in "$cert_file" >/dev/null 2>&1; then log "Использую существующий сертификат"; else certbot certonly --webroot -w "$ACME_ROOT" --domain "$HOST" --register-unsafely-without-email --agree-tos --non-interactive --keep-until-expiring; fi; [[ -s "$cert_file" && -s "$key_file" ]] || fail "сертификат не создан"; write_stream_config "127.0.0.1:$PLACEHOLDER_TLS_INTERNAL_PORT" "$HOST"; write_https_site "$HOST" "$cert_file" "$key_file"; bootstrap_tls_edge "$HOST" "$cert_file" "$key_file"; nginx -t; systemctl reload nginx.service; wait_backend; verify_https_contract "$HOST"; systemctl enable --now certbot.timer >/dev/null 2>&1 || true; cat > "$RENEW_HOOK" <<'EOF'
 #!/usr/bin/env bash
 set -Eeuo pipefail
 exec /bin/bash /opt/sg-gateway/deploy/configure-panel-access.sh --mode refresh
 EOF
 chmod 0755 "$RENEW_HOOK"; write_state "$HOST" issue "HTTPS, fallback 443 и панель проверены" "$(basename "$backup")"; apply_client_runtime; SG_HTTPS_COMMITTED=1; trap - EXIT ERR INT TERM; log "Панель: https://$HOST:$PUBLIC_PORT/"; log "Заглушка: http://$HOST/ и https://$HOST/"; }
-refresh_https(){ local domain cert key; domain="$(read_state_value domain)"; [[ -n "$domain" ]] || fail "HTTPS ещё не настроен"; cert="/etc/letsencrypt/live/$domain/fullchain.pem"; key="/etc/letsencrypt/live/$domain/privkey.pem"; [[ -s "$cert" && -s "$key" ]] || fail "файлы сертификата не найдены"; ensure_stream_include; write_stream_config "127.0.0.1:$PLACEHOLDER_TLS_INTERNAL_PORT"; write_https_site "$domain" "$cert" "$key"; bootstrap_tls_edge "$domain" "$cert" "$key"; nginx -t; systemctl reload nginx.service; wait_backend; verify_https_contract "$domain"; write_state "$domain" refresh "Сертификат, fallback 443 и Nginx проверены" "$(read_state_value backup)"; apply_client_runtime; log "Панель HTTPS и fallback 443 обновлены"; }
+refresh_https(){ local domain cert key; domain="$(read_state_value domain)"; [[ -n "$domain" ]] || fail "HTTPS ещё не настроен"; cert="/etc/letsencrypt/live/$domain/fullchain.pem"; key="/etc/letsencrypt/live/$domain/privkey.pem"; [[ -s "$cert" && -s "$key" ]] || fail "файлы сертификата не найдены"; ensure_stream_include; write_stream_config "127.0.0.1:$PLACEHOLDER_TLS_INTERNAL_PORT" "$domain"; write_https_site "$domain" "$cert" "$key"; bootstrap_tls_edge "$domain" "$cert" "$key"; nginx -t; systemctl reload nginx.service; wait_backend; verify_https_contract "$domain"; write_state "$domain" refresh "Сертификат, fallback 443 и Nginx проверены" "$(read_state_value backup)"; apply_client_runtime; log "Панель HTTPS и fallback 443 обновлены"; }
+refresh_stream_config(){ local domain; domain="$(read_state_value domain)"; [[ -n "$domain" ]] || fail "HTTPS ещё не настроен"; ensure_stream_include; write_stream_config "127.0.0.1:$PLACEHOLDER_TLS_INTERNAL_PORT" "$domain"; nginx -t; systemctl reload nginx.service; log "Single Edge stream-конфигурация обновлена"; }
 renew_https(){ local domain="$(read_state_value domain)"; [[ -n "$domain" ]] || fail "HTTPS ещё не настроен"; certbot renew --cert-name "$domain" --non-interactive; refresh_https; apply_client_runtime; }
 rollback_https(){ local latest current; latest="$(find "$BACKUP_ROOT" -mindepth 1 -maxdepth 1 -type d -name '*-panel-access' -printf '%f\n' | sort | tail -n 1 || true)"; [[ -n "$latest" ]] || fail "нет резервной конфигурации HTTPS"; current="$(create_backup)"; restore_backup "$BACKUP_ROOT/$latest"; if ! nginx -t || ! systemctl reload nginx.service; then restore_backup "$current"; nginx -t >/dev/null 2>&1 && systemctl reload nginx.service >/dev/null 2>&1 || true; fail "резервная конфигурация не принята"; fi; log "Восстановлена конфигурация $latest"; }
-case "$MODE" in https) configure_https;; renew) renew_https;; rollback) rollback_https;; refresh) refresh_https;; esac
+case "$MODE" in https) configure_https;; renew) renew_https;; rollback) rollback_https;; refresh) refresh_https;; stream-refresh) refresh_stream_config;; esac

@@ -65,6 +65,7 @@ UPDATE_FINISHED=0
 ASSETS_FINGERPRINT=""
 ASSETS_RECOVERY_DIR=""
 ASSETS_RECOVERY_SOURCE=""
+NGINX_REPAIRED=0
 
 RUNTIME_FILES=(
   amneziawg-tools-3.0.20260805.tar.gz
@@ -939,7 +940,7 @@ on_error() {
 run_stage() {
   local number="$1" label="$2"
   shift 2
-  printf '%s[SG-Gateway Update] [%s/7]%s %s\n' "$CYAN" "$number" "$RESET" "$label"
+  printf '%s[SG-Gateway Update] [%s/10]%s %s\n' "$CYAN" "$number" "$RESET" "$label"
   "$@"
   printf '%s[SG-Gateway Update] [OK]%s %s\n' "$GREEN" "$RESET" "$label"
 }
@@ -1541,6 +1542,25 @@ run_udp443_compat_migration() {
   "$PREFIX/.venv/bin/python" -B -m app.maintenance.udp443_compat
 }
 
+repair_managed_nginx_if_needed() {
+  if nginx -t >/dev/null 2>&1; then
+    return 0
+  fi
+
+  local state
+  state="$(https_state)"
+  eval "$state"
+  [[ "${HTTPS_READY:-0}" == "1" && -n "${HTTPS_DOMAIN:-}" ]] || \
+    fail "Nginx on-disk config is invalid and HTTPS state is unavailable for managed repair"
+  [[ -x "$PREFIX/deploy/configure-panel-access.sh" ]] || \
+    fail "managed Nginx repair helper is unavailable"
+
+  printf '[SG-Gateway Update] Existing managed Nginx config is invalid; rebuilding Single Edge stream routing.\n'
+  "$PREFIX/deploy/configure-panel-access.sh" --mode stream-refresh
+  nginx -t >/dev/null
+  NGINX_REPAIRED=1
+}
+
 verify_final() {
   local before after
   local protected_paths=()
@@ -1567,7 +1587,11 @@ verify_final() {
     "$NGINX_SITE_AVAILABLE" \
     "$NGINX_SITE_ENABLED" \
     "$NGINX_STREAM_CONFIG")"
-  [[ "$before" == "$after" ]] || fail "Nginx configuration changed during Update"
+  if (( NGINX_REPAIRED == 1 )); then
+    [[ "$before" != "$after" ]] || fail "managed Nginx repair did not change the invalid configuration"
+  else
+    [[ "$before" == "$after" ]] || fail "Nginx configuration changed during Update"
+  fi
 
   cmp -s "$PREFIX/deploy/sg-gateway-awg3.service" "$AWG3_UNIT" || \
     fail "installed AWG3 systemd unit does not match deployed source"
@@ -1689,9 +1713,10 @@ main() {
   run_stage 4 "Python/UI проверка без изменения runtime" validate_deployed_panel
   run_stage 5 "Перезапуск только panel + hostd" restart_panel
   run_stage 6 "AWG31 Stage3A migration внутри Update transaction" run_stage3a_migration
-  run_stage 7 "Проверка HTTPS, credentials, Nginx и runtime" verify_final
-  run_stage 8 "UDP/443 Hysteria2/TUIC compatibility migration" run_udp443_compat_migration
-  run_stage 9 "UDP/443 edge service rollout" ensure_udp_edge_service
+  run_stage 7 "Repair managed Nginx Single Edge config if needed" repair_managed_nginx_if_needed
+  run_stage 8 "Проверка HTTPS, credentials, Nginx и runtime" verify_final
+  run_stage 9 "UDP/443 Hysteria2/TUIC compatibility migration" run_udp443_compat_migration
+  run_stage 10 "UDP/443 edge service rollout" ensure_udp_edge_service
 
   # Repair a runtime that was already missing before this Update only after
   # all pre-existing protected runtime has passed the immutability checks.
