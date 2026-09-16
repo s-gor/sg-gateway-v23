@@ -8,12 +8,19 @@ AWG="$RUNTIME/bin/awg"
 AWG_QUICK="$RUNTIME/bin/awg-quick"
 AWG_GO="$RUNTIME/bin/amneziawg-go"
 NFT_TABLE=sg_gateway_awg31
+NETNS="sg-awg31-backend"
+VETH_HOST="sgawg31h"
+VETH_NS="sgawg31n"
+HOST_BACKEND_CIDR="169.254.31.1/30"
+NS_BACKEND_CIDR="169.254.31.2/30"
 PID=""
 STRIPPED=""
 
 cleanup_network() {
   nft delete table ip "$NFT_TABLE" >/dev/null 2>&1 || true
   ip link delete "$IFACE" >/dev/null 2>&1 || true
+  ip link delete "$VETH_HOST" >/dev/null 2>&1 || true
+  ip netns delete "$NETNS" >/dev/null 2>&1 || true
 }
 
 shutdown() {
@@ -41,21 +48,43 @@ trap 'shutdown $?' EXIT
 
 cleanup_network
 mkdir -p /run/amneziawg
-"$AWG_GO" --foreground "$IFACE" &
+
+# amneziawg-go binds ListenPort on wildcard UDP sockets and has no bind-address
+# option. Keep those sockets in a dedicated network namespace and expose only a
+# host-only veth endpoint to sg-gateway-udp-edge. The TUN itself is moved back
+# to the initial namespace so the existing forwarding/NAT path stays unchanged.
+ip netns add "$NETNS"
+ip link add "$VETH_HOST" type veth peer name "$VETH_NS"
+ip link set "$VETH_NS" netns "$NETNS"
+ip address replace "$HOST_BACKEND_CIDR" dev "$VETH_HOST"
+ip link set "$VETH_HOST" up
+ip netns exec "$NETNS" ip link set lo up
+ip netns exec "$NETNS" ip address replace "$NS_BACKEND_CIDR" dev "$VETH_NS"
+ip netns exec "$NETNS" ip link set "$VETH_NS" up
+
+ip netns exec "$NETNS" "$AWG_GO" --foreground "$IFACE" &
 PID=$!
 
 for _ in $(seq 1 100); do
+  ip netns exec "$NETNS" ip link show "$IFACE" >/dev/null 2>&1 && break
+  kill -0 "$PID" >/dev/null 2>&1 || { wait "$PID"; exit 1; }
+  sleep 0.1
+done
+ip netns exec "$NETNS" ip link show "$IFACE" >/dev/null 2>&1 || { echo "AWG31 interface did not appear" >&2; exit 1; }
+
+STRIPPED=$(mktemp /run/sg-gateway-awg31.XXXXXX)
+"$AWG_QUICK" strip "$CONFIG" > "$STRIPPED"
+ip netns exec "$NETNS" "$AWG" setconf "$IFACE" "$STRIPPED"
+rm -f "$STRIPPED"
+STRIPPED=""
+
+ip netns exec "$NETNS" ip link set "$IFACE" netns 1
+for _ in $(seq 1 50); do
   ip link show "$IFACE" >/dev/null 2>&1 && break
   kill -0 "$PID" >/dev/null 2>&1 || { wait "$PID"; exit 1; }
   sleep 0.1
 done
-ip link show "$IFACE" >/dev/null 2>&1 || { echo "AWG31 interface did not appear" >&2; exit 1; }
-
-STRIPPED=$(mktemp /run/sg-gateway-awg31.XXXXXX)
-"$AWG_QUICK" strip "$CONFIG" > "$STRIPPED"
-"$AWG" setconf "$IFACE" "$STRIPPED"
-rm -f "$STRIPPED"
-STRIPPED=""
+ip link show "$IFACE" >/dev/null 2>&1 || { echo "AWG31 interface did not enter the host namespace" >&2; exit 1; }
 
 ip address replace 10.131.0.1/24 dev "$IFACE"
 ip link set mtu 1420 up dev "$IFACE"
