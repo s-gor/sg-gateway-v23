@@ -123,7 +123,7 @@ def test_02208_rendered_pages_preserve_backend_and_javascript_contracts(tmp_path
             _form(
                 "/connections/mihomo",
                 "action", "anytls_enabled", "anytls_padding_scheme", "mieru_enabled",
-                "mieru_handshake", "mieru_multiplexing", "mieru_transport",
+                "mieru_handshake", "mieru_multiplexing",
                 "mieru_user_hint_mandatory", "tuic_congestion_controller", "tuic_enabled",
                 "tuic_udp_relay_mode",
             ),

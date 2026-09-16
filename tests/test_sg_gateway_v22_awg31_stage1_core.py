@@ -152,7 +152,7 @@ def test_awg31_renders_separate_server_and_peer_configs(
     assert result["peers"] == 1
     server = (config_root / "awg31.conf").read_text()
     peer = (config_root / "peers" / f"device-{device_id}.conf").read_text()
-    assert "ListenPort = 443" in server
+    assert "ListenPort = 10451" in server
     assert "Address = 10.131.0.1/24" in server
     assert "Endpoint = awg31.internal:443" in peer
     assert "DNS = 1.1.1.1" in peer

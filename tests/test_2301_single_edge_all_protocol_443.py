@@ -51,9 +51,11 @@ def test_all_non_xray_exports_use_public_443_constants():
 
 def test_awg31_server_runtime_binds_private_udp_backend_only():
     data = (ROOT / "app/maintenance/awg31_stage3a_data.py").read_text(encoding="utf-8")
-    assert "AWG31_UDP_INTERNAL_PORT" in data
-    assert 'f"ListenPort = {AWG31_UDP_INTERNAL_PORT}"' in data
-    assert '"ListenPort = 443"' not in data
+    runtime = (ROOT / "hostd/sg_hostd/awg31_runtime.py").read_text(encoding="utf-8")
+    for source in (data, runtime):
+        assert "AWG31_UDP_INTERNAL_PORT" in source
+        assert 'f"ListenPort = {AWG31_UDP_INTERNAL_PORT}"' in source
+        assert '"ListenPort = 443"' not in source
 
 
 def test_udp_edge_is_managed_service_and_only_public_udp_owner():

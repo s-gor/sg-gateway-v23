@@ -123,10 +123,11 @@ def test_mihomo_listener_ports_ignore_forged_form_values(monkeypatch) -> None:
         }
     )
 
-    assert saved["port"] == 12099
-    assert saved["config"]["mieru_port"] == 12099
-    assert saved["config"]["anytls_port"] == 18443
-    assert saved["config"]["tuic_port"] == 20443
+    assert saved["port"] == 443
+    assert saved["config"]["mieru_port"] == 443
+    assert saved["config"]["anytls_port"] == 443
+    assert saved["config"]["tuic_port"] == 443
+    assert saved["config"]["mieru_transport"] == "TCP"
 
 
 def test_connections_ui_hides_server_listener_ports_entirely() -> None:
@@ -167,5 +168,5 @@ def test_real_user_controls_remain_available() -> None:
     assert 'name="{{ profile.id }}_mode"' in template
     assert "XHTTP mode клиента" in template
     assert 'name="hysteria2_obfs_mode"' in template
-    assert 'name="mieru_transport"' in mihomo
+    assert 'name="mieru_transport"' not in mihomo
     assert 'name="tuic_congestion_controller"' in mihomo

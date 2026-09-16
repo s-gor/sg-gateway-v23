@@ -11,7 +11,7 @@ def test_xray_tcp_profiles_have_private_unique_backends_and_public_443():
     assert values["reality_tcp_port"] == 10443
     assert values["xhttp_reality_port"] == 10444
     assert values["xhttp_tls_port"] == 10445
-    assert values["hysteria2_port"] == 8446
+    assert values["hysteria2_port"] == 443
 
 
 def test_xray_runtime_binds_all_single_edge_tcp_backends_to_loopback():
@@ -34,7 +34,8 @@ def test_xhttp_reality_uses_router_sni_contract_end_to_end():
     assert "dest=XHTTP_REALITY_DEFAULT_TARGET" in runtime
     assert "server_name=XHTTP_REALITY_DEFAULT_SNI" in runtime
     assert "server_name=XHTTP_REALITY_DEFAULT_SNI" in exports
-    assert exports.count("from app.single_edge import PUBLIC_TCP_PORT, XHTTP_REALITY_DEFAULT_SNI") == 1
+    assert "PUBLIC_TCP_PORT" in exports
+    assert "XHTTP_REALITY_DEFAULT_SNI" in exports
 
 
 def test_installer_owns_one_public_tcp_443_edge_and_no_secondary_tcp_ingress():
@@ -44,7 +45,7 @@ def test_installer_owns_one_public_tcp_443_edge_and_no_secondary_tcp_ingress():
     assert 'NAIVEPROXY_INTERNAL_PORT="10447"' in text
     assert text.count('listen 443 reuseport;') == 1
     assert 'default 127.0.0.1:${REALITY_INTERNAL_PORT};' in text
-    assert '"${XRAY_PORT}/tcp" "${XRAY_PORT}/udp"' in text
+    assert '"${PANEL_PORT}/tcp" "443/tcp" "443/udp"' in text
     assert '8444/tcp' not in text
     assert '8445/tcp' not in text
     assert '9443/tcp' not in text
@@ -59,8 +60,10 @@ def test_awg31_uses_udp_443_independently_of_tcp_edge():
     assert 'PORT = 443' in connection or 'DEFAULT_PORT = 443' in connection
     assert 'ENDPOINT = "awg31.internal:443"' in lifecycle
     assert 'ENDPOINT = "awg31.internal:443"' in stage3a_common
-    assert 'ListenPort = 443' in runtime
-    assert 'ListenPort = 443' in stage3a_data
+    assert 'AWG31_UDP_INTERNAL_PORT' in runtime
+    assert 'f"ListenPort = {AWG31_UDP_INTERNAL_PORT}"' in runtime
+    assert 'AWG31_UDP_INTERNAL_PORT' in stage3a_data
+    assert 'f"ListenPort = {AWG31_UDP_INTERNAL_PORT}"' in stage3a_data
     assert "port = 443" in stage3a_data
     for text in (lifecycle, runtime, stage3a_common, stage3a_data):
         assert 'awg31.internal:587' not in text
