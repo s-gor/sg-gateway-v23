@@ -23,12 +23,12 @@ jobs:
 
           replacements = {
               Path('app/naiveproxy/runtime.py'): (
-                  "127.0.0.1:{current.port} {\n    tls",
-                  "https://{current.domain}:{current.port} {\n    bind 127.0.0.1\n    tls",
+                  "127.0.0.1:{current.port} {{\n    tls",
+                  "https://{current.domain}:{current.port} {{\n    bind 127.0.0.1\n    tls",
               ),
               Path('hostd/sg_hostd/naiveproxy_runtime.py'): (
-                  "127.0.0.1:{settings['port']} {\n    tls",
-                  "https://{settings['domain']}:{settings['port']} {\n    bind 127.0.0.1\n    tls",
+                  "127.0.0.1:{settings['port']} {{\n    tls",
+                  "https://{settings['domain']}:{settings['port']} {{\n    bind 127.0.0.1\n    tls",
               ),
           }
           for path, (old, new) in replacements.items():
