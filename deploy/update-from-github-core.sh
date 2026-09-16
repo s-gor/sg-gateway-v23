@@ -1663,6 +1663,10 @@ ensure_udp_edge_service() {
     fail "installed UDP edge systemd unit does not match deployed source"
 
   systemctl daemon-reload
+  if systemctl is-active --quiet "$AWG31_SERVICE"; then
+    systemctl restart "$AWG31_SERVICE"
+    systemctl is-active --quiet "$AWG31_SERVICE" || fail "AWG31 service failed to restart with private UDP backend"
+  fi
   systemctl enable --now "$UDP_EDGE_SERVICE"
   # enable --now does not restart an already-running dispatcher after source
   # replacement, so restart explicitly to guarantee the new Python code is live.
