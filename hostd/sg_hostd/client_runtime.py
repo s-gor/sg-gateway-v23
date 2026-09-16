@@ -20,7 +20,16 @@ from app.db import connect, init_db
 from app.maintenance.operations import log_operation
 from app.net import format_host_port
 from app.security.tls import overview as tls_overview
-from app.single_edge import XHTTP_REALITY_DEFAULT_SNI, XHTTP_REALITY_DEFAULT_TARGET
+from app.single_edge import (
+    ANYTLS_ALPN,
+    ANYTLS_TCP_INTERNAL_PORT,
+    HYSTERIA2_UDP_INTERNAL_PORT,
+    PUBLIC_TCP_PORT,
+    PUBLIC_UDP_PORT,
+    TUIC_UDP_INTERNAL_PORT,
+    XHTTP_REALITY_DEFAULT_SNI,
+    XHTTP_REALITY_DEFAULT_TARGET,
+)
 from app.xray.encryption import VlessEncryptionError, normalize_pair
 from app.xray.profiles import REALITY_TCP_FLOW, XRAY_MINIMUM_VERSION, overview as xray_profiles_overview
 from app.xray.salamander import SalamanderError, merge_finalmask
@@ -1143,8 +1152,8 @@ def _render_xray_config(rows) -> str:
                 hysteria_stream["finalmask"] = finalmask
             inbounds.append({
                 "tag": "sg-hysteria2",
-                "listen": public_listen,
-                "port": profile.port,
+                "listen": "127.0.0.1",
+                "port": HYSTERIA2_UDP_INTERNAL_PORT,
                 "protocol": "hysteria",
                 "settings": {
                     "version": 2,
@@ -1302,10 +1311,10 @@ def _apply_xray(*, force_profiles: bool = False) -> EngineResult:
         )
         if hysteria_profile is not None and hysteria_profile.enabled:
             deadline = time.monotonic() + 10.0
-            while not _udp_port_listening(hysteria_profile.port):
+            while not _udp_port_listening(HYSTERIA2_UDP_INTERNAL_PORT):
                 if time.monotonic() >= deadline:
                     raise ClientRuntimeError(
-                        f"Hysteria2 UDP-порт {hysteria_profile.port} не слушается через 10 секунд после запуска Xray"
+                        f"Hysteria2 internal UDP-порт {HYSTERIA2_UDP_INTERNAL_PORT} не слушается через 10 секунд после запуска Xray"
                     )
                 time.sleep(0.25)
 
@@ -1468,7 +1477,7 @@ def _render_singbox_config(anytls_rows, tuic_rows, settings: dict[str, Any]) -> 
     inbounds: list[dict[str, Any]] = []
     if anytls_rows:
         users = []
-        port = int(settings.get("anytls_port") or 9443)
+        port = ANYTLS_TCP_INTERNAL_PORT
         for row in anytls_rows:
             config = _json(row["config_json"])
             password = str(config.get("password") or "").strip()
@@ -1483,12 +1492,13 @@ def _render_singbox_config(anytls_rows, tuic_rows, settings: dict[str, Any]) -> 
         inbounds.append({
             "type": "anytls",
             "tag": "sg-anytls-in",
-            "listen": "::",
+            "listen": "127.0.0.1",
             "listen_port": port,
             "users": users,
             "tls": {
                 "enabled": True,
                 "server_name": domain,
+                "alpn": [ANYTLS_ALPN],
                 "certificate_path": cert,
                 "key_path": key,
             },
@@ -1496,7 +1506,7 @@ def _render_singbox_config(anytls_rows, tuic_rows, settings: dict[str, Any]) -> 
 
     if tuic_rows:
         users = []
-        port = int(settings.get("tuic_port") or 10443)
+        port = TUIC_UDP_INTERNAL_PORT
         for row in tuic_rows:
             config = _json(row["config_json"])
             user_id = str(config.get("uuid") or row["engine_object_id"] or "").strip()
@@ -1513,7 +1523,7 @@ def _render_singbox_config(anytls_rows, tuic_rows, settings: dict[str, Any]) -> 
         inbounds.append({
             "type": "tuic",
             "tag": "sg-tuic-in",
-            "listen": "::",
+            "listen": "127.0.0.1",
             "listen_port": port,
             "users": users,
             "congestion_control": str(settings.get("tuic_congestion_controller") or "bbr"),
@@ -1549,9 +1559,10 @@ def _sync_singbox_client_configs(settings: dict[str, Any], anytls_rows, tuic_row
                 config["host"] = domain
                 config["server_name"] = domain
                 if engine == "anytls":
-                    config["port"] = int(settings.get("anytls_port") or 9443)
+                    config["port"] = PUBLIC_TCP_PORT
+                    config["alpn"] = ANYTLS_ALPN
                 else:
-                    config["port"] = int(settings.get("tuic_port") or 10443)
+                    config["port"] = PUBLIC_UDP_PORT
                     config["congestion_control"] = str(settings.get("tuic_congestion_controller") or "bbr")
                     config["udp_relay_mode"] = str(settings.get("tuic_udp_relay_mode") or "native")
                     config["alpn"] = str(settings.get("tuic_alpn") or "h3")

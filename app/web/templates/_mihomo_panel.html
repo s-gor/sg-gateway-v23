@@ -54,15 +54,7 @@
             </span>
           </label>
         </header>
-        <div class="mhv2-basic-fields one">
-          <label>
-            <span>Transport</span>
-            <select name="mieru_transport">
-              <option value="TCP" {% if mihomo.settings.mieru_transport == 'TCP' %}selected{% endif %}>TCP</option>
-              <option value="UDP" {% if mihomo.settings.mieru_transport == 'UDP' %}selected{% endif %}>UDP</option>
-            </select>
-          </label>
-        </div>
+        <p class="mhv2-runtime-note">Single Edge: Mieru использует TCP/443.</p>
         <details class="mhv2-advanced">
           <summary>Дополнительно</summary>
           <div class="mhv2-advanced-body">

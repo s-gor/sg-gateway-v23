@@ -1,0 +1,24 @@
+[Unit]
+Description=SG-Gateway UDP/443 protocol dispatcher
+After=network-online.target xray.service sg-gateway-awg31.service sg-gateway-singbox.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=sg-gateway
+Group=sg-gateway
+WorkingDirectory=/opt/sg-gateway
+Environment=PYTHONPATH=/opt/sg-gateway
+ExecStart=/opt/sg-gateway/.venv/bin/python -m app.udp_edge.server
+Restart=on-failure
+RestartSec=1
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+RuntimeDirectory=sg-gateway
+RuntimeDirectoryMode=0755
+
+[Install]
+WantedBy=multi-user.target

@@ -24,7 +24,7 @@ from app.mihomo.service import build_device_yaml
 from app.net import format_host, format_host_port
 
 from app.security.tls import overview as tls_overview
-from app.single_edge import PUBLIC_TCP_PORT, XHTTP_REALITY_DEFAULT_SNI
+from app.single_edge import ANYTLS_ALPN, PUBLIC_TCP_PORT, PUBLIC_UDP_PORT, XHTTP_REALITY_DEFAULT_SNI
 from app.xray.profiles import REALITY_TCP_FLOW, overview as xray_profiles_overview
 from app.xray.xmux import XmuxError, effective_client_extra
 from app.xray.sg_panel_vless import reality_tcp_link, xhttp_reality_link
@@ -356,7 +356,7 @@ def build_awg31_config(client: Client, device: Device | None = None) -> ClientEx
     settings = get_awg31_settings()
     endpoint_host = _public_export_host(settings.host)
     endpoint = (
-        _format_endpoint(endpoint_host, settings.port)
+        _format_endpoint(endpoint_host, PUBLIC_UDP_PORT)
         if endpoint_host
         else AWG31_ENDPOINT
     )
@@ -392,7 +392,7 @@ def build_awg31_uri(client: Client, device: Device | None = None) -> ClientExpor
     settings = get_awg31_settings()
     endpoint_host = _public_export_host(settings.host)
     endpoint = (
-        _format_endpoint(endpoint_host, settings.port)
+        _format_endpoint(endpoint_host, PUBLIC_UDP_PORT)
         if endpoint_host
         else AWG31_ENDPOINT
     )
@@ -556,7 +556,7 @@ def build_xray_profile_link(
 
     public_profile_port = (
         PUBLIC_TCP_PORT
-        if profile_id in {"reality_tcp", "xhttp_reality", "xhttp_tls"}
+        if profile_id in {"reality_tcp", "xhttp_reality", "xhttp_tls", "hysteria2"}
         else profile.port
     )
 
@@ -669,8 +669,8 @@ def build_mieru_link(client: Client, device: Device | None = None) -> ClientExpo
     password = quote(str(mieru.get("password") or ""), safe="")
     host = _public_export_host(settings.host)
     authority_host = format_host(host)
-    port = int(settings.config.get("mieru_port", settings.port or 2099))
-    transport = str(settings.config.get("mieru_transport", "TCP")).upper()
+    port = PUBLIC_TCP_PORT
+    transport = "TCP"
     multiplexing = str(settings.config.get("mieru_multiplexing", "MULTIPLEXING_LOW"))
     handshake = str(settings.config.get("mieru_handshake", "HANDSHAKE_STANDARD"))
     query = urlencode(
@@ -695,8 +695,8 @@ def build_mieru_json(client: Client, device: Device | None = None) -> ClientExpo
     settings = get_connection_settings("mihomo")
     mieru = config.get("mieru") if isinstance(config.get("mieru"), dict) else {}
     host = _public_export_host(settings.host)
-    port = int(settings.config.get("mieru_port", settings.port or 2099))
-    transport = str(settings.config.get("mieru_transport") or "TCP").upper()
+    port = PUBLIC_TCP_PORT
+    transport = "TCP"
     multiplexing = str(
         settings.config.get("mieru_multiplexing") or "MULTIPLEXING_MIDDLE"
     )
@@ -740,13 +740,14 @@ def build_mihomo_yaml(client: Client, device: Device | None = None) -> ClientExp
 def build_anytls_link(client: Client, device: Device | None = None) -> ClientExport:
     config = _deployment_config(client, "anytls", device)
     host = _public_export_host(config.get("host", ""))
-    endpoint = format_host_port(host, int(config.get("port", 9443)))
+    endpoint = format_host_port(host, PUBLIC_TCP_PORT)
     tls_domain = _working_tls_domain() or str(config.get("server_name") or "")
     safe_name = quote(f"{_label(client, device)} · AnyTLS", safe="")
     query = urlencode(
         {
             "security": "tls",
             "sni": tls_domain,
+            "alpn": ANYTLS_ALPN,
             "fp": config.get("fingerprint", "firefox"),
             "type": "tcp",
         }
@@ -765,7 +766,7 @@ def build_anytls_link(client: Client, device: Device | None = None) -> ClientExp
 def build_tuic_link(client: Client, device: Device | None = None) -> ClientExport:
     config = _deployment_config(client, "tuic", device)
     host = _public_export_host(config.get("host", ""))
-    endpoint = format_host_port(host, int(config.get("port", 10443)))
+    endpoint = format_host_port(host, PUBLIC_UDP_PORT)
     tls_domain = _working_tls_domain() or str(config.get("server_name") or "")
     safe_name = quote(f"{_label(client, device)} · TUIC v5", safe="")
     query = urlencode(

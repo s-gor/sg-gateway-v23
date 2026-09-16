@@ -20,6 +20,7 @@ from app.connections.settings import get_connection_settings, update_connection_
 from app.db import connect, init_db
 from app.hostd.client import run_hostd_command
 from app.maintenance.operations import log_operation
+from app.single_edge import (ANYTLS_ALPN, ANYTLS_TCP_INTERNAL_PORT, MIERU_TCP_INTERNAL_PORT, PUBLIC_TCP_PORT, PUBLIC_UDP_PORT, TUIC_UDP_INTERNAL_PORT)
 from app.clients.repository import get_primary_device
 
 
@@ -587,12 +588,8 @@ def save_settings(form: Any) -> bool:
             "country_code": metadata["country_code"],
             "domain": metadata["domain"],
             "mieru_enabled": bool(form.get("mieru_enabled")),
-            "mieru_port": _int(config.get("mieru_port"), current.port or 2099),
-            "mieru_transport": (
-                "UDP"
-                if str(form.get("mieru_transport", "TCP")).upper() == "UDP"
-                else "TCP"
-            ),
+            "mieru_port": PUBLIC_TCP_PORT,
+            "mieru_transport": "TCP",
             "mieru_multiplexing": str(
                 form.get(
                     "mieru_multiplexing",
@@ -609,7 +606,7 @@ def save_settings(form: Any) -> bool:
                 form.get("mieru_user_hint_mandatory")
             ),
             "anytls_enabled": bool(form.get("anytls_enabled")),
-            "anytls_port": _int(config.get("anytls_port"), 8443),
+            "anytls_port": PUBLIC_TCP_PORT,
             "anytls_padding_scheme": str(
                 form.get(
                     "anytls_padding_scheme",
@@ -617,7 +614,7 @@ def save_settings(form: Any) -> bool:
                 )
             ),
             "tuic_enabled": bool(form.get("tuic_enabled")),
-            "tuic_port": _int(config.get("tuic_port"), 10443),
+            "tuic_port": PUBLIC_UDP_PORT,
             "tuic_congestion_controller": str(
                 form.get(
                     "tuic_congestion_controller",
@@ -661,12 +658,8 @@ def _settings_payload() -> dict[str, Any]:
         "domain": domain,
         "tls_ready": _tls_ready(domain),
         "mieru_enabled": _bool(config.get("mieru_enabled", True)),
-        "mieru_port": _int(config.get("mieru_port"), settings.port or 2099),
-        "mieru_transport": (
-            "UDP"
-            if str(config.get("mieru_transport", "TCP")).upper() == "UDP"
-            else "TCP"
-        ),
+        "mieru_port": PUBLIC_TCP_PORT,
+        "mieru_transport": "TCP",
         "mieru_multiplexing": str(
             config.get("mieru_multiplexing", "MULTIPLEXING_LOW")
         ),
@@ -677,10 +670,10 @@ def _settings_payload() -> dict[str, Any]:
             config.get("mieru_user_hint_mandatory", True)
         ),
         "anytls_enabled": _bool(config.get("anytls_enabled", False)),
-        "anytls_port": _int(config.get("anytls_port"), 8443),
+        "anytls_port": PUBLIC_TCP_PORT,
         "anytls_padding_scheme": str(config.get("anytls_padding_scheme", "")),
         "tuic_enabled": _bool(config.get("tuic_enabled", False)),
-        "tuic_port": _int(config.get("tuic_port"), 10443),
+        "tuic_port": PUBLIC_UDP_PORT,
         "tuic_congestion_controller": str(
             config.get("tuic_congestion_controller", "bbr")
         ),
@@ -694,15 +687,6 @@ def _validate_settings(
     settings: dict[str, Any],
     deployments: dict[str, list[MihomoProtocolDeployment]],
 ) -> None:
-    ports: list[tuple[str, int]] = []
-    if settings["mieru_enabled"]:
-        ports.append(("Mieru", settings["mieru_port"]))
-    if settings["anytls_enabled"]:
-        ports.append(("AnyTLS", settings["anytls_port"]))
-    if settings["tuic_enabled"]:
-        ports.append(("TUIC", settings["tuic_port"]))
-    if len({port for _, port in ports}) != len(ports):
-        raise MihomoError("Порты Mieru, AnyTLS и TUIC должны различаться")
 
     for protocol, label in (
         ("mieru", "Mieru"),
@@ -715,31 +699,6 @@ def _validate_settings(
                 "Добавьте протокол хотя бы одному устройству."
             )
 
-    awg = get_connection_settings("amneziawg")
-    xray = get_connection_settings("xray")
-    tcp_reserved = {
-        80: "Nginx HTTP / ACME",
-        443: "Nginx HTTPS",
-        int(load_config().public_port): "SG-Gateway panel",
-        int(xray.port): "Xray",
-    }
-    udp_reserved = {int(awg.port): "AmneziaWG"}
-    requested: list[tuple[str, str, int]] = []
-    if settings["mieru_enabled"]:
-        requested.append(
-            ("Mieru", settings["mieru_transport"], settings["mieru_port"])
-        )
-    if settings["anytls_enabled"]:
-        requested.append(("AnyTLS", "TCP", settings["anytls_port"]))
-    if settings["tuic_enabled"]:
-        requested.append(("TUIC", "UDP", settings["tuic_port"]))
-    for label, transport, port in requested:
-        reserved = tcp_reserved if transport == "TCP" else udp_reserved
-        conflict = reserved.get(port)
-        if conflict:
-            raise MihomoError(
-                f"{label}: порт {port}/{transport} уже используется: {conflict}"
-            )
     if (settings["anytls_enabled"] or settings["tuic_enabled"]) and not settings[
         "tls_ready"
     ]:
@@ -777,9 +736,9 @@ def _render_server_yaml(
         lines = [
             "  - name: mieru-in",
             "    type: mieru",
-            f"    port: {settings['mieru_port']}",
-            "    listen: 0.0.0.0",
-            f"    transport: {settings['mieru_transport']}",
+            f"    port: {MIERU_TCP_INTERNAL_PORT}",
+            "    listen: 127.0.0.1",
+            "    transport: TCP",
             "    users:",
         ]
         for deployment in deployments["mieru"]:
@@ -803,7 +762,7 @@ def _render_server_yaml(
         lines = [
             "  - name: anytls-in",
             "    type: anytls",
-            f"    port: {settings['anytls_port']}",
+            f"    port: {ANYTLS_TCP_INTERNAL_PORT}",
             "    listen: 0.0.0.0",
             "    users:",
         ]
@@ -839,7 +798,7 @@ def _render_server_yaml(
         lines = [
             "  - name: tuicv5-in",
             "    type: tuic",
-            f"    port: {settings['tuic_port']}",
+            f"    port: {TUIC_UDP_INTERNAL_PORT}",
             "    listen: 0.0.0.0",
             "    users:",
         ]
@@ -1527,8 +1486,8 @@ def build_device_yaml(device_id: int, access_name: str) -> str:
                     f"  - name: {_yaml_string(name)}",
                     "    type: mieru",
                     f"    server: {_yaml_string(mieru_host)}",
-                    f"    port: {settings['mieru_port']}",
-                    f"    transport: {settings['mieru_transport']}",
+                    f"    port: {PUBLIC_TCP_PORT}",
+                    "    transport: TCP",
                     f"    username: {_yaml_string(item.get('username', ''))}",
                     f"    password: {_yaml_string(item.get('password', ''))}",
                     f"    multiplexing: {settings['mieru_multiplexing']}",
@@ -1548,12 +1507,12 @@ def build_device_yaml(device_id: int, access_name: str) -> str:
                     f"  - name: {_yaml_string(name)}",
                     "    type: anytls",
                     f"    server: {_yaml_string(host)}",
-                    f"    port: {settings['anytls_port']}",
+                    f"    port: {PUBLIC_TCP_PORT}",
                     f"    password: {_yaml_string(item.get('password', ''))}",
                     "    client-fingerprint: chrome",
                     "    udp: true",
                     f"    sni: {_yaml_string(settings['domain'])}",
-                    "    alpn: [h2, http/1.1]",
+                    f"    alpn: [{_yaml_string(ANYTLS_ALPN)}]",
                     "    skip-cert-verify: false",
                 ]
             )
@@ -1570,7 +1529,7 @@ def build_device_yaml(device_id: int, access_name: str) -> str:
                     f"  - name: {_yaml_string(name)}",
                     "    type: tuic",
                     f"    server: {_yaml_string(host)}",
-                    f"    port: {settings['tuic_port']}",
+                    f"    port: {PUBLIC_UDP_PORT}",
                     f"    uuid: {_yaml_string(item.get('uuid', ''))}",
                     f"    password: {_yaml_string(item.get('password', ''))}",
                     f"    sni: {_yaml_string(settings['domain'])}",

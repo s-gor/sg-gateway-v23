@@ -48,16 +48,17 @@ SG_GATEWAY_TLS_EDGE_SNI="${SG_GATEWAY_TLS_EDGE_SNI:-}"
 NAIVEPROXY_INTERNAL_PORT="10447"
 SG_GATEWAY_TLS_EDGE_ROUTE=""
 [[ -n "$SG_GATEWAY_TLS_EDGE_SNI" ]] && SG_GATEWAY_TLS_EDGE_ROUTE="${SG_GATEWAY_TLS_EDGE_ROUTE}"
-MIHOMO_PORT="2099"
+MIHOMO_PORT="10448"
 XHTTP_REALITY_PORT="10444"
 XHTTP_TLS_PORT="10445"
-HYSTERIA2_PORT="8446"
-ANYTLS_PORT="9443"
-TUIC_PORT="10443"
+HYSTERIA2_PORT="10452"
+ANYTLS_PORT="10449"
+TUIC_PORT="10453"
 HOSTD_PORT="8090"
 BACKEND_PORT="18080"
 REALITY_INTERNAL_PORT="10443"
 PLACEHOLDER_TLS_INTERNAL_PORT="7444"
+UDP_EDGE_SERVICE="sg-gateway-udp-edge.service"
 
 GREEN=$'\033[1;32m'
 RED=$'\033[1;31m'
@@ -107,6 +108,7 @@ MANAGED_PATHS=(
   etc/systemd/system/sg-gateway-awg.service
   etc/systemd/system/sg-gateway-awg3.service
   etc/systemd/system/sg-gateway-singbox.service
+  etc/systemd/system/sg-gateway-udp-edge.service
   etc/systemd/system/mihomo.service
   etc/nginx/nginx.conf
   etc/nginx/stream-conf.d/sg-gateway-443.conf
@@ -2498,15 +2500,20 @@ EOF
   fi
 }
 
+install_udp_edge_service() {
+  install -m 0644 "$PREFIX/deploy/sg-gateway-udp-edge.service" /etc/systemd/system/sg-gateway-udp-edge.service
+  systemctl daemon-reload
+  systemctl enable sg-gateway-udp-edge.service
+}
+
 stage_firewall_and_network() {
+  install_udp_edge_service
   local ufw_state=""
   ufw_state="$(ufw status 2>/dev/null || true)"
   if grep -q '^Status: active' <<<"$ufw_state"; then
     local rule
     for rule in \
-      "80/tcp" "${XRAY_PORT}/tcp" "${XRAY_PORT}/udp" \
-      "${HYSTERIA2_PORT}/udp" \
-      "${MIHOMO_PORT}/tcp" "${ANYTLS_PORT}/tcp" "${TUIC_PORT}/udp"; do
+      "80/tcp" "${PANEL_PORT}/tcp" "443/tcp" "443/udp"; do
       ufw allow "$rule"
     done
   fi
@@ -3074,7 +3081,7 @@ create_backup() {
   for service in \
     sg-hostd.service xray.service mihomo.service \
     sg-gateway-awg.service sg-gateway-awg3.service sg-gateway-awg31.service \
-    sg-gateway-singbox.service sg-gateway-naiveproxy.service \
+    sg-gateway-singbox.service sg-gateway-naiveproxy.service sg-gateway-udp-edge.service \
     sg-gateway.service nginx.service; do
     active=0
     enabled=0
@@ -3126,7 +3133,7 @@ restore_backup() {
   local services=(
     sg-hostd.service xray.service mihomo.service
     sg-gateway-awg.service sg-gateway-awg3.service sg-gateway-awg31.service
-    sg-gateway-singbox.service sg-gateway-naiveproxy.service
+    sg-gateway-singbox.service sg-gateway-naiveproxy.service sg-gateway-udp-edge.service
     sg-gateway.service nginx.service
   )
 
@@ -3219,7 +3226,7 @@ stage_backup_and_prepare() {
   systemctl stop \
     sg-gateway.service sg-hostd.service xray.service mihomo.service \
     sg-gateway-awg.service sg-gateway-awg3.service sg-gateway-awg31.service \
-    sg-gateway-singbox.service sg-gateway-naiveproxy.service \
+    sg-gateway-singbox.service sg-gateway-naiveproxy.service sg-gateway-udp-edge.service \
     >/dev/null 2>&1 || true
 
   rm -rf "$PREFIX.new" "$PREFIX"
