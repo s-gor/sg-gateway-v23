@@ -21,6 +21,11 @@ jobs:
         with:
           python-version: '3.12'
 
+      - name: Install test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-dev.txt
+
       - name: Confirm RED contract before production change
         shell: bash
         run: |
