@@ -138,5 +138,5 @@ def test_transactional_stage9_migrates_existing_anytls_and_naiveproxy_tcp_edge()
     verify = updater.index('run_stage 8 "Проверка HTTPS, credentials, Nginx и runtime" verify_final')
     stage9 = updater.index('run_stage 9 "UDP/443 Hysteria2/TUIC compatibility migration" run_udp443_compat_migration')
     stage10 = updater.index('run_stage 10 "UDP/443 edge service rollout" ensure_udp_edge_service')
-    finish = updater.index("bind_panel_update_state")
+    finish = updater.index("\nbind_panel_update_state\n", stage10)
     assert verify < stage9 < stage10 < finish
