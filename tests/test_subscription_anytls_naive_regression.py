@@ -18,7 +18,7 @@ def _client() -> Client:
     )
 
 
-def test_anytls_canonical_subscription_preserves_managed_alpn():
+def test_anytls_canonical_subscription_preserves_managed_transport_contract():
     source = (
         "anytls://secret@dc1.casacam.net:443"
         "?security=tls&sni=dc1.casacam.net&alpn=sg-anytls&fp=firefox&type=tcp"
@@ -28,8 +28,11 @@ def test_anytls_canonical_subscription_preserves_managed_alpn():
     result = sg_subscription._canonical_uri("anytls", source)
     query = parse_qs(urlsplit(result).query)
 
+    assert query["security"] == ["tls"]
     assert query["sni"] == ["dc1.casacam.net"]
     assert query["alpn"] == ["sg-anytls"]
+    assert query["fp"] == ["firefox"]
+    assert query["type"] == ["tcp"]
 
 
 def test_sg_subscription_uses_live_naiveproxy_export_registration(monkeypatch):
