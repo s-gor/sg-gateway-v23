@@ -145,7 +145,7 @@ def render_caddyfile(settings: NaiveProxySettings, users: list[NaiveProxyUser]) 
     }}
 }}
 
-https://{current.domain}:{current.port} {{
+:{current.port}, {current.domain}:{current.port} {{
     bind 127.0.0.1
     tls {current.certificate_path} {current.private_key_path}
     encode gzip zstd
