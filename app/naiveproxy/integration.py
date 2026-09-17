@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import json
 
 from app.naiveproxy.runtime import DEFAULT_PORT, NaiveProxySettings, NaiveProxyUser, build_client_uri, generate_user
@@ -219,6 +220,7 @@ def install() -> None:
     original_protocol_engine = exports.protocol_engine
     original_build_export = exports.build_protocol_export
     original_protocol_ready = exports.protocol_ready
+    original_build_subscription = exports.build_subscription
 
     def build_naiveproxy_link(client, device=None):
         config = exports._deployment_config(client, "naiveproxy", device)
@@ -262,10 +264,31 @@ def install() -> None:
         except Exception:
             return False
 
+    def build_subscription(client, device=None):
+        current = original_build_subscription(client, device)
+        try:
+            decoded = base64.b64decode(current.body).decode("utf-8") if current.body else ""
+        except (ValueError, UnicodeDecodeError):
+            decoded = ""
+        links = [line.strip() for line in decoded.splitlines() if line.strip()]
+        if protocol_ready(client, "naiveproxy", device):
+            naive_link = build_naiveproxy_link(client, device).body.strip()
+            if naive_link and naive_link not in links:
+                links.append(naive_link)
+        merged = "\n".join(links)
+        if merged:
+            merged += "\n"
+        return exports.ClientExport(
+            filename=current.filename,
+            media_type=current.media_type,
+            body=base64.b64encode(merged.encode("utf-8")).decode("ascii"),
+        )
+
     exports.build_naiveproxy_link = build_naiveproxy_link
     exports.protocol_engine = protocol_engine
     exports.build_protocol_export = build_protocol_export
     exports.protocol_ready = protocol_ready
+    exports.build_subscription = build_subscription
 
     from app.clients import sg_subscription
 
