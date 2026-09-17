@@ -1,0 +1,31 @@
+name: Refresh source checksums
+
+on:
+  push:
+    branches:
+      - feat/2301-single-edge-443
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Refresh SOURCE-SHA256SUMS
+        run: python3 .github/scripts/update-source-checksums.py
+      - name: Commit refreshed checksums
+        run: |
+          if git diff --quiet -- SOURCE-SHA256SUMS; then
+            echo "SOURCE-SHA256SUMS already current"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add SOURCE-SHA256SUMS
+          git commit -m "chore: refresh source checksums"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
