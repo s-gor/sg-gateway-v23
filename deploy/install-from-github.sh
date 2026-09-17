@@ -102,6 +102,20 @@ run_quiet() {
   cat "$raw_output" >> "$BOOTSTRAP_LOG"
   elapsed=$((SECONDS - started))
 
+  if (( rc == 10 )); then
+  if [[ -t 1 ]]; then
+    printf "\r\033[K%s[SG-Gateway] [НУЖНА ПЕРЕЗАГРУЗКА]%s %s (%s сек.)\n" "$YELLOW" "$RESET" "$label" "$elapsed"
+  else
+    printf '%s[SG-Gateway] [НУЖНА ПЕРЕЗАГРУЗКА]%s %s (%s сек.)\n' "$YELLOW" "$RESET" "$label" "$elapsed"
+  fi
+  printf '[SG-Gateway] Ubuntu обновлена. Для продолжения установки требуется перезагрузка.\n'
+  printf '[SG-Gateway] Выполните: sudo reboot\n'
+  printf '[SG-Gateway] После перезагрузки снова войдите на сервер и запустите ту же команду установки.\n'
+  printf 'EXPECTED HANDOFF (rc=%s): %s\n' "$rc" "$label" >> "$BOOTSTRAP_LOG"
+  rm -f "$raw_output"
+  return "$rc"
+fi
+
   if (( rc != 0 )); then
     if [[ -t 1 ]]; then
       printf "\r\033[K%s[SG-Gateway] [ОШИБКА]%s %s (%s сек.)\n" "$RED" "$RESET" "$label" "$elapsed"
