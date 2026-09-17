@@ -1,8 +1,10 @@
+import base64
 from types import SimpleNamespace
 from urllib.parse import parse_qs, urlsplit
 
 from app.clients import exports, sg_subscription
 from app.clients.repository import Client
+from app.naiveproxy.integration import install as install_naiveproxy
 
 
 def _client() -> Client:
@@ -51,3 +53,47 @@ def test_sg_subscription_uses_live_naiveproxy_export_registration(monkeypatch):
 
     assert entry["ready"] is True
     assert entry["uri"] == expected
+
+
+def test_universal_subscription_includes_ready_naiveproxy(monkeypatch):
+    install_naiveproxy()
+
+    from app.engines import provisioning
+
+    monkeypatch.setattr(
+        exports,
+        "is_export_ready",
+        lambda client, engine, device=None: engine == "naiveproxy",
+    )
+    monkeypatch.setattr(exports, "tls_overview", lambda: {"https_ready": True})
+    monkeypatch.setattr(
+        exports,
+        "_deployment_config",
+        lambda client, engine, device=None: (
+            {
+                "username": "user",
+                "password": "safe-password-with-very-long-value",
+                "device_id": 11,
+                "host": "dc1.casacam.net",
+            }
+            if engine == "naiveproxy"
+            else {}
+        ),
+    )
+    monkeypatch.setattr(
+        provisioning,
+        "get_connection_settings",
+        lambda engine: SimpleNamespace(
+            host="dc1.casacam.net",
+            port=10447,
+            config={"domain": "dc1.casacam.net"},
+        ),
+    )
+
+    export = exports.build_subscription(_client(), SimpleNamespace(id=11, is_primary=True, name=""))
+    decoded = base64.b64decode(export.body).decode("utf-8")
+
+    assert (
+        "naive+https://user:safe-password-with-very-long-value@dc1.casacam.net:443"
+        in decoded
+    )
