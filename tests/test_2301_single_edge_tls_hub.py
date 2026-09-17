@@ -122,13 +122,18 @@ def test_transactional_stage9_migrates_existing_anytls_and_naiveproxy_tcp_edge()
     updater = (ROOT / "deploy/update-from-github-core.sh").read_text(encoding="utf-8")
     compat = (ROOT / "app/maintenance/udp443_compat.py").read_text(encoding="utf-8")
 
+    assert "NAIVEPROXY_INTERNAL_PORT = 10447" in compat
+    assert "ANYTLS_TCP_INTERNAL_PORT = 10449" in compat
     assert "migrate_single_edge_tcp_runtime" in compat
-    assert "apply_split_mihomo_singbox_runtime" in compat
-    assert 'update_connection_settings("naiveproxy", domain, 10447, config)' in compat
+    assert "_apply_singbox" in compat
+    assert 'update_connection_settings("naiveproxy", domain, NAIVEPROXY_INTERNAL_PORT, config)' in compat
     assert "sync_naiveproxy" in compat
     assert "stream-refresh" in compat
-    assert "127.0.0.1:10447" in compat
-    assert "127.0.0.1:10449" in compat
+
+    start = compat.index("def migrate_single_edge_tcp_runtime")
+    end = compat.index("\ndef main", start)
+    migration = compat[start:end]
+    assert migration.index("sync_naiveproxy") < migration.index("stream-refresh") < migration.index("_apply_singbox")
 
     verify = updater.index('run_stage 8 "Проверка HTTPS, credentials, Nginx и runtime" verify_final')
     stage9 = updater.index('run_stage 9 "UDP/443 Hysteria2/TUIC compatibility migration" run_udp443_compat_migration')
