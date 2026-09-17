@@ -43,7 +43,12 @@ jobs:
           new = "mihomo-linux-amd64-compatible-v1.19.29.gz"
           sha = "5612e698e96c8b8ad15abc4c0a4f098eba9234354b4f248cb97f2528e215b094"
 
-          for rel in ("install.sh", "deploy/install-core.sh", "tests/test_sg_gateway_021_vendored_five_engines.py"):
+          for rel in (
+              "install.sh",
+              "deploy/install-core.sh",
+              "tests/test_sg_gateway_021_vendored_five_engines.py",
+              "vendor/cores/THIRD-PARTY-NOTICES.md",
+          ):
               path = Path(rel)
               text = path.read_text(encoding="utf-8")
               if old not in text:
@@ -60,8 +65,8 @@ jobs:
           rows.sort(key=lambda row: row.split("  ", 1)[1] if "  " in row else row)
           manifest.write_text("\n".join(rows) + "\n", encoding="utf-8")
           PY
-          if git grep -n 'mihomo-linux-amd64-v1.19.29.gz' -- ':!SOURCE-SHA256SUMS' ':!.github/workflows/*'; then
-            echo 'legacy Mihomo vendor filename remains in tracked source' >&2
+          if git grep -n 'mihomo-linux-amd64-v1.19.29.gz' -- ':!SOURCE-SHA256SUMS' ':!.github/workflows/*' ':!tests/test_2301_mihomo_compatible_vendor.py'; then
+            echo 'legacy Mihomo vendor filename remains in tracked production/source documentation' >&2
             exit 1
           fi
       - name: Stage changes and refresh source integrity
