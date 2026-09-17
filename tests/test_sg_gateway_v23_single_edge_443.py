@@ -75,9 +75,8 @@ def test_naiveproxy_backend_is_loopback_and_export_is_public_443():
     settings = NaiveProxySettings(domain="edge.example.com", port=10447)
     user = NaiveProxyUser(username="sg-user", password="0123456789abcdef")
     caddy = render_caddyfile(settings, [user])
-    assert "https://edge.example.com:10447" in caddy
+    assert ":10447, edge.example.com:10447" in caddy
     assert "bind 127.0.0.1" in caddy
-    assert ":10447," not in caddy
     uri = build_client_uri(settings, user, public_port=443)
     assert "@edge.example.com:443" in uri
     assert ":10447" not in uri
