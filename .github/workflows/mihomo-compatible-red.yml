@@ -1,0 +1,23 @@
+name: Mihomo compatible RED
+
+on:
+  push:
+    branches:
+      - feat/2301-single-edge-443
+
+permissions:
+  contents: read
+
+jobs:
+  red:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install pytest
+        run: python -m pip install --quiet pytest
+      - name: Run Mihomo compatible regression
+        run: python -m pytest -q tests/test_2301_mihomo_compatible_vendor.py
