@@ -1,4 +1,4 @@
-name: Refresh source checksums
+name: Apply reboot UX fix and refresh source checksums
 
 on:
   push:
@@ -9,23 +9,52 @@ permissions:
   contents: write
 
 jobs:
-  refresh:
+  fix:
     if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - name: Apply friendly reboot handoff
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path("deploy/install-from-github.sh")
+          text = path.read_text(encoding="utf-8")
+          needle = "  if (( rc != 0 )); then\n"
+          if needle not in text:
+              raise SystemExit("run_quiet failure branch not found")
+          if "[НУЖНА ПЕРЕЗАГРУЗКА]" in text:
+              raise SystemExit("friendly reboot handoff already present")
+          special = r'''  if (( rc == 10 )); then
+            if [[ -t 1 ]]; then
+              printf "\r\033[K%s[SG-Gateway] [НУЖНА ПЕРЕЗАГРУЗКА]%s %s (%s сек.)\n" "$YELLOW" "$RESET" "$label" "$elapsed"
+            else
+              printf '%s[SG-Gateway] [НУЖНА ПЕРЕЗАГРУЗКА]%s %s (%s сек.)\n' "$YELLOW" "$RESET" "$label" "$elapsed"
+            fi
+            printf '[SG-Gateway] Ubuntu обновлена. Для продолжения установки требуется перезагрузка.\n'
+            printf '[SG-Gateway] Выполните: sudo reboot\n'
+            printf '[SG-Gateway] После перезагрузки снова войдите на сервер и запустите ту же команду установки.\n'
+            printf 'EXPECTED HANDOFF (rc=%s): %s\n' "$rc" "$label" >> "$BOOTSTRAP_LOG"
+            rm -f "$raw_output"
+            return "$rc"
+          fi
+
+          '''
+          text = text.replace(needle, special + needle, 1)
+          path.write_text(text, encoding="utf-8")
+          PY
+      - name: Verify reboot UX regression
+        run: python3 -m pytest -q tests/test_2301_clean_install_reboot_ux.py
       - name: Refresh SOURCE-SHA256SUMS
         run: python3 .github/scripts/update-source-checksums.py
-      - name: Commit refreshed checksums
+      - name: Commit fix
         run: |
-          if git diff --quiet -- SOURCE-SHA256SUMS; then
-            echo "SOURCE-SHA256SUMS already current"
-            exit 0
-          fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add SOURCE-SHA256SUMS
-          git commit -m "chore: refresh source checksums"
+          git add deploy/install-from-github.sh SOURCE-SHA256SUMS
+          git commit -m "fix: show clean reboot handoff during install"
           git push origin "HEAD:${GITHUB_REF_NAME}"
