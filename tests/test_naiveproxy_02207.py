@@ -21,7 +21,7 @@ def test_default_port_is_10447_and_never_claims_443():
     user = runtime.NaiveProxyUser("alice", "a" * 32)
     config = runtime.render_caddyfile(settings(), [user])
     assert runtime.DEFAULT_PORT == 10447
-    assert "https://vpn.example.com:10447" in config
+    assert ":10447, vpn.example.com:10447" in config
     assert "bind 127.0.0.1" in config
     assert ":443" not in config
     assert "auto_https off" in config
@@ -124,7 +124,7 @@ def test_empty_user_set_disables_proxy_but_keeps_tls_decoy():
     config = runtime.render_caddyfile(settings(), [])
     assert "forward_proxy" not in config
     assert "reverse_proxy http://127.0.0.1:10446" in config
-    assert "https://vpn.example.com:10447" in config
+    assert ":10447, vpn.example.com:10447" in config
     assert "bind 127.0.0.1" in config
 
 
