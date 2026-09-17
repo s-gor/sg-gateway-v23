@@ -66,7 +66,7 @@ AWG_IPV6_SUBNET_ID = 2
 
 ENGINE_SECRETS = CONFIG_DIR / "engine-secrets.env"
 RUNTIME_ENV = CONFIG_DIR / "runtime.env"
-LOCK_FILE = Path("/run/sg-gateway/clients-apply.lock")
+LOCK_FILE = CANDIDATE_DIR / "clients-apply.lock"
 SINGBOX_CONFIG = Path("/etc/sing-box/config.json")
 SINGBOX_SERVICE = "sg-gateway-singbox.service"
 ROUTING_MANAGED = Path("/etc/sg-gateway/xray-routing-managed.json")

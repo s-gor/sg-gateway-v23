@@ -482,7 +482,7 @@ unexpected_error() {
   sanitize_installer_log_file || true
   printf "\n%s[SG-Gateway] [ОШИБКА]%s Установка остановлена.\n" "$RED" "$RESET"
   printf "[SG-Gateway] %s\n" "$CURRENT_LABEL"
-  printf "[SG-Gateway] Этот же EC2 можно использовать повторно; пересоздавать сервер не нужно.\n"
+  printf "[SG-Gateway] Текущую машину можно использовать повторно; пересоздавать её не нужно.\n"
   show_log_tail
   exit "$rc"
 }
@@ -1258,7 +1258,7 @@ verify_vendor_core_set() {
   done
 
   echo "[SG-Gateway] Проверяю SHA-256 локального vendor-комплекта"
-  (cd "$VENDOR_CORES_DIR" && sha256sum -c SHA256SUMS)
+  (cd "$VENDOR_CORES_DIR" && sha256sum -c --quiet SHA256SUMS)
 
   unzip -tqq "$VENDOR_CORES_DIR/$XRAY_VENDOR_FILE"
   gzip -t "$VENDOR_CORES_DIR/$MIHOMO_VENDOR_FILE"
