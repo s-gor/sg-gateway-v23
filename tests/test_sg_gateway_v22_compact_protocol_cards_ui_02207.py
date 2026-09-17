@@ -19,7 +19,8 @@ def test_naiveproxy_is_native_bottom_engine_card() -> None:
     assert "cnv1-compact-protocol-card" in naive
     assert "naiveproxy-compact-card" in naive
     assert "data-naive-host" in naive
-    assert "data-naive-port" in naive
+    assert "data-naive-endpoint" in naive
+    assert "data-naive-port" not in naive
     assert "data-naive-runtime" not in naive
     assert "data-naive-submit" in naive
     assert "let activePort = 8447;" in naive
