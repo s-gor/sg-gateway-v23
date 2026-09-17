@@ -5,7 +5,7 @@ import json
 from datetime import UTC, datetime
 from urllib.parse import parse_qsl, quote, urlencode, urlsplit, urlunsplit
 
-from app.clients.exports import build_protocol_export, protocol_ready
+from app.clients import exports as client_exports
 from app.clients.repository import Client, device_access_tokens, list_devices
 
 SG_SUBSCRIPTION_FORMAT = "sg-subscription"
@@ -58,7 +58,7 @@ def _canonical_uri(profile_id: str, value: str) -> str:
         if key not in first:
             first[key] = item
     allowed = (
-        ("sni", "insecure")
+        ("sni", "alpn", "insecure")
         if profile_id == "anytls"
         else ("congestion_control", "udp_relay_mode", "alpn", "sni")
     )
@@ -82,9 +82,9 @@ def _profile_entry(client: Client, device, spec: tuple[str, ...]) -> dict:
         "ready": False,
     }
     try:
-        if not protocol_ready(client, export_kind, device):
+        if not client_exports.protocol_ready(client, export_kind, device):
             return entry
-        export = build_protocol_export(client, export_kind, device)
+        export = client_exports.build_protocol_export(client, export_kind, device)
         if not export.body:
             return entry
     except Exception:  # noqa: BLE001 - one broken export must not break the whole feed
