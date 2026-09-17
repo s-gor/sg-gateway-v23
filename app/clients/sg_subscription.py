@@ -73,7 +73,7 @@ def _canonical_uri(profile_id: str, value: str) -> str:
         if key not in first:
             first[key] = item
     allowed = (
-        ("sni", "alpn", "insecure")
+        ("security", "sni", "alpn", "fp", "type", "insecure")
         if profile_id == "anytls"
         else ("congestion_control", "udp_relay_mode", "alpn", "sni")
     )
