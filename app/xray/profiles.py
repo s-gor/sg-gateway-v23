@@ -581,7 +581,7 @@ def overview() -> dict[str, Any]:
             "hysteria2", "Hysteria 2", "QUIC / UDP", "TLS",
             "hysteria2_port", "hysteria2_enabled",
             tls_required=True,
-            note="Hysteria 2 с выбором Off / Salamander / Gecko на отдельном UDP-порту.",
+            note="Hysteria 2 с выбором Off / Salamander / Gecko.",
         ),
     ]
     return {
