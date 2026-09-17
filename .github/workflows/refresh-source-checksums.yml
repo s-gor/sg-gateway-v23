@@ -52,7 +52,21 @@ jobs:
       - name: Verify reboot UX regression
         run: python3 -m pytest -q tests/test_2301_clean_install_reboot_ux.py
       - name: Refresh SOURCE-SHA256SUMS
-        run: python3 .github/scripts/update-source-checksums.py
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib
+          import subprocess
+
+          tracked = subprocess.check_output(["git", "ls-files"], text=True).splitlines()
+          expected = sorted(
+              rel for rel in tracked
+              if rel != "SOURCE-SHA256SUMS" and not rel.startswith(".github/workflows/")
+          )
+          rows = [f"{hashlib.sha256(Path(rel).read_bytes()).hexdigest()}  {rel}" for rel in expected]
+          Path("SOURCE-SHA256SUMS").write_text("\n".join(rows) + "\n", encoding="utf-8")
+          print(f"source inventory refreshed: {len(rows)} files")
+          PY
       - name: Commit fix
         run: |
           git config user.name "github-actions[bot]"
