@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   bootstrap-contract:
@@ -16,32 +16,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Sync source integrity manifest once
-        if: github.event_name == 'pull_request' && github.head_ref == 'feat/2301-single-edge-443'
-        env:
-          HEAD_REF: ${{ github.head_ref }}
-        run: |
-          git fetch origin "$HEAD_REF"
-          git checkout -B "$HEAD_REF" FETCH_HEAD
-          python - <<'PY'
-          from pathlib import Path
-          import hashlib, subprocess
-
-          tracked = sorted(subprocess.check_output(['git', 'ls-files'], text=True).splitlines())
-          paths = [p for p in tracked if p != 'SOURCE-SHA256SUMS' and not p.startswith('.github/workflows/')]
-          rows = [f"{hashlib.sha256(Path(p).read_bytes()).hexdigest()}  {p}" for p in paths]
-          Path('SOURCE-SHA256SUMS').write_text('\n'.join(rows) + '\n', encoding='utf-8')
-          PY
-          if git diff --quiet -- SOURCE-SHA256SUMS; then
-            echo "SOURCE-SHA256SUMS already current"
-          else
-            git config user.name "sg-gateway-ci"
-            git config user.email "sg-gateway-ci@users.noreply.github.com"
-            git add SOURCE-SHA256SUMS
-            git commit -m "chore: sync source checksums for NaiveProxy fix"
-            git push origin HEAD:"$HEAD_REF"
-          fi
 
       - name: Set up Python
         uses: actions/setup-python@v5
