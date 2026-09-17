@@ -1,4 +1,4 @@
-name: Apply Mihomo compatible vendor
+name: Finalize Mihomo compatible vendor
 
 on:
   push:
@@ -9,7 +9,7 @@ permissions:
   contents: write
 
 jobs:
-  fix:
+  finalize:
     if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     steps:
@@ -19,60 +19,40 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Download and verify compatible Mihomo
-        shell: bash
+      - name: Refresh vendor manifest for changed notices
         run: |
           set -Eeuo pipefail
-          old='mihomo-linux-amd64-v1.19.29.gz'
-          new='mihomo-linux-amd64-compatible-v1.19.29.gz'
-          sha='5612e698e96c8b8ad15abc4c0a4f098eba9234354b4f248cb97f2528e215b094'
-          url="https://github.com/MetaCubeX/mihomo/releases/download/v1.19.29/${new}"
-          curl -4 -fL --retry 5 --retry-all-errors --retry-delay 2 "$url" -o "vendor/cores/$new"
-          echo "$sha  vendor/cores/$new" | sha256sum -c -
-          gzip -t "vendor/cores/$new"
-          gzip -dc "vendor/cores/$new" > /tmp/mihomo-compatible
-          chmod 0755 /tmp/mihomo-compatible
-          /tmp/mihomo-compatible -v
-          rm -f "vendor/cores/$old"
-      - name: Switch installers and vendor manifest
-        run: |
           python - <<'PY'
           from pathlib import Path
+          import hashlib
 
-          old = "mihomo-linux-amd64-v1.19.29.gz"
-          new = "mihomo-linux-amd64-compatible-v1.19.29.gz"
-          sha = "5612e698e96c8b8ad15abc4c0a4f098eba9234354b4f248cb97f2528e215b094"
-
-          for rel in (
-              "install.sh",
-              "deploy/install-core.sh",
-              "tests/test_sg_gateway_021_vendored_five_engines.py",
-              "vendor/cores/THIRD-PARTY-NOTICES.md",
-          ):
-              path = Path(rel)
-              text = path.read_text(encoding="utf-8")
-              if old not in text:
-                  raise SystemExit(f"expected legacy Mihomo filename not found in {rel}")
-              path.write_text(text.replace(old, new), encoding="utf-8")
-
-          manifest = Path("vendor/cores/SHA256SUMS")
+          vendor = Path("vendor/cores")
+          manifest = vendor / "SHA256SUMS"
           rows = manifest.read_text(encoding="utf-8").splitlines()
-          old_rows = [row for row in rows if row.endswith("  " + old)]
-          if len(old_rows) != 1:
-              raise SystemExit(f"expected exactly one legacy Mihomo manifest row, got {len(old_rows)}")
-          rows = [row for row in rows if not row.endswith("  " + old)]
-          rows.append(f"{sha}  {new}")
-          rows.sort(key=lambda row: row.split("  ", 1)[1] if "  " in row else row)
-          manifest.write_text("\n".join(rows) + "\n", encoding="utf-8")
+          notice = vendor / "THIRD-PARTY-NOTICES.md"
+          notice_sha = hashlib.sha256(notice.read_bytes()).hexdigest()
+          replaced = 0
+          updated = []
+          for row in rows:
+              if row.endswith("  THIRD-PARTY-NOTICES.md"):
+                  updated.append(f"{notice_sha}  THIRD-PARTY-NOTICES.md")
+                  replaced += 1
+              else:
+                  updated.append(row)
+          if replaced != 1:
+              raise SystemExit(f"expected one THIRD-PARTY-NOTICES manifest row, got {replaced}")
+          manifest.write_text("\n".join(updated) + "\n", encoding="utf-8")
           PY
-          if git grep -n 'mihomo-linux-amd64-v1.19.29.gz' -- ':!SOURCE-SHA256SUMS' ':!.github/workflows/*' ':!tests/test_2301_mihomo_compatible_vendor.py'; then
-            echo 'legacy Mihomo vendor filename remains in tracked production/source documentation' >&2
-            exit 1
-          fi
-      - name: Stage changes and refresh source integrity
+          (
+            cd vendor/cores
+            sha256sum -c SHA256SUMS
+          )
+          test -f vendor/cores/mihomo-linux-amd64-compatible-v1.19.29.gz
+          test ! -e vendor/cores/mihomo-linux-amd64-v1.19.29.gz
+      - name: Refresh source integrity
         run: |
           set -Eeuo pipefail
-          git add -A -- install.sh deploy/install-core.sh vendor/cores tests/test_2301_mihomo_compatible_vendor.py tests/test_sg_gateway_021_vendored_five_engines.py
+          git add vendor/cores/SHA256SUMS
           python - <<'PY'
           from pathlib import Path
           import hashlib
@@ -92,15 +72,15 @@ jobs:
           Path("SOURCE-SHA256SUMS").write_text("\n".join(rows) + "\n", encoding="utf-8")
           PY
           git add SOURCE-SHA256SUMS
-      - name: Verify Mihomo compatible regression
+      - name: Verify regression and manifests
         run: |
           python -m pip install --quiet pytest
           python -m pytest -q tests/test_2301_mihomo_compatible_vendor.py tests/test_sg_gateway_021_vendored_five_engines.py
           git diff --cached --check
-      - name: Commit compatible Mihomo vendor
+      - name: Commit finalized vendor manifest
         run: |
           set -Eeuo pipefail
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git commit -m 'fix: vendor compatible Mihomo amd64 build'
+          git commit -m 'fix: finalize compatible Mihomo vendor manifest'
           git push origin "HEAD:${GITHUB_REF_NAME}"
