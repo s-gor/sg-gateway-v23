@@ -48,6 +48,21 @@ def compatible_profile_ids() -> tuple[str, ...]:
     return _COMPATIBLE_PROFILE_IDS
 
 
+def protocol_ready(client: Client, kind: str, device=None, *, xray_state=None) -> bool:
+    """Preserve the public subscription hook while resolving live export registration."""
+    return client_exports.protocol_ready(
+        client,
+        kind,
+        device,
+        xray_state=xray_state,
+    )
+
+
+def build_protocol_export(client: Client, kind: str, device=None):
+    """Preserve the public subscription hook while resolving live export registration."""
+    return client_exports.build_protocol_export(client, kind, device)
+
+
 def _canonical_uri(profile_id: str, value: str) -> str:
     clean = str(value or "").strip()
     if not clean or profile_id not in {"anytls", "tuic"}:
@@ -82,9 +97,9 @@ def _profile_entry(client: Client, device, spec: tuple[str, ...]) -> dict:
         "ready": False,
     }
     try:
-        if not client_exports.protocol_ready(client, export_kind, device):
+        if not protocol_ready(client, export_kind, device):
             return entry
-        export = client_exports.build_protocol_export(client, export_kind, device)
+        export = build_protocol_export(client, export_kind, device)
         if not export.body:
             return entry
     except Exception:  # noqa: BLE001 - one broken export must not break the whole feed
@@ -262,7 +277,6 @@ def _ready_uri_lines(document: dict) -> list[str]:
             )
             lines.append(_with_fragment(str(profile["uri"]), label))
     return lines
-
 
 
 def build_compatible_subscription_body(client: Client) -> str:
