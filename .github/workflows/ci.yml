@@ -83,5 +83,8 @@ jobs:
       - name: Verify NaiveProxy Xray-state forwarding regression
         run: python -m pytest -q tests/test_naiveproxy_xray_state_forwarding_2301.py
 
+      - name: Verify AnyTLS and NaiveProxy subscription regression
+        run: python -m pytest -q tests/test_subscription_anytls_naive_regression.py
+
       - name: Run full 23.01 test suite
         run: python -m pytest -q tests
