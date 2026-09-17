@@ -23,7 +23,7 @@ GREEN=""
 RED=""
 YELLOW=""
 RESET=""
-BOOTSTRAP_LOG={bootstrap_log!s!r}
+BOOTSTRAP_LOG={str(bootstrap_log)!r}
 CURRENT_BOOTSTRAP_LABEL=""
 {function_source}
 if run_quiet "Подготовка 4/6 · Обновление Ubuntu" bash -c 'printf "APT-NOISE\\n"; exit 10'; then
