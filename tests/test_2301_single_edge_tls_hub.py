@@ -111,31 +111,27 @@ def test_refresh_uses_explicit_domain_and_updater_self_heals_managed_stream_conf
     assert "repair_managed_nginx_if_needed()" in updater
     assert '"$PREFIX/deploy/configure-panel-access.sh" --mode stream-refresh' in updater
     assert 'if (( NGINX_REPAIRED == 1 )); then' in updater
-    assert "[%s/11]" in updater
+    assert "[%s/10]" in updater
     assert 'run_stage 7 "Repair managed Nginx Single Edge config if needed" repair_managed_nginx_if_needed' in updater
     assert 'run_stage 8 "Проверка HTTPS, credentials, Nginx и runtime" verify_final' in updater
     assert 'run_stage 9 "UDP/443 Hysteria2/TUIC compatibility migration" run_udp443_compat_migration' in updater
     assert 'run_stage 10 "UDP/443 edge service rollout" ensure_udp_edge_service' in updater
-    assert 'run_stage 11 "TCP/443 AnyTLS/NaiveProxy runtime migration" migrate_single_edge_tcp_runtime' in updater
 
 
-def test_update_migrates_existing_anytls_and_naiveproxy_before_finishing():
+def test_transactional_stage9_migrates_existing_anytls_and_naiveproxy_tcp_edge():
     updater = (ROOT / "deploy/update-from-github-core.sh").read_text(encoding="utf-8")
+    compat = (ROOT / "app/maintenance/udp443_compat.py").read_text(encoding="utf-8")
 
-    assert "migrate_single_edge_tcp_runtime()" in updater
-    start = updater.index("migrate_single_edge_tcp_runtime()")
-    end = updater.index("\nbind_panel_update_state()", start)
-    migration = updater[start:end]
+    assert "migrate_single_edge_tcp_runtime" in compat
+    assert "apply_split_mihomo_singbox_runtime" in compat
+    assert 'update_connection_settings("naiveproxy", domain, 10447, config)' in compat
+    assert "sync_naiveproxy" in compat
+    assert "stream-refresh" in compat
+    assert "127.0.0.1:10447" in compat
+    assert "127.0.0.1:10449" in compat
 
-    assert "repair_naiveproxy_runtime_if_needed" in migration
-    assert "apply_split_mihomo_singbox_runtime" in migration
-    assert 'update_connection_settings("naiveproxy", domain, 10447, config)' in migration
-    assert "sync_naiveproxy" in migration
-    assert '"$PREFIX/deploy/configure-panel-access.sh" --mode stream-refresh' in migration
-    assert "127.0.0.1:10447" in migration
-    assert "127.0.0.1:10449" in migration
-
+    verify = updater.index('run_stage 8 "Проверка HTTPS, credentials, Nginx и runtime" verify_final')
+    stage9 = updater.index('run_stage 9 "UDP/443 Hysteria2/TUIC compatibility migration" run_udp443_compat_migration')
     stage10 = updater.index('run_stage 10 "UDP/443 edge service rollout" ensure_udp_edge_service')
-    stage11 = updater.index('run_stage 11 "TCP/443 AnyTLS/NaiveProxy runtime migration" migrate_single_edge_tcp_runtime')
     finish = updater.index("bind_panel_update_state")
-    assert stage10 < stage11 < finish
+    assert verify < stage9 < stage10 < finish
