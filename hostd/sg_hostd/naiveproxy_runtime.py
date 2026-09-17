@@ -184,7 +184,7 @@ def _render(settings: dict, users: list[dict]) -> str:
     }}
 }}
 
-https://{settings['domain']}:{settings['port']} {{
+:{settings['port']}, {settings['domain']}:{settings['port']} {{
     bind 127.0.0.1
     tls {settings['certificate_path']} {settings['private_key_path']}
     encode gzip zstd
