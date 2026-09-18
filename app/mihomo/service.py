@@ -1310,11 +1310,11 @@ def _protocol_runtime_view(
         elif changed:
             state_note = "работает; есть неприменённые изменения"
         else:
-            state_note = f"{transport} · порт {live.get(f'{protocol}_port', '')}"
+            state_note = transport
     elif applied_enabled:
         state = "error"
         state_label = "Ошибка"
-        state_note = "listener применён, но порт не слушается"
+        state_note = "listener применён, но не активен"
     elif changed:
         state = "pending"
         state_label = "Ожидает применения"
