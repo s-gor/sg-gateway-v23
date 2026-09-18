@@ -123,6 +123,11 @@ from app.security.tls import (
     rollback_latest as rollback_tls,
     stage_request as stage_tls_request,
 )
+from app.sgnet.service import (
+    SgNetSettingsError,
+    overview as sgnet_overview,
+    save_settings as save_sgnet_settings,
+)
 from app.mihomo.service import (
     MihomoError,
     apply_candidate as apply_mihomo_candidate,
@@ -817,6 +822,8 @@ def create_app() -> Flask:
             routing_templates=routing_templates_overview(),
             warp=warp_overview(),
             mihomo=mihomo_overview(),
+            sgnet=sgnet_overview(),
+            sgnet_runtime=run_hostd_command("sgnet.status", timeout=10),
             client_total=count_clients(),
         )
 
@@ -1596,7 +1603,7 @@ def create_app() -> Flask:
 
     @app.get("/connections")
     def connections():
-        settings_map = list_connection_settings(("xray", "mihomo", "amneziawg31"))
+        settings_map = list_connection_settings(("xray", "mihomo", "amneziawg31", "sgnet"))
         return render_template(
             "connections.html",
             active_page="connections",
@@ -1607,6 +1614,37 @@ def create_app() -> Flask:
             mihomo=mihomo_overview(),
             client_total=count_clients(),
         )
+
+    @app.post("/connections/sgnet")
+    def update_sgnet():
+        try:
+            save_sgnet_settings(request.form)
+        except SgNetSettingsError as exc:
+            flash(f"SG-Net: {exc}", "error")
+            return redirect(url_for("connections") + "#sgnet")
+
+        action = request.form.get("action", "save").strip().lower()
+        if action == "save":
+            flash("Настройки SG-Net сохранены.", "success")
+            return redirect(url_for("connections") + "#sgnet")
+
+        command = {
+            "test": "sgnet.test",
+            "apply": "sgnet.apply",
+            "restart": "sgnet.restart",
+            "rollback": "sgnet.rollback",
+        }.get(action)
+        if not command:
+            flash("Неизвестное действие SG-Net.", "error")
+            return redirect(url_for("connections") + "#sgnet")
+
+        result = run_hostd_command(command, timeout=120)
+        flash(
+            result.message or "SG-Net: операция завершена.",
+            "success" if result.status == "ok" else "error",
+        )
+        return redirect(url_for("connections") + "#sgnet")
+
 
     @app.post("/connections/awg-dns")
     def update_awg_dns():
