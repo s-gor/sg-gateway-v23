@@ -407,9 +407,9 @@ EOF
     log "Использую существующий сертификат"
   else
     if [[ "$PANEL_HOST" == "$HOST" ]]; then
-      certbot certonly --webroot -w "$ACME_ROOT" --cert-name "$HOST" --domain "$HOST" --register-unsafely-without-email --agree-tos --non-interactive --keep-until-expiring
+      certbot certonly --webroot -w "$ACME_ROOT" --cert-name "$HOST" --domain "$HOST" --register-unsafely-without-email --agree-tos --non-interactive --keep-until-expiring --no-directory-hooks
     else
-      certbot certonly --webroot -w "$ACME_ROOT" --cert-name "$HOST" --domain "$HOST" --domain "$PANEL_HOST" --register-unsafely-without-email --agree-tos --non-interactive --expand
+      certbot certonly --webroot -w "$ACME_ROOT" --cert-name "$HOST" --domain "$HOST" --domain "$PANEL_HOST" --register-unsafely-without-email --agree-tos --non-interactive --expand --no-directory-hooks
     fi
   fi
   [[ -s "$cert_file" && -s "$key_file" ]] || fail "сертификат не создан"
@@ -420,7 +420,7 @@ EOF
   write_https_site "$HOST" "$PANEL_HOST" "$cert_file" "$key_file"
   bootstrap_tls_edge "$HOST" "$cert_file" "$key_file"
   nginx -t
-  systemctl reload nginx.service
+  systemctl restart nginx.service
   wait_backend
   verify_https_contract "$HOST" "$PANEL_HOST"
   systemctl enable --now certbot.timer >/dev/null 2>&1 || true
@@ -456,7 +456,7 @@ refresh_https(){
   write_https_site "$domain" "$panel_domain" "$cert" "$key"
   bootstrap_tls_edge "$domain" "$cert" "$key"
   nginx -t
-  systemctl reload nginx.service
+  systemctl restart nginx.service
   wait_backend
   verify_https_contract "$domain" "$panel_domain"
   write_state "$domain" "$panel_domain" refresh "Сертификат, Single Edge 443 и Nginx проверены" "$(read_state_value backup)"
@@ -479,6 +479,6 @@ refresh_stream_config(){
   fi
   log "Single Edge stream-конфигурация обновлена"
 }
-renew_https(){ local domain="$(read_state_value domain)"; [[ -n "$domain" ]] || fail "HTTPS ещё не настроен"; certbot renew --cert-name "$domain" --non-interactive; refresh_https; apply_client_runtime; }
+renew_https(){ local domain="$(read_state_value domain)"; [[ -n "$domain" ]] || fail "HTTPS ещё не настроен"; certbot renew --cert-name "$domain" --non-interactive --no-directory-hooks; refresh_https; }
 rollback_https(){ local latest current; latest="$(find "$BACKUP_ROOT" -mindepth 1 -maxdepth 1 -type d -name '*-panel-access' -printf '%f\n' | sort | tail -n 1 || true)"; [[ -n "$latest" ]] || fail "нет резервной конфигурации HTTPS"; current="$(create_backup)"; restore_backup "$BACKUP_ROOT/$latest"; if ! nginx -t || ! systemctl reload nginx.service; then restore_backup "$current"; nginx -t >/dev/null 2>&1 && systemctl reload nginx.service >/dev/null 2>&1 || true; fail "резервная конфигурация не принята"; fi; log "Восстановлена конфигурация $latest"; }
 case "$MODE" in https) configure_https;; renew) renew_https;; rollback) rollback_https;; refresh) refresh_https;; stream-refresh) refresh_stream_config;; esac
