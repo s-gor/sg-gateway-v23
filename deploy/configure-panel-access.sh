@@ -139,9 +139,26 @@ server {
 }
 EOF
 }
+set_bootstrap_port_access(){
+  local mode="$1" rule="${PUBLIC_PORT}/tcp" ufw_state=""
+  command -v ufw >/dev/null 2>&1 || return 0
+  ufw_state="$(ufw status 2>/dev/null || true)"
+  grep -q '^Status: active' <<<"$ufw_state" || return 0
+  case "$mode" in
+    open) ufw allow "$rule" >/dev/null 2>&1 || true ;;
+    close) ufw --force delete allow "$rule" >/dev/null 2>&1 || true ;;
+    *) fail "неизвестный режим bootstrap-порта: $mode" ;;
+  esac
+}
 write_https_site(){
   local domain="$1" panel_domain="$2" cert="$3" key="$4"
-  local cookie_security_directive="$(nginx_cookie_security_directive)"
+  local cookie_security_directive="$(nginx_cookie_security_directive)" bootstrap_listener=""
+  if [[ "$panel_domain" == "$domain" ]]; then
+    bootstrap_listener="$(cat <<EOFBOOT
+$bootstrap_listener
+EOFBOOT
+)"
+  fi
   cat > "$NGINX_CONF" <<EOF
 # SG_GATEWAY_PLACEHOLDER_80_443_V3
 server {
@@ -423,6 +440,11 @@ EOF
   systemctl restart nginx.service
   wait_backend
   verify_https_contract "$HOST" "$PANEL_HOST"
+  if [[ "$PANEL_HOST" != "$HOST" ]]; then
+    set_bootstrap_port_access close
+  else
+    set_bootstrap_port_access open
+  fi
   systemctl enable --now certbot.timer >/dev/null 2>&1 || true
 
   cat > "$RENEW_HOOK" <<'EOF'
@@ -459,6 +481,11 @@ refresh_https(){
   systemctl restart nginx.service
   wait_backend
   verify_https_contract "$domain" "$panel_domain"
+  if [[ "$panel_domain" != "$domain" ]]; then
+    set_bootstrap_port_access close
+  else
+    set_bootstrap_port_access open
+  fi
   write_state "$domain" "$panel_domain" refresh "Сертификат, Single Edge 443 и Nginx проверены" "$(read_state_value backup)"
   apply_client_runtime
   log "Панель HTTPS и Single Edge 443 обновлены"
@@ -480,5 +507,5 @@ refresh_stream_config(){
   log "Single Edge stream-конфигурация обновлена"
 }
 renew_https(){ local domain="$(read_state_value domain)"; [[ -n "$domain" ]] || fail "HTTPS ещё не настроен"; certbot renew --cert-name "$domain" --non-interactive --no-directory-hooks; refresh_https; }
-rollback_https(){ local latest current; latest="$(find "$BACKUP_ROOT" -mindepth 1 -maxdepth 1 -type d -name '*-panel-access' -printf '%f\n' | sort | tail -n 1 || true)"; [[ -n "$latest" ]] || fail "нет резервной конфигурации HTTPS"; current="$(create_backup)"; restore_backup "$BACKUP_ROOT/$latest"; if ! nginx -t || ! systemctl reload nginx.service; then restore_backup "$current"; nginx -t >/dev/null 2>&1 && systemctl reload nginx.service >/dev/null 2>&1 || true; fail "резервная конфигурация не принята"; fi; log "Восстановлена конфигурация $latest"; }
+rollback_https(){ local latest current restored_domain restored_panel; latest="$(find "$BACKUP_ROOT" -mindepth 1 -maxdepth 1 -type d -name '*-panel-access' -printf '%f\n' | sort | tail -n 1 || true)"; [[ -n "$latest" ]] || fail "нет резервной конфигурации HTTPS"; current="$(create_backup)"; restore_backup "$BACKUP_ROOT/$latest"; if ! nginx -t || ! systemctl restart nginx.service; then restore_backup "$current"; nginx -t >/dev/null 2>&1 && systemctl restart nginx.service >/dev/null 2>&1 || true; fail "резервная конфигурация не принята"; fi; restored_domain="$(read_state_value domain)"; restored_panel="$(read_state_value panel_domain)"; if [[ -n "$restored_domain" && -n "$restored_panel" && "$restored_panel" != "$restored_domain" ]]; then set_bootstrap_port_access close; else set_bootstrap_port_access open; fi; log "Восстановлена конфигурация $latest"; }
 case "$MODE" in https) configure_https;; renew) renew_https;; rollback) rollback_https;; refresh) refresh_https;; stream-refresh) refresh_stream_config;; esac
