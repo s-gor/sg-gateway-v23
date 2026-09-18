@@ -102,6 +102,7 @@ MANAGED_PATHS=(
   etc/systemd/system/sg-gateway-awg.service
   etc/systemd/system/sg-gateway-awg3.service
   etc/systemd/system/sg-gateway-singbox.service
+  etc/systemd/system/sg-gateway-sgnet.service
   etc/systemd/system/mihomo.service
   etc/nginx/nginx.conf
   etc/nginx/stream-conf.d/sg-gateway-443.conf
@@ -122,6 +123,7 @@ MANAGED_PATHS=(
   usr/local/bin/mihomo
   usr/local/bin/sing-box
   usr/local/bin/wgcf-cli
+  usr/local/bin/sgnet-server
   usr/bin/sing-box
   usr/bin/awg
   usr/bin/awg-quick
@@ -1812,7 +1814,7 @@ stage_configuration_and_database() {
   # Runtime files under /etc are root-owned. The panel writes only candidates
   # under /var/lib/sg-gateway; sg-hostd applies them as root.
   install -d -m 0755 -o root -g root /etc/mihomo /etc/sing-box /usr/local/etc/xray /etc/amnezia/amneziawg
-  install -d -m 0750 -o root -g root /var/lib/mihomo /var/lib/sing-box /var/log/sing-box
+  install -d -m 0750 -o sg-gateway -g sg-gateway /run/sg-gateway\n  install -d -m 0750 -o root -g root /var/lib/mihomo /var/lib/sing-box /var/log/sing-box
   install -d -m 0755 /var/www/sg-gateway-acme /var/www/sg-gateway-placeholder
   install -m 0644 "$PREFIX/assets/placeholder/index.html" /var/www/sg-gateway-placeholder/index.html
   install -m 0644 "$PREFIX/assets/placeholder/restarting.html" /var/www/sg-gateway-placeholder/restarting.html
@@ -2338,9 +2340,7 @@ EOF
 
   install -m 0644 "$PREFIX/deploy/sg-gateway-awg.service" /etc/systemd/system/sg-gateway-awg.service
   install -m 0644 "$PREFIX/deploy/sg-gateway-awg3.service" /etc/systemd/system/sg-gateway-awg3.service
-  install -m 0644 "$PREFIX/deploy/sg-gateway-singbox.service" /etc/systemd/system/sg-gateway-singbox.service
-  install -m 0644 "$PREFIX/deploy/mihomo.service" /etc/systemd/system/mihomo.service
-
+  install -m 0644 "$PREFIX/deploy/sg-gateway-singbox.service" /etc/systemd/system/sg-gateway-singbox.service\n  install -m 0644 "$PREFIX/deploy/sg-gateway-sgnet.service" /etc/systemd/system/sg-gateway-sgnet.service\n  install -m 0644 "$PREFIX/deploy/mihomo.service" /etc/systemd/system/mihomo.service\n
   install -d -m 0755 /etc/nginx/stream-conf.d /etc/nginx/sites-available /etc/nginx/sites-enabled
   local https_domain=""
   https_domain="$(saved_https_access)"
