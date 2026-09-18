@@ -160,9 +160,8 @@ def build_router_subscription_document(client: Client, device_id: int) -> dict |
         return None
 
     profiles = []
-    allowed = set(compatible_profile_ids())
     for profile in device.get("profiles", []):
-        if profile.get("id") not in allowed or not profile.get("ready"):
+        if profile.get("id") == "sgnet" or not profile.get("ready"):
             continue
         payload_type = str(profile.get("format") or "")
         value = str(profile.get("uri") or profile.get("config") or "")
