@@ -89,13 +89,11 @@ def collect_health_checks() -> list[HealthCheck]:
 
 
 def cached_health_summary(default: str = "warning") -> str:
-    """Return cached health, refreshing immediately when HTTPS state changes."""
-    value = _HEALTH_SUMMARY_CACHE.get("value")
-    if isinstance(value, str) and value in {"ok", "warning", "error"}:
-        if _HEALTH_SUMMARY_CACHE.get("tls_state_mtime_ns") != _tls_state_mtime_ns():
-            return _remember_summary(collect_health_checks())
-        return value
-    return default
+    """Return current health using the shared short-lived cache."""
+    try:
+        return health_summary()
+    except Exception:
+        return default
 
 
 def health_summary() -> str:
