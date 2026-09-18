@@ -12,14 +12,11 @@
     <span class="cnv1-engine-status warning" data-naive-state><span></span><b>Проверка…</b></span>
   </header>
 
-  <div class="cnv1-compact-protocol-endpoint">
-    <span>HTTPS-домен</span>
-    <strong data-naive-host>—</strong>
-    <small data-naive-endpoint>Требуется HTTPS в Security</small>
-  </div>
-
-  <div class="cnv1-compact-protocol-actions">
-    <span class="xps2-naiveproxy-message" data-naive-message aria-live="polite"></span>
+  <div class="cnv1-compact-protocol-endpoint naiveproxy-endpoint-row">
+    <div class="naiveproxy-endpoint-copy">
+      <span>HTTPS-домен</span>
+      <strong data-naive-host>—</strong>
+    </div>
     <button class="button primary" type="button" data-naive-submit>Проверить и применить</button>
   </div>
 </article>
@@ -30,18 +27,10 @@
   if (!root) return;
 
   const host = root.querySelector('[data-naive-host]');
-  const endpoint = root.querySelector('[data-naive-endpoint]');
   const state = root.querySelector('[data-naive-state]');
   const stateText = state?.querySelector('b');
-  const message = root.querySelector('[data-naive-message]');
   const submit = root.querySelector('[data-naive-submit]');
   let activePort = 8447;
-
-  const setMessage = (text, error = false) => {
-    if (!message) return;
-    message.textContent = text || '';
-    message.dataset.tone = error ? 'error' : 'ok';
-  };
 
   const paintState = (healthy, label) => {
     if (!state) return;
@@ -60,9 +49,6 @@
     activePort = Number(payload.port || payload.default_port || 8447);
     const domain = payload.host || '';
     if (host) host.textContent = domain || 'HTTPS не настроен';
-    if (endpoint) endpoint.textContent = domain
-      ? 'HTTPS настроен'
-      : 'Требуется HTTPS в Security';
     const healthy = response.ok && payload.status === 'ok' && runtime.ok === true;
     paintState(healthy, healthy ? 'Работает' : 'Не настроен');
     return payload;
@@ -70,7 +56,8 @@
 
   submit?.addEventListener('click', async () => {
     submit.disabled = true;
-    setMessage('Проверка и применение…');
+    const originalLabel = submit.textContent;
+    submit.textContent = 'Применение…';
     try {
       const response = await fetch('/api/naiveproxy/settings', {
         method: 'POST',
@@ -85,18 +72,19 @@
       if (!response.ok || payload.ok !== true) {
         throw new Error(payload.message || 'Настройки не применены');
       }
-      setMessage(payload.message || 'NaiveProxy применён.');
       await load();
     } catch (error) {
-      setMessage(error.message || 'Настройки не применены', true);
+      paintState(false, 'Ошибка');
+      state?.setAttribute('title', error.message || 'Настройки не применены');
     } finally {
       submit.disabled = false;
+      submit.textContent = originalLabel;
     }
   });
 
   load().catch(error => {
     paintState(false, 'Недоступен');
-    setMessage(error.message || 'Статус недоступен', true);
+    state?.setAttribute('title', error.message || 'Статус недоступен');
   });
 })();
 </script>
