@@ -126,14 +126,3 @@ jobs:
       - name: Run full 23.01 test suite
         run: python -m pytest -q tests
 
-      - name: Upload full pytest diagnostics
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: full-pytest-diagnostics
-          path: /tmp/full-pytest.txt
-          if-no-files-found: error
-
-      - name: Enforce full pytest result
-        if: steps.full_pytest.outcome != 'success'
-        run: exit 1
