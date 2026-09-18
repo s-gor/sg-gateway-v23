@@ -10,6 +10,7 @@ import uuid
 from app.connections.settings import get_connection_settings
 from app.security.tls import overview as tls_overview
 from app.xray.profiles import REALITY_TCP_FLOW
+from app.sgnet.credentials import new_device_secret
 
 
 ANYTLS_PORT = 9443
@@ -100,6 +101,25 @@ def build_engine_config(
     access_id: int,
     access_name: str,
 ) -> tuple[str, str]:
+    if engine == "sgnet":
+        settings = get_connection_settings("sgnet")
+        payload = {
+            "type": "sg-net",
+            "protocol_version": 1,
+            "device_id": access_id,
+            "credential_id": f"sgnet-{access_id}",
+            "secret": new_device_secret(),
+            "server": str(settings.host or "").strip(),
+            "port": 443,
+            "server_name": str(settings.config.get("server_name") or "").strip(),
+            "transports": ["sg-tls"],
+            "capabilities": ["tcp", "udp", "mux"],
+        }
+        return (
+            f"sgnet-{access_id}",
+            json.dumps(payload, ensure_ascii=False, sort_keys=True),
+        )
+
     if engine == "sgclient":
         payload = {
             "client_name": access_name,
