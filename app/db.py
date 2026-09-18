@@ -143,6 +143,16 @@ DEFAULT_CONNECTIONS = {
             '"public_key":"PLACEHOLDER_REALITY_PUBLIC_KEY","short_id":"PLACEHOLDER_SHORT_ID","vless_encryption":"PLACEHOLDER_VLESS_ENCRYPTION","xhttp_reality_mode":"stream-one","xhttp_tls_mode":"auto"}'
         ),
     },
+    "sgnet": {
+        "enabled": False,
+        "host": "",
+        "port": 443,
+        "config_json": (
+            '{"protocol_version":1,"internal_host":"127.0.0.1","internal_port":10448,'
+            '"server_name":"","certificate_path":"","private_key_path":"",'
+            '"transports":["sg-tls"]}'
+        ),
+    },
     "mihomo": {
         "host": "",
         "port": 2099,
@@ -185,9 +195,15 @@ def _seed_connection_settings(connection: sqlite3.Connection) -> None:
         connection.execute(
             """
             INSERT OR IGNORE INTO connection_settings (engine, enabled, host, port, config_json)
-            VALUES (?, 1, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?)
             """,
-            (engine, values["host"], values["port"], values["config_json"]),
+            (
+                engine,
+                1 if values.get("enabled", True) else 0,
+                values["host"],
+                values["port"],
+                values["config_json"],
+            ),
         )
 
 
