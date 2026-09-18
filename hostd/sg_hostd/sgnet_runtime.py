@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 import os
+import grp
+import pwd
 import socket
 import subprocess
 import tempfile
@@ -96,6 +98,18 @@ def build_runtime_document() -> dict:
     }
 
 
+def _secure_owner(path: Path) -> None:
+    os.chmod(path, 0o600)
+    if os.geteuid() != 0:
+        return
+    try:
+        user = pwd.getpwnam("sg-gateway")
+        group = grp.getgrnam("sg-gateway")
+    except KeyError as exc:
+        raise SgNetRuntimeError("sg-gateway service account is unavailable") from exc
+    os.chown(path, user.pw_uid, group.gr_gid)
+
+
 def _atomic_write(path: Path, payload: dict) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     descriptor, raw = tempfile.mkstemp(prefix=path.name + ".", dir=str(path.parent))
@@ -106,7 +120,7 @@ def _atomic_write(path: Path, payload: dict) -> Path:
             handle.write("\n")
             handle.flush()
             os.fsync(handle.fileno())
-        os.chmod(candidate, 0o600)
+        _secure_owner(candidate)
         os.replace(candidate, path)
     finally:
         candidate.unlink(missing_ok=True)
@@ -211,11 +225,11 @@ def apply(
     if previous is not None:
         previous_path.parent.mkdir(parents=True, exist_ok=True)
         previous_path.write_bytes(previous)
-        os.chmod(previous_path, 0o600)
+        _secure_owner(previous_path)
 
     config_path.parent.mkdir(parents=True, exist_ok=True)
     os.replace(candidate_path, config_path)
-    os.chmod(config_path, 0o600)
+    _secure_owner(config_path)
 
     try:
         restart = _run(["systemctl", "restart", service], timeout=30)
@@ -234,7 +248,7 @@ def apply(
             config_path.unlink(missing_ok=True)
         else:
             config_path.write_bytes(previous)
-            os.chmod(config_path, 0o600)
+            _secure_owner(config_path)
         if was_active and config_path.is_file():
             _run(["systemctl", "restart", service], timeout=30)
         else:
