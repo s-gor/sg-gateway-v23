@@ -6,7 +6,6 @@
     <div>
       <div class="mhv2-kicker">MIHOMO + SING-BOX</div>
       <h2>Mieru · AnyTLS · TUIC v5</h2>
-      <p>Три независимых listener двух движков.</p>
     </div>
     <span class="mhv2-state {{ 'ok' if mihomo.service_active else 'warning' }}">
       {{ 'Работает' if mihomo.service_active else 'Не запущен' }}
@@ -18,7 +17,6 @@
     {% if mihomo.has_pending_changes %}
     <section class="mhv2-pending sg-ljd-warning">
       <strong>Есть неприменённые изменения</strong>
-      <span>Рабочие listener и клиентские ссылки изменятся только после кнопки «Применить».</span>
     </section>
     {% endif %}
 
@@ -41,7 +39,7 @@
             <span class="mhv2-listener-icon">MI</span>
             <div>
               <h3>Mieru</h3>
-              <p>TCP или UDP</p>
+              <p>TCP</p>
             </div>
           </div>
           <label class="sg-runtime-switch state-{{ mieru_state.state }}" data-runtime-switch>
@@ -166,7 +164,6 @@
       <button class="button" type="submit" name="action" value="test">Проверить</button>
       <button class="button primary sg-ljd-key-action" type="submit" name="action" value="apply">Применить</button>
       <button class="button" type="submit" name="action" value="restart">Перезапустить</button>
-      <span class="mhv2-restart-note">Только для уже применённой конфигурации.</span>
       {% if mihomo.backups %}
       <button class="button danger" type="submit" name="action" value="rollback"
               data-sg-confirm="Откатить последнее изменение Mihomo и восстановить предыдущую конфигурацию?" data-sg-confirm-title="Откатить Mihomo" data-sg-confirm-button="Откатить" data-sg-confirm-tone="danger">
@@ -176,11 +173,6 @@
     </div>
   </form>
 
-  <p class="mhv2-runtime-note">
-    Mieru обслуживается Mihomo. AnyTLS и TUIC v5 обслуживаются отдельным
-    sing-box. Ошибка дополнительного движка не блокирует клиентов, Xray или
-    установку панели.
-  </p>
   </div>
 </section>
 
@@ -219,7 +211,7 @@
     input.addEventListener('change', () => {
       control.classList.remove('state-active', 'state-off', 'state-error');
       control.classList.add('state-pending');
-      label.textContent = 'Не применено';
+      label.textContent = 'Ожидает применения';
       note.textContent = input.checked
         ? (onNote || 'после применения будет включён')
         : 'после применения будет выключен';
