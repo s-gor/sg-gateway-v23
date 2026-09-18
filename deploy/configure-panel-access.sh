@@ -321,11 +321,33 @@ result=apply_all_clients(); print(json.dumps(result,ensure_ascii=False,indent=2,
 if not result.get('ok'): raise SystemExit(1)
 PY
 )"; then log "$output"; else log "ПРЕДУПРЕЖДЕНИЕ: HTTPS включён, но не все клиентские runtime применились"; printf '%s\n' "$output" >&2; fi; xray_full_access; }
-bootstrap_tls_edge(){ local domain="$1" cert="$2" key="$3" output; if ! output="$(cd "$APP_ROOT" && PYTHONPATH="$APP_ROOT:$APP_ROOT/hostd" "$APP_ROOT/.venv/bin/python" - "$domain" "$cert" "$key" <<'PYEDGE'
-import sys
+bootstrap_tls_edge(){ local domain="$1" cert="$2" key="$3" output; if ! output="$(cd "$APP_ROOT" && PYTHONPATH="$APP_ROOT:$APP_ROOT/hostd" "$APP_ROOT/.venv/bin/python" - "$ENV_FILE" "$RUNTIME_ENV" /etc/sg-gateway/engine-secrets.env "$domain" "$cert" "$key" <<'PYEDGE'
+import os, shlex, sys
+from pathlib import Path
+
+for filename in sys.argv[1:4]:
+    path = Path(filename)
+    if not path.is_file():
+        continue
+    for raw in path.read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        name, value = line.split("=", 1)
+        name = name.strip()
+        value = value.strip()
+        if value[:1] in {'"', "'"}:
+            try:
+                parsed = shlex.split(value, posix=True)
+                value = parsed[0] if parsed else ""
+            except ValueError:
+                value = value[1:-1] if len(value) >= 2 else ""
+        os.environ[name] = value
+
 from app.connections.settings import get_connection_settings, update_connection_settings
 from sg_hostd.naiveproxy_runtime import sync
-domain, cert, key = sys.argv[1:4]
+
+domain, cert, key = sys.argv[4:7]
 current = get_connection_settings("naiveproxy")
 config = dict(current.config)
 config.update({"domain": domain, "certificate_path": cert, "private_key_path": key})
