@@ -1317,10 +1317,11 @@ def _protocol_runtime_view(
         state_note = "listener применён, но порт не слушается"
     elif changed:
         state = "pending"
-        state_label = "Не применено"
         if desired_enabled:
+            state_label = "Подключите клиента"
             state_note = "после применения будет включён"
         else:
+            state_label = "Выключено"
             state_note = "изменения ожидают применения"
     else:
         state = "off"
