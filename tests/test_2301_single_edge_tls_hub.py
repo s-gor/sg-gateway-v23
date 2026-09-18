@@ -93,7 +93,7 @@ def test_refresh_uses_explicit_domain_and_updater_self_heals_managed_stream_conf
 
     assert 'write_stream_config(){' in access
     assert '$domain 127.0.0.1:$TLS_EDGE_INTERNAL_PORT;' in access
-    assert '$panel_domain 127.0.0.1:$PANEL_TLS_INTERNAL_PORT;' in access
+    assert '$panel_domain 127.0.0.1:$PANEL_TLS_INTERNAL_PORT;' not in access
 
     configure = access[access.index("configure_https(){"):access.index("refresh_https(){")]
     assert 'write_stream_config "127.0.0.1:$PLACEHOLDER_TLS_INTERNAL_PORT" "$HOST" "$PANEL_HOST"' in configure
