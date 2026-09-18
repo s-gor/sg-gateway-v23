@@ -4,7 +4,7 @@ on:
   pull_request:
     branches: [main]
   push:
-    branches: [main]
+    branches: [main, feature/2301-sgnet-integration]
   workflow_dispatch:
 
 permissions:
@@ -41,6 +41,35 @@ jobs:
 
       - name: Verify 23.01 repository identity
         run: python -m pytest -q tests/test_2301_repository_identity.py
+
+      - name: Generate source integrity candidate
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import hashlib, subprocess
+
+          tracked = sorted(subprocess.check_output(['git', 'ls-files'], text=True).splitlines())
+          expected = [
+              rel for rel in tracked
+              if rel != 'SOURCE-SHA256SUMS' and not rel.startswith('.github/workflows/')
+          ]
+          target = Path('/tmp/SOURCE-SHA256SUMS')
+          target.write_text(
+              ''.join(
+                  f"{hashlib.sha256(Path(rel).read_bytes()).hexdigest()}  {rel}\n"
+                  for rel in expected
+              ),
+              encoding='utf-8',
+          )
+          print(f"candidate source integrity: {len(expected)} files")
+          PY
+
+      - name: Upload source integrity candidate
+        uses: actions/upload-artifact@v4
+        with:
+          name: source-sha256-candidate
+          path: /tmp/SOURCE-SHA256SUMS
+          if-no-files-found: error
 
       - name: Verify source integrity
         run: |
