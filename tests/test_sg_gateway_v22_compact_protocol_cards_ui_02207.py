@@ -19,10 +19,13 @@ def test_naiveproxy_is_native_bottom_engine_card() -> None:
     assert "cnv1-compact-protocol-card" in naive
     assert "naiveproxy-compact-card" in naive
     assert "data-naive-host" in naive
-    assert "data-naive-endpoint" in naive
+    assert "data-naive-endpoint" not in naive
     assert "data-naive-port" not in naive
     assert "data-naive-runtime" not in naive
     assert "data-naive-submit" in naive
+    assert "naiveproxy-endpoint-row" in naive
+    assert "HTTPS настроен" not in naive
+    assert "NaiveProxy sync" not in naive
     assert "let activePort = 8447;" in naive
     assert "activePort = Number(payload.port || payload.default_port || 8447);" in naive
     assert "body: JSON.stringify({port: Number(activePort)})" in naive
