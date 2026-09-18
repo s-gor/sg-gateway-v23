@@ -45,3 +45,11 @@ def test_compact_protocol_polish_matches_mihomo_rail_and_removes_noise() -> None
     assert 'data-naive-port' not in NAIVE
     assert 'data-naive-endpoint' in NAIVE
     assert 'padding-inline: var(--sg-ui-rail-inset, 18px);' in CSS
+
+
+def test_naiveproxy_action_is_aligned_with_https_domain() -> None:
+    assert 'class="cnv1-compact-protocol-endpoint naiveproxy-endpoint-row"' in NAIVE
+    row = NAIVE.split('class="cnv1-compact-protocol-endpoint naiveproxy-endpoint-row"', 1)[1].split("</div>", 2)[0]
+    assert 'data-naive-host' in row
+    assert 'data-naive-submit' in NAIVE
+    assert 'class="cnv1-compact-protocol-actions"' not in NAIVE
