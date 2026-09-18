@@ -267,7 +267,7 @@ def rollback(
         raise SgNetRuntimeError("No previous SG-Net configuration")
     previous = previous_path.read_bytes()
     config_path.write_bytes(previous)
-    os.chmod(config_path, 0o600)
+    _secure_owner(config_path)
     result = _run(["systemctl", "restart", service], timeout=30)
     if result.returncode != 0:
         raise SgNetRuntimeError("Failed to restart SG-Net service after rollback")
