@@ -189,7 +189,8 @@ ensure_safety_backup_space() {
     "$SGNET_CONFIG"
     "$SGNET_UNIT"
     "$SGNET_BINARY"
-    "$NGINX_CONFIG"\n    "$NGINX_SITE_AVAILABLE"
+    "$NGINX_CONFIG"
+    "$NGINX_SITE_AVAILABLE"
     "$NGINX_SITE_ENABLED"
     "$NGINX_STREAM_CONFIG"
     "$PANEL_UNIT"
@@ -702,7 +703,9 @@ protected_runtime_paths() {
     "$LETSENCRYPT_DIR" "$DATA_DIR/security/tls-state.json" \
     "$AWG2_CONFIG" "$AWG2_UNIT" \
     "$AWG3_CONFIG" "$AWG3_ROOT" \
-    "$AWG31_CONFIG" "$AWG31_STATE" "$AWG31_UNIT" "$PREFIX/awg31" "$NAIVE_ROOT" \\\n    "$SGNET_CONFIG" "$SGNET_UNIT" "$SGNET_BINARY" \\\n    -- "$cert" "$key" <<'PYPROTECTED'
+    "$AWG31_CONFIG" "$AWG31_STATE" "$AWG31_UNIT" "$PREFIX/awg31" "$NAIVE_ROOT" \
+    "$SGNET_CONFIG" "$SGNET_UNIT" "$SGNET_BINARY" \
+    -- "$cert" "$key" <<'PYPROTECTED'
 import os
 import sys
 from pathlib import Path
