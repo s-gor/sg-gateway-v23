@@ -1,0 +1,37 @@
+[Unit]
+Description=SG-Gateway SG-Net
+After=network-online.target
+Wants=network-online.target
+ConditionPathExists=/etc/sg-gateway/sgnet.json
+ConditionPathExists=/usr/local/bin/sgnet-server
+
+[Service]
+Type=simple
+User=sg-gateway
+Group=sg-gateway
+ExecStart=/usr/local/bin/sgnet-server --config /etc/sg-gateway/sgnet.json
+Restart=on-failure
+RestartSec=2s
+TimeoutStopSec=15s
+LimitNOFILE=1048576
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectHome=true
+ProtectSystem=strict
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+ReadOnlyPaths=/etc/sg-gateway /etc/letsencrypt
+ReadWritePaths=/run/sg-gateway
+RuntimeDirectory=sg-gateway
+RuntimeDirectoryMode=0750
+RuntimeDirectoryPreserve=yes
+
+[Install]
+WantedBy=multi-user.target
