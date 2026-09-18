@@ -43,5 +43,8 @@ def test_compact_protocol_polish_matches_mihomo_rail_and_removes_noise() -> None
     assert 'HTTPS proxy · TLS · порт' not in NAIVE
     assert 'data-naive-summary-port' not in NAIVE
     assert 'data-naive-port' not in NAIVE
-    assert 'data-naive-endpoint' in NAIVE
+    assert 'data-naive-endpoint' not in NAIVE
+    assert 'naiveproxy-endpoint-row' in NAIVE
+    assert 'HTTPS настроен' not in NAIVE
+    assert 'NaiveProxy sync' not in NAIVE
     assert 'padding-inline: var(--sg-ui-rail-inset, 18px);' in CSS
