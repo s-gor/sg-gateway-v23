@@ -58,3 +58,13 @@ def test_mieru_user_hint_checkbox_stays_compact() -> None:
     assert 'height: 16px !important;' in source
     assert 'min-width: 16px !important;' in source
     assert 'min-height: 16px !important;' in source
+
+
+def test_runtime_status_copy_reserves_two_lines() -> None:
+    source = TEMPLATE.read_text(encoding="utf-8")
+
+    assert '#mihomo .sg-runtime-copy small {' in source
+    assert 'height: 24px !important;' in source
+    assert 'min-height: 24px !important;' in source
+    assert 'max-height: 24px !important;' in source
+    assert '-webkit-line-clamp: 2 !important;' in source
