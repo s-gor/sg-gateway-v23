@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
-MODE=""; HOST=""; PUBLIC_PORT=""
+MODE=""; HOST=""; PANEL_HOST=""; PUBLIC_PORT=""
 APP_ROOT="/opt/sg-gateway"
 ENV_FILE="/etc/sg-gateway/sg-gateway.env"
 RUNTIME_ENV="/etc/sg-gateway/runtime.env"
@@ -19,13 +19,13 @@ PLACEHOLDER_SOURCE="$APP_ROOT/assets/placeholder/index.html"
 RESTART_SOURCE="$APP_ROOT/assets/placeholder/restarting.html"
 RENEW_HOOK="/etc/letsencrypt/renewal-hooks/deploy/reload-sg-gateway-nginx.sh"
 PANEL_USER="sg-gateway"; PANEL_GROUP="sg-gateway"
-XRAY_INTERNAL_PORT="10443"; XHTTP_REALITY_INTERNAL_PORT="10444"; TLS_EDGE_INTERNAL_PORT="10447"; PLACEHOLDER_TLS_INTERNAL_PORT="7444"; PLACEHOLDER_HTTP_INTERNAL_PORT="10446"; MIERU_TCP_INTERNAL_PORT="10448"; ANYTLS_TCP_INTERNAL_PORT="10449"; ANYTLS_ALPN="sg-anytls"
+XRAY_INTERNAL_PORT="10443"; XHTTP_REALITY_INTERNAL_PORT="10444"; TLS_EDGE_INTERNAL_PORT="10447"; PLACEHOLDER_TLS_INTERNAL_PORT="7444"; PANEL_TLS_INTERNAL_PORT="7445"; PLACEHOLDER_HTTP_INTERNAL_PORT="10446"; MIERU_TCP_INTERNAL_PORT="10448"; ANYTLS_TCP_INTERNAL_PORT="10449"; ANYTLS_ALPN="sg-anytls"
 SG_HTTPS_BACKUP_DIR=""
 SG_HTTPS_COMMITTED=0
 log(){ printf '[SG-Gateway HTTPS] %s\n' "$*"; }
 fail(){ printf '[SG-Gateway HTTPS] ОШИБКА: %s\n' "$*" >&2; exit 1; }
-usage(){ printf '%s\n' 'configure-panel-access.sh --mode https --host panel.example.com --port 63443' 'configure-panel-access.sh --mode renew|rollback|refresh|stream-refresh'; }
-while [[ $# -gt 0 ]]; do case "$1" in --mode) MODE="${2:-}"; shift 2;; --host) HOST="${2:-}"; shift 2;; --port) PUBLIC_PORT="${2:-}"; shift 2;; -h|--help) usage; exit 0;; *) fail "неизвестный параметр: $1";; esac; done
+usage(){ printf '%s\n' 'configure-panel-access.sh --mode https --host vpn.example.com --panel-host forum.example.com --port 63443' 'configure-panel-access.sh --mode renew|rollback|refresh|stream-refresh'; }
+while [[ $# -gt 0 ]]; do case "$1" in --mode) MODE="${2:-}"; shift 2;; --host) HOST="${2:-}"; shift 2;; --panel-host) PANEL_HOST="${2:-}"; shift 2;; --port) PUBLIC_PORT="${2:-}"; shift 2;; -h|--help) usage; exit 0;; *) fail "неизвестный параметр: $1";; esac; done
 [[ $EUID -eq 0 ]] || fail "запустите скрипт от root"
 [[ "$MODE" =~ ^(https|renew|rollback|refresh|stream-refresh)$ ]] || { usage; exit 1; }
 [[ -f "$ENV_FILE" && -f "$RUNTIME_ENV" ]] || fail "не найдены файлы установленного SG-Gateway"
@@ -56,11 +56,11 @@ except Exception: data={}
 print(data.get(sys.argv[2], '') or '')
 PY
 }
-write_state(){ local domain="$1" action="$2" message="$3" backup_name="${4:-}"; python3 - "$STATE_FILE" "$domain" "$PUBLIC_PORT" "$BACKEND_PORT" "$action" "$message" "$backup_name" "$PANEL_GROUP" <<'PY'
+write_state(){ local domain="$1" panel_domain="$2" action="$3" message="$4" backup_name="${5:-}"; python3 - "$STATE_FILE" "$domain" "$panel_domain" "$PUBLIC_PORT" "$BACKEND_PORT" "$action" "$message" "$backup_name" "$PANEL_GROUP" <<'PY'
 import grp,json,os,subprocess,sys
 from datetime import datetime,timezone
 from pathlib import Path
-path=Path(sys.argv[1]); domain=sys.argv[2]; public_port=int(sys.argv[3]); backend_port=int(sys.argv[4]); action=sys.argv[5]; message=sys.argv[6]; backup=sys.argv[7]; group=sys.argv[8]
+path=Path(sys.argv[1]); domain=sys.argv[2]; panel_domain=sys.argv[3]; public_port=int(sys.argv[4]); backend_port=int(sys.argv[5]); action=sys.argv[6]; message=sys.argv[7]; backup=sys.argv[8]; group=sys.argv[9]
 cert=Path(f'/etc/letsencrypt/live/{domain}/fullchain.pem'); key=Path(f'/etc/letsencrypt/live/{domain}/privkey.pem'); certificate={}
 try:
  r=subprocess.run(['openssl','x509','-in',str(cert),'-noout','-subject','-issuer','-startdate','-enddate','-serial'],capture_output=True,text=True,timeout=15,check=False)
@@ -70,7 +70,7 @@ try:
    if '=' in line: k,v=line.split('=',1); p[k.strip().lower()]=v.strip()
   certificate={'subject':p.get('subject',''),'issuer':p.get('issuer',''),'not_before':p.get('notbefore',''),'not_after':p.get('notafter',''),'serial':p.get('serial','')}
 except Exception: pass
-payload={'domain':domain,'public_port':public_port,'panel_port':public_port,'backend_port':backend_port,'https_ready':bool(certificate),'certificate':certificate,'certificate_path':str(cert),'key_path':str(key),'last_action':action,'last_message':message,'updated_at':datetime.now(timezone.utc).isoformat(),'backup':backup}
+payload={'domain':domain,'panel_domain':panel_domain,'panel_edge_443':bool(panel_domain and panel_domain != domain),'public_port':public_port,'panel_port':public_port,'backend_port':backend_port,'https_ready':bool(certificate),'certificate':certificate,'certificate_path':str(cert),'key_path':str(key),'last_action':action,'last_message':message,'updated_at':datetime.now(timezone.utc).isoformat(),'backup':backup}
 path.parent.mkdir(parents=True,exist_ok=True); tmp=path.with_name(path.name+'.new'); tmp.write_text(json.dumps(payload,ensure_ascii=False,indent=2,sort_keys=True)+'\n',encoding='utf-8'); os.chmod(tmp,0o640)
 try: os.chown(tmp,0,grp.getgrnam(group).gr_gid)
 except KeyError: pass
