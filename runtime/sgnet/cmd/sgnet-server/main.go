@@ -12,7 +12,13 @@ import (
 func main() {
 	configPath := flag.String("config", "/etc/sg-gateway/sgnet.json", "path to SG-Net server config")
 	check := flag.Bool("check", false, "validate configuration and exit")
+	checkConfig := flag.String("check-config", "", "validate the supplied configuration and exit")
 	flag.Parse()
+
+	if *checkConfig != "" {
+		*configPath = *checkConfig
+		*check = true
+	}
 
 	cfg, err := config.Load(*configPath)
 	if err != nil {
