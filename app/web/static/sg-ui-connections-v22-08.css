@@ -313,18 +313,18 @@ body.page-connections .cnv1-compact-protocol-warning {
 /* Unified compact protocol badges: Mieru / AnyTLS / TUIC / AWG31 / NaiveProxy. */
 body.page-connections .mhv2-listener-icon,
 body.page-connections .cnv1-compact-protocol-icon {
-  width: 40px !important;
-  height: 40px !important;
-  min-width: 40px !important;
-  min-height: 40px !important;
-  flex: 0 0 40px !important;
-  border: 0 !important;
-  border-radius: 10px !important;
-  display: grid !important;
-  place-items: center !important;
-  background: color-mix(in srgb, var(--sg-blue) 13%, var(--sg-panel)) !important;
-  color: var(--sg-blue) !important;
-  font-size: 11px !important;
-  font-weight: 850 !important;
-  line-height: 1 !important;
+  width: 40px;
+  height: 40px;
+  min-width: 40px;
+  min-height: 40px;
+  flex: 0 0 40px;
+  border: 0;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, var(--sg-blue) 13%, var(--sg-panel));
+  color: var(--sg-blue);
+  font-size: 11px;
+  font-weight: 850;
+  line-height: 1;
 }
