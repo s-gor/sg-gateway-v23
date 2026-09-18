@@ -106,18 +106,29 @@
     <form class="secv2-domain-form secv2-domain-form-fix1"
           method="post"
           action="{{ url_for('security_tls_check') }}">
-      <label class="secv2-domain-label" for="secv2-domain-input">Домен панели</label>
+      <label class="secv2-domain-label" for="secv2-domain-input">Домен протоколов</label>
       <div class="secv2-domain-line">
         <input id="secv2-domain-input"
                type="text"
                name="domain"
                value="{{ tls.domain }}"
-               placeholder="panel.example.com"
+               placeholder="vpn.example.com"
                autocomplete="off"
                required>
-        <button class="button primary" type="submit">Проверить домен</button>
+        <button class="button primary" type="submit">Проверить домены</button>
       </div>
-      <small class="secv2-domain-help">Только доменное имя — без <code>https://</code> и без пути.</small>
+
+      <label class="secv2-domain-label" for="secv2-panel-domain-input">Домен панели</label>
+      <div class="secv2-domain-line">
+        <input id="secv2-panel-domain-input"
+               type="text"
+               name="panel_domain"
+               value="{{ tls.panel_domain if tls.panel_domain != tls.domain else '' }}"
+               placeholder="forum.example.com"
+               autocomplete="off"
+               required>
+      </div>
+      <small class="secv2-domain-help">Протоколы сохраняют первый домен. Панель будет открываться по второму домену на TCP 443.</small>
     </form>
 
     <div class="secv2-checks sg-ljd-nested-group">
