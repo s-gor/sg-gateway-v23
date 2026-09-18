@@ -27,7 +27,7 @@ fail(){ printf '[SG-Gateway HTTPS] ОШИБКА: %s\n' "$*" >&2; exit 1; }
 usage(){ printf '%s\n' 'configure-panel-access.sh --mode https --host vpn.example.com --panel-host forum.example.com --port 63443' 'configure-panel-access.sh --mode renew|rollback|refresh|stream-refresh'; }
 while [[ $# -gt 0 ]]; do case "$1" in --mode) MODE="${2:-}"; shift 2;; --host) HOST="${2:-}"; shift 2;; --panel-host) PANEL_HOST="${2:-}"; shift 2;; --port) PUBLIC_PORT="${2:-}"; shift 2;; -h|--help) usage; exit 0;; *) fail "неизвестный параметр: $1";; esac; done
 [[ $EUID -eq 0 ]] || fail "запустите скрипт от root"
-[[ "$MODE" =~ ^(https|renew|rollback|refresh|stream-refresh)$ ]] || { usage; exit 1; }
+[[ "$MODE" =~ ^(https|renew|rollback|refresh|nginx-refresh|stream-refresh)$ ]] || { usage; exit 1; }
 [[ -f "$ENV_FILE" && -f "$RUNTIME_ENV" ]] || fail "не найдены файлы установленного SG-Gateway"
 get_env(){ local file="$1" key="$2" default="$3" value; value="$(grep -E "^${key}=" "$file" 2>/dev/null | tail -1 | cut -d= -f2- || true)"; printf '%s' "${value:-$default}"; }
 BACKEND_PORT="$(get_env "$ENV_FILE" SG_GATEWAY_PORT 18080)"
@@ -535,6 +535,24 @@ refresh_https(){
   apply_client_runtime
   log "Панель HTTPS и Single Edge 443 обновлены"
 }
+refresh_nginx_https(){
+  local domain panel_domain cert key
+  domain="$(read_state_value domain)"
+  panel_domain="$(read_state_value panel_domain)"
+  [[ -n "$domain" ]] || fail "HTTPS ещё не настроен"
+  panel_domain="${panel_domain:-$domain}"
+  cert="/etc/letsencrypt/live/$domain/fullchain.pem"
+  key="/etc/letsencrypt/live/$domain/privkey.pem"
+  [[ -s "$cert" && -s "$key" ]] || fail "файлы сертификата не найдены"
+  ensure_stream_include
+  write_stream_config "127.0.0.1:$PLACEHOLDER_TLS_INTERNAL_PORT" "$domain" "$panel_domain"
+  write_https_site "$domain" "$panel_domain" "$cert" "$key"
+  nginx -t
+  systemctl restart nginx.service
+  wait_backend
+  verify_https_contract "$domain" "$panel_domain"
+  log "Nginx HTTPS/Single Edge конфигурация обновлена без изменения runtime"
+}
 refresh_stream_config(){
   local domain panel_domain
   domain="$(read_state_value domain)"
@@ -553,4 +571,4 @@ refresh_stream_config(){
 }
 renew_https(){ local domain="$(read_state_value domain)"; [[ -n "$domain" ]] || fail "HTTPS ещё не настроен"; certbot renew --cert-name "$domain" --non-interactive --no-directory-hooks; refresh_https; }
 rollback_https(){ local latest current; latest="$(find "$BACKUP_ROOT" -mindepth 1 -maxdepth 1 -type d -name '*-panel-access' -printf '%f\n' | sort | tail -n 1 || true)"; [[ -n "$latest" ]] || fail "нет резервной конфигурации HTTPS"; current="$(create_backup)"; restore_backup "$BACKUP_ROOT/$latest"; if ! nginx -t || ! systemctl restart nginx.service; then restore_backup "$current"; nginx -t >/dev/null 2>&1 && systemctl restart nginx.service >/dev/null 2>&1 || true; fail "резервная конфигурация не принята"; fi; log "Восстановлена конфигурация $latest"; }
-case "$MODE" in https) configure_https;; renew) renew_https;; rollback) rollback_https;; refresh) refresh_https;; stream-refresh) refresh_stream_config;; esac
+case "$MODE" in https) configure_https;; renew) renew_https;; rollback) rollback_https;; refresh) refresh_https;; nginx-refresh) refresh_nginx_https;; stream-refresh) refresh_stream_config;; esac
