@@ -189,14 +189,14 @@ server {
     listen [::]:80 default_server;
     server_name $domain _;
     location ^~ /.well-known/acme-challenge/ { root $ACME_ROOT; default_type text/plain; }
-    return 308 https://$domain\$request_uri;
+    location / { return 308 https://$domain\$request_uri; }
 }
 server {
     listen 80;
     listen [::]:80;
     server_name $panel_domain;
     location ^~ /.well-known/acme-challenge/ { root $ACME_ROOT; default_type text/plain; }
-    return 308 https://$panel_domain\$request_uri;
+    location / { return 308 https://$panel_domain\$request_uri; }
 }
 EOFHTTP
 )"
@@ -207,7 +207,7 @@ server {
     listen [::]:80 default_server;
     server_name $domain _;
     location ^~ /.well-known/acme-challenge/ { root $ACME_ROOT; default_type text/plain; }
-    return 308 https://$domain\$request_uri;
+    location / { return 308 https://$domain\$request_uri; }
 }
 EOFHTTP
 )"
