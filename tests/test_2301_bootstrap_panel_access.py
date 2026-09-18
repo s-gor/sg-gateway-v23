@@ -59,3 +59,23 @@ def test_https_contract_verifies_both_http_redirects():
     verify = access[access.index("verify_https_contract(){"):access.index("xray_full_access(){")]
     assert 'wait_http_redirect_contract "$domain" "$domain"' in verify
     assert 'wait_http_redirect_contract "$panel_domain" "$panel_domain"' in verify
+
+
+def test_update_applies_current_managed_https_routing_without_runtime_rebuild():
+    core = (ROOT / "deploy/update-from-github-core.sh").read_text(encoding="utf-8")
+    access = (ROOT / "deploy/configure-panel-access.sh").read_text(encoding="utf-8")
+    assert 'run_stage 7 "Обновление managed Nginx HTTPS/Single Edge" refresh_managed_nginx' in core
+    assert '"$PREFIX/deploy/configure-panel-access.sh" --mode nginx-refresh' in core
+    assert 'nginx-refresh) refresh_nginx_https' in access
+    nginx_refresh = access[access.index("refresh_nginx_https(){"):access.index("refresh_stream_config(){")]
+    assert "write_https_site" in nginx_refresh
+    assert "write_stream_config" in nginx_refresh
+    assert "bootstrap_tls_edge" not in nginx_refresh
+    assert "apply_client_runtime" not in nginx_refresh
+
+
+def test_update_verifies_panel_domain_on_443_after_managed_refresh():
+    core = (ROOT / "deploy/update-from-github-core.sh").read_text(encoding="utf-8")
+    assert '("PANEL_DOMAIN", panel_domain)' in core
+    assert '("PANEL_EDGE_443", "1" if panel_edge_443 else "0")' in core
+    assert '--resolve "${PANEL_DOMAIN}:443:127.0.0.1"' in core
