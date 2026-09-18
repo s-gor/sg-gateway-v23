@@ -65,3 +65,13 @@ def test_runtime_status_copy_is_hidden_to_keep_cards_compact() -> None:
 
     assert '#mihomo .sg-runtime-copy small {' in source
     assert 'display: none !important;' in source
+
+
+def test_mihomo_pending_guidance_is_compact_and_actionable() -> None:
+    source = TEMPLATE.read_text(encoding="utf-8")
+
+    assert "Рабочие listener и клиентские ссылки изменятся только после кнопки" not in source
+    assert "Mieru обслуживается Mihomo." not in source
+    assert "Ошибка дополнительного движка" not in source
+    assert "Подключите клиента" in source
+    assert "Выключено" in source
