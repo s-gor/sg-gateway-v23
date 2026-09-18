@@ -225,7 +225,9 @@ server {
     index index.html;
     location = / { try_files /index.html =404; add_header Cache-Control "no-cache" always; add_header X-Content-Type-Options "nosniff" always; add_header X-Frame-Options "SAMEORIGIN" always; add_header Referrer-Policy "strict-origin-when-cross-origin" always; }
     location = /index.html { try_files /index.html =404; add_header Cache-Control "no-cache" always; add_header X-Content-Type-Options "nosniff" always; add_header X-Frame-Options "SAMEORIGIN" always; add_header Referrer-Policy "strict-origin-when-cross-origin" always; }
-    location / { return 404; }
+    location / {
+        return 308 https://$panel_domain\$request_uri;
+    }
 }
 server {
     listen 127.0.0.1:$PLACEHOLDER_HTTP_INTERNAL_PORT;
@@ -234,7 +236,9 @@ server {
     index index.html;
     location = / { try_files /index.html =404; add_header Cache-Control "no-cache" always; add_header X-Content-Type-Options "nosniff" always; add_header X-Frame-Options "SAMEORIGIN" always; add_header Referrer-Policy "strict-origin-when-cross-origin" always; }
     location = /index.html { try_files /index.html =404; add_header Cache-Control "no-cache" always; add_header X-Content-Type-Options "nosniff" always; add_header X-Frame-Options "SAMEORIGIN" always; add_header Referrer-Policy "strict-origin-when-cross-origin" always; }
-    location / { return 404; }
+    location / {
+        return 308 https://$panel_domain\$request_uri;
+    }
 }
 server {
     listen 127.0.0.1:$PANEL_TLS_INTERNAL_PORT ssl;
