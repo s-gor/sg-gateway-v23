@@ -345,7 +345,7 @@ html[data-theme="light"] {
 }
 
 .sg-runtime-switch.state-active .sg-runtime-copy strong { color: var(--sgpf-accent, #456F5C) !important; }
-.sg-runtime-switch.state-pending .sg-runtime-copy strong { color: #93672E !important; }
+.sg-runtime-switch.state-pending .sg-runtime-copy strong { color: var(--sgc-muted) !important; }
 .sg-runtime-switch.state-error .sg-runtime-copy strong { color: #A64E58 !important; }
 
 .mhv2-pending {
