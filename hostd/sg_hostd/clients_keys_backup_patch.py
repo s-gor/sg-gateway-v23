@@ -136,10 +136,11 @@ def _rebind_client_credentials(data: ModuleType, database: sqlite3.Connection) -
     ).fetchall()
     for row_id, engine_raw, raw in rows:
         engine = str(engine_raw)
-        if engine == "amneziawg31":
-            # Independent AWG31 credentials are self-contained.  Never
-            # normalize or reserialize their config_json during a portable
-            # Clients & Keys restore.
+        if engine in {"amneziawg31", "sgnet"}:
+            # Independent AWG31 and SG-Net credentials are self-contained.
+            # Never normalize or reserialize their config_json during a
+            # portable Clients & Keys restore; SG-Net secret continuity is
+            # byte-sensitive and server/runtime state is reconciled separately.
             continue
         try:
             payload = json.loads(raw or "{}")
