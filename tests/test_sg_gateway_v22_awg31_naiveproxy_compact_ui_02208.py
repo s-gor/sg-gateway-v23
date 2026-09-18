@@ -58,3 +58,15 @@ def test_naiveproxy_action_is_aligned_with_https_domain() -> None:
 def test_naiveproxy_helper_labels_are_removed() -> None:
     assert "HTTPS-домен" not in NAIVE
     assert "HTTPS настроен" not in NAIVE
+
+
+def test_compact_protocol_badges_are_unified_and_endpoint_has_no_separators() -> None:
+    assert "body.page-connections .mhv2-listener-icon," in CSS
+    assert "body.page-connections .cnv1-compact-protocol-icon" in CSS
+    assert "width: 40px !important;" in CSS
+    assert "height: 40px !important;" in CSS
+    assert "font-size: 11px !important;" in CSS
+    endpoint = CSS.split("body.page-connections .cnv1-compact-protocol-endpoint {", 1)[1].split("}", 1)[0]
+    assert "border: 0;" in endpoint
+    assert "border-top" not in endpoint
+    assert "border-bottom" not in endpoint
