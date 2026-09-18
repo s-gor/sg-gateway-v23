@@ -109,11 +109,11 @@ def test_refresh_uses_explicit_domain_and_updater_self_heals_managed_stream_conf
     assert 'stream-refresh) refresh_stream_config' in access
 
     assert "NGINX_REPAIRED=0" in updater
-    assert "repair_managed_nginx_if_needed()" in updater
-    assert '"$PREFIX/deploy/configure-panel-access.sh" --mode stream-refresh' in updater
-    assert 'if (( NGINX_REPAIRED == 1 )); then' in updater
+    assert "refresh_managed_nginx()" in updater
+    assert '"$PREFIX/deploy/configure-panel-access.sh" --mode nginx-refresh' in updater
+    assert 'if (( NGINX_REPAIRED == 0 )); then' in updater
     assert "[%s/10]" in updater
-    assert 'run_stage 7 "Repair managed Nginx Single Edge config if needed" repair_managed_nginx_if_needed' in updater
+    assert 'run_stage 7 "Обновление managed Nginx HTTPS/Single Edge" refresh_managed_nginx' in updater
     assert 'run_stage 8 "Проверка HTTPS, credentials, Nginx и runtime" verify_final' in updater
     assert 'run_stage 9 "UDP/443 Hysteria2/TUIC compatibility migration" run_udp443_compat_migration' in updater
     assert 'run_stage 10 "UDP/443 edge service rollout" ensure_udp_edge_service' in updater
