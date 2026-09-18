@@ -135,14 +135,12 @@ p.write_text(b,encoding='utf-8',newline='\n')
 PY
 }
 nginx_cookie_security_directive(){ local version="$(nginx -v 2>&1 | sed -n 's#^nginx version: nginx/\([^ ]*\).*$#\1#p')"; if [[ -n "$version" ]] && command -v dpkg >/dev/null 2>&1 && dpkg --compare-versions "$version" ge '1.19.3'; then printf '%s' 'proxy_cookie_flags ~ secure httponly samesite=lax;'; else printf '%s' 'proxy_cookie_path / "/; Secure; HttpOnly; SameSite=Lax";'; fi; }
-write_stream_config(){ local default_backend="$1"; cat > "$STREAM_CONF" <<EOF
+write_stream_config(){ local default_backend="$1" sgnet_line=""; [[ -n "$SGNET_SNI" ]] && sgnet_line="    $SGNET_SNI 127.0.0.1:$SGNET_INTERNAL_PORT;"; cat > "$STREAM_CONF" <<EOF
 # SG_GATEWAY_PLACEHOLDER_80_443_V3
 map \$ssl_preread_server_name \$sg_gateway_443_backend {
     hostnames;
     $REALITY_SNI 127.0.0.1:$XRAY_INTERNAL_PORT;
-    $XHTTP_REALITY_SNI 127.0.0.1:$XHTTP_REALITY_INTERNAL_PORT;
-    $HOST 127.0.0.1:$TLS_EDGE_INTERNAL_PORT;
-    default $default_backend;
+    $XHTTP_REALITY_SNI 127.0.0.1:$XHTTP_REALITY_INTERNAL_PORT;\n$sgnet_line\n    $HOST 127.0.0.1:$TLS_EDGE_INTERNAL_PORT;\n    default $default_backend;
 }
 server {
     listen 443 reuseport;
