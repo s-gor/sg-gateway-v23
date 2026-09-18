@@ -25,6 +25,7 @@ _PROFILE_SPECS = (
     ("anytls", "anytls", "anytls", "AnyTLS", "anytls", "uri"),
     ("tuic", "tuic", "tuic", "TUIC v5", "tuic", "uri"),
     ("naiveproxy", "naiveproxy", "naiveproxy", "NaiveProxy", "naiveproxy", "uri"),
+    ("sgnet", "sgnet", "sgnet", "SG-Net", "sg-net", "config"),
 )
 
 _COMPATIBLE_PROFILE_IDS = (
@@ -152,8 +153,9 @@ def build_router_subscription_document(client: Client, device_id: int) -> dict |
         return None
 
     profiles = []
+    allowed = set(compatible_profile_ids())
     for profile in device.get("profiles", []):
-        if not profile.get("ready"):
+        if profile.get("id") not in allowed or not profile.get("ready"):
             continue
         payload_type = str(profile.get("format") or "")
         value = str(profile.get("uri") or profile.get("config") or "")
