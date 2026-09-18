@@ -788,6 +788,32 @@ def build_tuic_link(client: Client, device: Device | None = None) -> ClientExpor
     )
 
 
+def build_sgnet_config(client: Client, device: Device | None = None) -> ClientExport:
+    config = _deployment_config(client, "sgnet", device)
+    try:
+        settings = get_connection_settings("sgnet")
+    except KeyError:
+        settings = None
+
+    document = dict(config)
+    if settings is not None:
+        document["server"] = _public_export_host(settings.host, config.get("server", ""))
+        document["port"] = PUBLIC_TCP_PORT
+        document["server_name"] = str(
+            settings.config.get("server_name") or config.get("server_name") or ""
+        ).strip()
+    document["type"] = "sg-net"
+    document["protocol_version"] = 1
+    document["transports"] = ["sg-tls"]
+    document["capabilities"] = ["tcp", "udp", "mux"]
+    body = json.dumps(document, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
+    return ClientExport(
+        filename=f"sg-gateway-{_slug(client, device)}-sg-net.json",
+        media_type="application/vnd.sg.net+json",
+        body=body,
+    )
+
+
 def protocol_engine(kind: str) -> str:
     return {
         "amneziawg": "amneziawg",
@@ -805,6 +831,7 @@ def protocol_engine(kind: str) -> str:
         "anytls": "anytls",
         "tuic": "tuic",
         "subscription": "sgclient",
+        "sgnet": "sgnet",
     }.get(kind, "")
 
 
@@ -829,6 +856,7 @@ def build_protocol_export(
         "anytls": build_anytls_link,
         "tuic": build_tuic_link,
         "subscription": build_subscription,
+        "sgnet": build_sgnet_config,
     }
     builder = builders.get(kind)
     if builder is None:
@@ -862,6 +890,12 @@ def protocol_ready(
         return bool(profile and profile.enabled and profile.ready)
     if kind in {"anytls", "tuic"}:
         return bool(tls_overview().get("https_ready"))
+    if kind == "sgnet":
+        try:
+            from app.sgnet.config import from_connection, ready as sgnet_ready
+            return sgnet_ready(from_connection(get_connection_settings("sgnet")))
+        except Exception:
+            return False
     return True
 
 
