@@ -82,7 +82,7 @@ def list_connections(*, settings_map=None) -> list[ConnectionSummary]:
 
     counts = {str(row["engine"]): int(row["total"]) for row in rows}
     if settings_map is None:
-        settings_map = list_connection_settings(("xray", "mihomo", "amneziawg31", "sgnet"))
+        settings_map = list_connection_settings(("xray", "mihomo", "amneziawg31"))
 
     xray = _summary("xray", "Xray Reality", counts, settings_map["xray"])
 
@@ -107,18 +107,7 @@ def list_connections(*, settings_map=None) -> list[ConnectionSummary]:
 
     awg31 = _summary("amneziawg31", "AmneziaWG 3.1", counts, settings_map["amneziawg31"])
 
-    sgnet = _summary(
-        "sgnet",
-        "SG-Net",
-        counts,
-        settings_map["sgnet"],
-        note=(
-            f"Внутренний listener: "
-            f"{settings_map['sgnet'].config.get('internal_host', '127.0.0.1')}:"
-            f"{settings_map['sgnet'].config.get('internal_port', 10448)}"
-        ),
-    )
 
     # AWG2/AWG3 are retired. Their legacy settings/credentials may remain in
     # old backups, but they are deliberately absent from the Connections UI.
-    return [awg31, xray, mihomo, sgnet]
+    return [awg31, xray, mihomo]
