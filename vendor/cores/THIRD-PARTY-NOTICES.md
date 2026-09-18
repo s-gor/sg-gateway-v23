@@ -5,7 +5,7 @@ The installer does not resolve `latest` versions and does not download these run
 
 Pinned set:
 - Xray-core v26.6.27 — `Xray-linux-64.zip`
-- Mihomo v1.19.29 — `mihomo-linux-amd64-v1.19.29.gz`
+- Mihomo v1.19.29 — `mihomo-linux-amd64-compatible-v1.19.29.gz`
 - sing-box v1.13.14 — `sing-box-1.13.14-linux-amd64.tar.gz`
 - wgcf-cli v0.3.6 — `wgcf-cli-linux-64.tar.zstd`
 - AmneziaWG tools 1.0.20260618-2 — source archive

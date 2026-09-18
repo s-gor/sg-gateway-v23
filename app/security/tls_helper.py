@@ -26,6 +26,7 @@ def main() -> int:
     if action == "issue":
         request = _request()
         domain = str(request.get("domain") or "").strip()
+        panel_domain = domain
         port = int(request.get("public_port") or request.get("panel_port") or 0)
         if not domain or not port:
             print(
@@ -42,6 +43,8 @@ def main() -> int:
             "https",
             "--host",
             domain,
+            "--panel-host",
+            panel_domain,
             "--port",
             str(port),
         ]

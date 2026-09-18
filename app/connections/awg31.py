@@ -10,7 +10,7 @@ from app.db import connect, init_db
 ENGINE_ID = "amneziawg31"
 PROFILE_ID = "awg31"
 HOST = "awg31.internal"
-PORT = 587
+PORT = 443
 ENDPOINT = f"{HOST}:{PORT}"
 TRANSPORT = "udp"
 DNS = "1.1.1.1"

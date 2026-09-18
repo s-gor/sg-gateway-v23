@@ -63,3 +63,10 @@ def test_02208_security_legacy_styles_no_longer_own_outer_rails() -> None:
     assert '[data-sg-ui-page="security"]' in page_css
     assert '.sg-ui-security-head' in page_css
     assert "margin-inline: 0" in page_css
+
+
+def test_security_uses_single_domain_and_dedicated_panel_port() -> None:
+    assert "Домен SG-Gateway" in SECURITY
+    assert "порт 63443" in SECURITY
+    assert 'name="panel_domain"' not in SECURITY
+    assert 'placeholder="forum.example.com"' not in SECURITY

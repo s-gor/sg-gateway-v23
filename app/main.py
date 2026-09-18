@@ -1046,6 +1046,7 @@ def create_app() -> Flask:
             result = stage_tls_request(
                 request.form.get("domain", ""),
                 request.form.get("email", ""),
+                request.form.get("panel_domain", ""),
             )
             flash(result["dns"]["message"], "success" if result["dns"]["ok"] else "error")
         except TlsError as exc:

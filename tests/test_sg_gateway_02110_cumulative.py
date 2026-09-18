@@ -22,12 +22,12 @@ def test_02110_version_and_exact_placeholder() -> None:
 
 def test_clean_installer_owns_the_full_80_443_contract() -> None:
     installer = source("install.sh")
-    assert 'REALITY_INTERNAL_PORT="7443"' in installer
+    assert 'REALITY_INTERNAL_PORT="10443"' in installer
     assert 'PLACEHOLDER_TLS_INTERNAL_PORT="7444"' in installer
     assert 'SG_GATEWAY_REALITY_INTERNAL_PORT=${REALITY_INTERNAL_PORT}' in installer
     assert 'include /etc/nginx/stream-conf.d/sg-gateway-443.conf;' in installer
     assert 'include /etc/nginx/stream-conf.d/*.conf;' not in installer
-    assert 'listen 443;' in installer
+    assert 'listen 443 reuseport;' in installer
     assert '${REALITY_SNI} 127.0.0.1:${REALITY_INTERNAL_PORT};' in installer
     assert 'root /var/www/sg-gateway-placeholder;' in installer
     assert 'return 308 https://' not in installer
@@ -35,10 +35,12 @@ def test_clean_installer_owns_the_full_80_443_contract() -> None:
 
 def test_https_workflow_switches_default_sni_to_placeholder() -> None:
     script = source("deploy/configure-panel-access.sh")
-    assert 'XRAY_INTERNAL_PORT="7443"' in script
+    assert 'XRAY_INTERNAL_PORT="10443"' in script
     assert 'PLACEHOLDER_TLS_INTERNAL_PORT="7444"' in script
     assert 'default 127.0.0.1:$PLACEHOLDER_TLS_INTERNAL_PORT;' in script
     assert 'listen 127.0.0.1:$PLACEHOLDER_TLS_INTERNAL_PORT ssl;' in script
+    assert 'CONFIGURED_PUBLIC_PORT="$(get_env "$ENV_FILE" SG_GATEWAY_PUBLIC_PORT 63443)"' in script
+    assert 'case "$PUBLIC_PORT" in 22|80|443|' in script
     assert 'listen $PUBLIC_PORT ssl;' in script
     assert 'verify_https_contract' in script
 

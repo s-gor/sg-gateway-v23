@@ -29,7 +29,7 @@ XRAY_MINIMUM_VERSION="v26.9.9"
 VENDOR_CORES_DIR="${SG_GATEWAY_VENDOR_CORES_DIR:-$SOURCE_DIR/vendor/cores}"
 VENDOR_CORES_MANIFEST="$VENDOR_CORES_DIR/SHA256SUMS"
 XRAY_VENDOR_FILE="Xray-linux-64.zip"
-MIHOMO_VENDOR_FILE="mihomo-linux-amd64-v1.19.29.gz"
+MIHOMO_VENDOR_FILE="mihomo-linux-amd64-compatible-v1.19.29.gz"
 SINGBOX_VENDOR_FILE="sing-box-1.13.14-linux-amd64.tar.gz"
 WGCF_VENDOR_FILE="wgcf-cli-linux-64.tar.zstd"
 AWG_TOOLS_VENDOR_FILE="amneziawg-tools-1.0.20260618-2.tar.gz"
@@ -43,16 +43,23 @@ DEFAULT_AWG_PORT="585"
 DEFAULT_AWG3_PORT="586"
 DEFAULT_REALITY_TARGET="www.bing.com:443"
 DEFAULT_REALITY_SNI="www.bing.com"
-MIHOMO_PORT="2099"
-XHTTP_REALITY_PORT="8444"
-XHTTP_TLS_PORT="8445"
-HYSTERIA2_PORT="8446"
-ANYTLS_PORT="9443"
-TUIC_PORT="10443"
+SG_GATEWAY_XHTTP_REALITY_SNI="${SG_GATEWAY_XHTTP_REALITY_SNI:-www.cloudflare.com}"
+SG_GATEWAY_TLS_EDGE_SNI="${SG_GATEWAY_TLS_EDGE_SNI:-}"
+NAIVEPROXY_INTERNAL_PORT="10447"
+SG_GATEWAY_TLS_EDGE_ROUTE=""
+[[ -n "$SG_GATEWAY_TLS_EDGE_SNI" ]] && SG_GATEWAY_TLS_EDGE_ROUTE="${SG_GATEWAY_TLS_EDGE_ROUTE}"
+MIHOMO_PORT="10448"
+XHTTP_REALITY_PORT="10444"
+XHTTP_TLS_PORT="10445"
+HYSTERIA2_PORT="10452"
+ANYTLS_PORT="10449"
+ANYTLS_ALPN="sg-anytls"
+TUIC_PORT="10453"
 HOSTD_PORT="8090"
 BACKEND_PORT="18080"
-REALITY_INTERNAL_PORT="7443"
+REALITY_INTERNAL_PORT="10443"
 PLACEHOLDER_TLS_INTERNAL_PORT="7444"
+UDP_EDGE_SERVICE="sg-gateway-udp-edge.service"
 
 GREEN=$'\033[1;32m'
 RED=$'\033[1;31m'
@@ -102,6 +109,7 @@ MANAGED_PATHS=(
   etc/systemd/system/sg-gateway-awg.service
   etc/systemd/system/sg-gateway-awg3.service
   etc/systemd/system/sg-gateway-singbox.service
+  etc/systemd/system/sg-gateway-udp-edge.service
   etc/systemd/system/mihomo.service
   etc/nginx/nginx.conf
   etc/nginx/stream-conf.d/sg-gateway-443.conf
@@ -474,7 +482,7 @@ unexpected_error() {
   sanitize_installer_log_file || true
   printf "\n%s[SG-Gateway] [ОШИБКА]%s Установка остановлена.\n" "$RED" "$RESET"
   printf "[SG-Gateway] %s\n" "$CURRENT_LABEL"
-  printf "[SG-Gateway] Этот же EC2 можно использовать повторно; пересоздавать сервер не нужно.\n"
+  printf "[SG-Gateway] Текущую машину можно использовать повторно; пересоздавать её не нужно.\n"
   show_log_tail
   exit "$rc"
 }
@@ -1250,7 +1258,7 @@ verify_vendor_core_set() {
   done
 
   echo "[SG-Gateway] Проверяю SHA-256 локального vendor-комплекта"
-  (cd "$VENDOR_CORES_DIR" && sha256sum -c SHA256SUMS)
+  (cd "$VENDOR_CORES_DIR" && sha256sum -c --quiet SHA256SUMS)
 
   unzip -tqq "$VENDOR_CORES_DIR/$XRAY_VENDOR_FILE"
   gzip -t "$VENDOR_CORES_DIR/$MIHOMO_VENDOR_FILE"
@@ -2377,15 +2385,27 @@ PYNGINXMAIN
   cat > /etc/nginx/stream-conf.d/sg-gateway-443.conf <<EOF
 # SG_GATEWAY_PLACEHOLDER_80_443_V3
 # Before a certificate exists, unknown SNI remains on the Reality listener.
-map \$ssl_preread_server_name \$sg_gateway_443_backend {
+map \$ssl_preread_server_name \$sg_gateway_sni_backend {
     hostnames;
     ${REALITY_SNI} 127.0.0.1:${REALITY_INTERNAL_PORT};
+    ${SG_GATEWAY_XHTTP_REALITY_SNI} 127.0.0.1:${XHTTP_REALITY_PORT};
+${SG_GATEWAY_TLS_EDGE_ROUTE}
     default 127.0.0.1:${REALITY_INTERNAL_PORT};
 }
 
+map \$ssl_preread_protocol \$sg_gateway_protocol_backend {
+    "" 127.0.0.1:${MIHOMO_PORT};
+    default \$sg_gateway_sni_backend;
+}
+
+map \$ssl_preread_alpn_protocols \$sg_gateway_443_backend {
+    ~\b${ANYTLS_ALPN}\b 127.0.0.1:${ANYTLS_PORT};
+    default \$sg_gateway_protocol_backend;
+}
+
 server {
-    listen 443;
-    listen [::]:443;
+    listen 443 reuseport;
+    listen [::]:443 reuseport;
     proxy_pass \$sg_gateway_443_backend;
     ssl_preread on;
     proxy_connect_timeout 10s;
@@ -2491,16 +2511,20 @@ EOF
   fi
 }
 
+install_udp_edge_service() {
+  install -m 0644 "$PREFIX/deploy/sg-gateway-udp-edge.service" /etc/systemd/system/sg-gateway-udp-edge.service
+  systemctl daemon-reload
+  systemctl enable --now "$UDP_EDGE_SERVICE"
+}
+
 stage_firewall_and_network() {
+  install_udp_edge_service
   local ufw_state=""
   ufw_state="$(ufw status 2>/dev/null || true)"
   if grep -q '^Status: active' <<<"$ufw_state"; then
     local rule
     for rule in \
-      "${PANEL_PORT}/tcp" "80/tcp" "${XRAY_PORT}/tcp" \
-      "${XHTTP_REALITY_PORT}/tcp" "${XHTTP_TLS_PORT}/tcp" \
-      "${HYSTERIA2_PORT}/udp" \
-      "${MIHOMO_PORT}/tcp" "${ANYTLS_PORT}/tcp" "${TUIC_PORT}/udp"; do
+      "80/tcp" "${PANEL_PORT}/tcp" "443/tcp" "443/udp"; do
       ufw allow "$rule"
     done
   fi
@@ -3034,7 +3058,7 @@ print_sg_admin_status() {
 NAIVEPROXY_VERSION="v2.11.2-naive"
 NAIVEPROXY_ARCHIVE_SHA256="19eccb7321dd877a5fb4a3dba6ef1b745185188b616c96cc6201f1a1fc0380a8"
 NAIVEPROXY_URL="https://github.com/klzgrad/forwardproxy/releases/download/${NAIVEPROXY_VERSION}/caddy-forwardproxy-naive.tar.xz"
-NAIVEPROXY_PORT="8447"
+NAIVEPROXY_PORT="10447"
 NAIVEPROXY_PREFIX="/opt/sg-gateway/naiveproxy"
 NAIVEPROXY_CONFIG="/etc/sg-gateway/naiveproxy"
 NAIVEPROXY_STATE="/var/lib/sg-gateway/naiveproxy"
@@ -3068,7 +3092,7 @@ create_backup() {
   for service in \
     sg-hostd.service xray.service mihomo.service \
     sg-gateway-awg.service sg-gateway-awg3.service sg-gateway-awg31.service \
-    sg-gateway-singbox.service sg-gateway-naiveproxy.service \
+    sg-gateway-singbox.service sg-gateway-naiveproxy.service sg-gateway-udp-edge.service \
     sg-gateway.service nginx.service; do
     active=0
     enabled=0
@@ -3120,7 +3144,7 @@ restore_backup() {
   local services=(
     sg-hostd.service xray.service mihomo.service
     sg-gateway-awg.service sg-gateway-awg3.service sg-gateway-awg31.service
-    sg-gateway-singbox.service sg-gateway-naiveproxy.service
+    sg-gateway-singbox.service sg-gateway-naiveproxy.service sg-gateway-udp-edge.service
     sg-gateway.service nginx.service
   )
 
@@ -3213,7 +3237,7 @@ stage_backup_and_prepare() {
   systemctl stop \
     sg-gateway.service sg-hostd.service xray.service mihomo.service \
     sg-gateway-awg.service sg-gateway-awg3.service sg-gateway-awg31.service \
-    sg-gateway-singbox.service sg-gateway-naiveproxy.service \
+    sg-gateway-singbox.service sg-gateway-naiveproxy.service sg-gateway-udp-edge.service \
     >/dev/null 2>&1 || true
 
   rm -rf "$PREFIX.new" "$PREFIX"
@@ -3385,7 +3409,7 @@ with connect() as connection:
         "SELECT port FROM connection_settings WHERE engine='naiveproxy'"
     ).fetchone()
 assert row is not None, "NaiveProxy connection settings are missing"
-assert int(row["port"]) == 8447, row["port"]
+assert int(row["port"]) == 10447, row["port"]
 print("NaiveProxy database seed: OK")
 PYNAIVEDB
 }
@@ -3410,7 +3434,7 @@ restore_update_runtime_services() {
   local service
   for service in \
     mihomo.service sg-gateway-awg.service sg-gateway-awg3.service \
-    sg-gateway-awg31.service sg-gateway-singbox.service sg-gateway-naiveproxy.service; do
+    sg-gateway-awg31.service sg-gateway-singbox.service sg-gateway-naiveproxy.service sg-gateway-udp-edge.service; do
     if service_was_enabled_before_update "$service"; then
       systemctl_with_retry enable "$service"
     fi
@@ -3497,7 +3521,7 @@ with connect() as connection:
         "SELECT host, port FROM connection_settings WHERE engine='naiveproxy'"
     ).fetchone()
 assert row is not None, "NaiveProxy DB row missing"
-assert int(row["port"]) == 8447, row["port"]
+assert int(row["port"]) == 10447, row["port"]
 print("NaiveProxy DB contract: OK")
 PYNAIVEVERIFY
 
@@ -3613,7 +3637,7 @@ main() {
   local final_https_domain=""
   final_https_domain="$(saved_https_access)"
   if [[ -n "$final_https_domain" ]]; then
-    printf '[SG-Gateway] Панель:       https://%s:%s\n' "$final_https_domain" "$PANEL_PORT"
+    printf '[SG-Gateway] Панель:       https://%s/\n' "$final_https_domain"
     printf '[SG-Gateway] Заглушка:     http://%s/ и https://%s/\n' "$final_https_domain" "$final_https_domain"
   else
     printf '[SG-Gateway] Панель:       http://%s:%s\n' "$PUBLIC_ADDRESS" "$PANEL_PORT"

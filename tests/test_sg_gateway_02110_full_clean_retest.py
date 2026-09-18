@@ -32,7 +32,7 @@ def test_https_verifier_retries_temporary_404() -> None:
     script = (ROOT / "deploy/configure-panel-access.sh").read_text(encoding="utf-8")
     assert "SG_GATEWAY_02110_HTTPS_VERIFY_RETRY_FIX1" in script
     assert "for attempt in $(seq 1 30)" in script
-    assert "https://$domain:$PUBLIC_PORT/health" in script
+    assert '"https://$panel_domain:$port/health"' in script
     assert "HTTP ${code:-000}" in script
 
 
@@ -86,7 +86,8 @@ def test_exact_https_shell_functions_survive_two_404_responses(tmp_path: Path) -
     (placeholder / "index.html").write_text("accepted-page\n", encoding="utf-8")
     stream = tmp_path / "stream.conf"
     stream.write_text(
-        "www.bing.com 127.0.0.1:7443;\n"
+        "www.bing.com 127.0.0.1:10443;\n"
+        "example.test 127.0.0.1:10447;\n"
         "default 127.0.0.1:7444;\n",
         encoding="utf-8",
     )
@@ -96,7 +97,9 @@ PLACEHOLDER_ROOT={str(placeholder)!r}
 PUBLIC_PORT=63443
 STREAM_CONF={str(stream)!r}
 REALITY_SNI=www.bing.com
-XRAY_INTERNAL_PORT=7443
+XRAY_INTERNAL_PORT=10443
+TLS_EDGE_INTERNAL_PORT=10447
+PANEL_TLS_INTERNAL_PORT=7445
 PLACEHOLDER_TLS_INTERNAL_PORT=7444
 COUNTER={str(counter)!r}
 log() {{ printf '%s\\n' \"$*\"; }}
@@ -112,6 +115,9 @@ curl() {{
       http://*|https://*) url=\"$arg\" ;;
     esac
   done
+  if [[ \"$url\" == \"http://example.test/security\" ]]; then
+    printf 'HTTP/1.1 308 Permanent Redirect\\r\\nLocation: https://example.test:63443/security\\r\\n\\r\\n'; return 0
+  fi
   count=0; [[ ! -f \"$COUNTER\" ]] || count=\"$(cat \"$COUNTER\")\"
   count=$((count+1)); printf '%s' \"$count\" > \"$COUNTER\"
   if [[ \"$url\" == *\":63443/health\" ]]; then
@@ -129,9 +135,9 @@ verify_https_contract example.test
 """
     result = subprocess.run(["bash", "-c", harness], text=True, capture_output=True)
     assert result.returncode == 0, result.stderr + result.stdout
-    assert "HTTP 80: OK" in result.stdout
+    assert "HTTP example.test → HTTPS example.test:63443: OK" in result.stdout
     assert "HTTPS 443 fallback: OK" in result.stdout
-    assert "Панель HTTPS 63443: OK" in result.stdout
+    assert "Панель HTTPS example.test:63443: OK" in result.stdout
 
 
 def test_exact_uninstall_python_cleans_owned_and_shared_stream_blocks(tmp_path: Path) -> None:

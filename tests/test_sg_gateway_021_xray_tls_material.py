@@ -56,5 +56,6 @@ def test_certificate_refresh_reapplies_client_runtimes():
     source = Path("deploy/configure-panel-access.sh").read_text(encoding="utf-8")
     renew = source.split("renew_https(){", 1)[1].split("\nrefresh_https(){", 1)[0]
     refresh = source.split("refresh_https(){", 1)[1].split("\nrollback_https(){", 1)[0]
-    assert "apply_client_runtime" in renew
+    assert "refresh_https" in renew
+    assert "--no-directory-hooks" in renew
     assert "apply_client_runtime" in refresh

@@ -65,10 +65,10 @@ def test_mihomo_is_compact_and_keeps_three_protocols():
     for protocol in ("Mieru", "AnyTLS", "TUIC v5"):
         assert protocol in panel
     for field in (
-        'name="mieru_enabled"', 'name="mieru_transport"',
-        'name="anytls_enabled"', 'name="tuic_enabled"',
+        'name="mieru_enabled"', 'name="anytls_enabled"', 'name="tuic_enabled"',
     ):
         assert field in panel
+    assert 'name="mieru_transport"' not in panel
     for field in ("mieru_port", "anytls_port", "tuic_port"):
         assert f'name="{field}"' not in panel
     for value in (

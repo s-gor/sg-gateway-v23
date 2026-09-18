@@ -5,7 +5,7 @@ import json
 from datetime import UTC, datetime
 from urllib.parse import parse_qsl, quote, urlencode, urlsplit, urlunsplit
 
-from app.clients.exports import build_protocol_export, protocol_ready
+from app.clients import exports as client_exports
 from app.clients.repository import Client, device_access_tokens, list_devices
 
 SG_SUBSCRIPTION_FORMAT = "sg-subscription"
@@ -48,6 +48,21 @@ def compatible_profile_ids() -> tuple[str, ...]:
     return _COMPATIBLE_PROFILE_IDS
 
 
+def protocol_ready(client: Client, kind: str, device=None, *, xray_state=None) -> bool:
+    """Preserve the public subscription hook while resolving live export registration."""
+    return client_exports.protocol_ready(
+        client,
+        kind,
+        device,
+        xray_state=xray_state,
+    )
+
+
+def build_protocol_export(client: Client, kind: str, device=None):
+    """Preserve the public subscription hook while resolving live export registration."""
+    return client_exports.build_protocol_export(client, kind, device)
+
+
 def _canonical_uri(profile_id: str, value: str) -> str:
     clean = str(value or "").strip()
     if not clean or profile_id not in {"anytls", "tuic"}:
@@ -58,7 +73,7 @@ def _canonical_uri(profile_id: str, value: str) -> str:
         if key not in first:
             first[key] = item
     allowed = (
-        ("sni", "insecure")
+        ("security", "sni", "alpn", "fp", "type", "insecure")
         if profile_id == "anytls"
         else ("congestion_control", "udp_relay_mode", "alpn", "sni")
     )
@@ -262,7 +277,6 @@ def _ready_uri_lines(document: dict) -> list[str]:
             )
             lines.append(_with_fragment(str(profile["uri"]), label))
     return lines
-
 
 
 def build_compatible_subscription_body(client: Client) -> str:

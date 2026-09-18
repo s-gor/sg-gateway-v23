@@ -27,6 +27,7 @@ from app.connections.awg31 import (
     set_server_public_key,
 )
 from app.db import connect, init_db
+from app.single_edge import AWG31_UDP_INTERNAL_PORT
 
 SERVICE = "sg-gateway-awg31.service"
 AWG = RUNTIME_ROOT / "bin/awg"
@@ -186,7 +187,7 @@ def render() -> dict[str, Any]:
         [
             "[Interface]",
             f"PrivateKey = {private_key}",
-            "ListenPort = 587",
+            f"ListenPort = {AWG31_UDP_INTERNAL_PORT}",
             "Address = 10.131.0.1/24",
             *config_lines(settings),
             *peer_blocks,

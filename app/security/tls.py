@@ -175,17 +175,26 @@ def check_domain(domain: str) -> dict:
     }
 
 
-def stage_request(domain: str, email: str | None = None) -> dict:
+def stage_request(
+    domain: str,
+    email: str | None = None,
+    panel_domain: str | None = None,
+) -> dict:
     _ensure_dirs()
     normalized_domain = normalize_domain(domain)
+    # SG-Gateway 23.01 rollback: one public hostname; panel stays on HTTPS 63443.
+    normalized_panel_domain = normalized_domain
     dns = check_domain(normalized_domain)
+    panel_dns = dns
     config = load_config()
     payload = {
         "domain": normalized_domain,
+        "panel_domain": normalized_panel_domain,
         "panel_port": int(config.public_port),
         "public_port": int(config.public_port),
         "backend_port": int(config.port),
         "dns": dns,
+        "panel_dns": panel_dns,
         "created_at": _utc_now(),
     }
     _write_json(_request_path(), payload)
@@ -292,6 +301,11 @@ def overview() -> dict:
     state = _read_json(_state_path()) or {}
     request = _read_json(_request_path()) or {}
     domain = str(state.get("domain") or request.get("domain") or "")
+    panel_domain = str(
+        state.get("panel_domain")
+        or request.get("panel_domain")
+        or domain
+    )
     certificate = state.get("certificate")
     certificate = certificate if isinstance(certificate, dict) else {}
     config = load_config()
@@ -315,9 +329,17 @@ def overview() -> dict:
         and nginx_active
     )
     dns = request.get("dns") or state.get("dns") or None
-    port_suffix = "" if public_port == 443 else f":{public_port}"
+    panel_edge_443 = bool(
+        panel_domain
+        and panel_domain != domain
+        and state.get("panel_edge_443") is True
+    )
+    port_suffix = "" if panel_edge_443 or public_port == 443 else f":{public_port}"
     return {
         "domain": domain,
+        "protocol_domain": domain,
+        "panel_domain": panel_domain,
+        "panel_edge_443": panel_edge_443,
         "https_ready": https_ready,
         "nginx_active": nginx_active,
         "certbot_timer": _service_active("certbot.timer"),
@@ -327,7 +349,11 @@ def overview() -> dict:
         "panel_port": public_port,
         "public_port": public_port,
         "backend_port": backend_port,
-        "public_url": f"https://{domain}{port_suffix}" if domain else "",
+        "public_url": (
+            f"https://{panel_domain}{port_suffix}"
+            if panel_domain
+            else ""
+        ),
         "nginx_config": str(nginx_conf),
         "certificate_path": str(
             state.get("certificate_path")

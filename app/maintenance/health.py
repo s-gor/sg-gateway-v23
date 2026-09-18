@@ -25,7 +25,16 @@ _HEALTH_SUMMARY_TTL_SECONDS = 15.0
 _HEALTH_SUMMARY_CACHE: dict[str, object] = {
     "updated_at": 0.0,
     "value": None,
+    "tls_state_mtime_ns": None,
 }
+
+
+def _tls_state_mtime_ns() -> int | None:
+    path = load_config().data_dir / "security" / "tls-state.json"
+    try:
+        return path.stat().st_mtime_ns
+    except OSError:
+        return None
 
 
 def _summary_value(checks: list[HealthCheck]) -> str:
@@ -41,6 +50,7 @@ def _remember_summary(checks: list[HealthCheck]) -> str:
     value = _summary_value(checks)
     _HEALTH_SUMMARY_CACHE["updated_at"] = time.monotonic()
     _HEALTH_SUMMARY_CACHE["value"] = value
+    _HEALTH_SUMMARY_CACHE["tls_state_mtime_ns"] = _tls_state_mtime_ns()
     return value
 
 
@@ -79,11 +89,11 @@ def collect_health_checks() -> list[HealthCheck]:
 
 
 def cached_health_summary(default: str = "warning") -> str:
-    """Return the last known health status without starting runtime diagnostics."""
-    value = _HEALTH_SUMMARY_CACHE.get("value")
-    if isinstance(value, str) and value in {"ok", "warning", "error"}:
-        return value
-    return default
+    """Return current health using the shared short-lived cache."""
+    try:
+        return health_summary()
+    except Exception:
+        return default
 
 
 def health_summary() -> str:

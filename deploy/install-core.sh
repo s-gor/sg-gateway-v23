@@ -29,7 +29,7 @@ XRAY_MINIMUM_VERSION="v26.6.27"
 VENDOR_CORES_DIR="${SG_GATEWAY_VENDOR_CORES_DIR:-$SOURCE_DIR/vendor/cores}"
 VENDOR_CORES_MANIFEST="$VENDOR_CORES_DIR/SHA256SUMS"
 XRAY_VENDOR_FILE="Xray-linux-64.zip"
-MIHOMO_VENDOR_FILE="mihomo-linux-amd64-v1.19.29.gz"
+MIHOMO_VENDOR_FILE="mihomo-linux-amd64-compatible-v1.19.29.gz"
 SINGBOX_VENDOR_FILE="sing-box-1.13.14-linux-amd64.tar.gz"
 WGCF_VENDOR_FILE="wgcf-cli-linux-64.tar.zstd"
 AWG_TOOLS_VENDOR_FILE="amneziawg-tools-1.0.20260618-2.tar.gz"
@@ -418,7 +418,7 @@ unexpected_error() {
   sanitize_installer_log_file || true
   printf "\n%s[SG-Gateway] [ОШИБКА]%s Установка остановлена.\n" "$RED" "$RESET"
   printf "[SG-Gateway] %s\n" "$CURRENT_LABEL"
-  printf "[SG-Gateway] Этот же EC2 можно использовать повторно; пересоздавать сервер не нужно.\n"
+  printf "[SG-Gateway] Текущую машину можно использовать повторно; пересоздавать её не нужно.\n"
   show_log_tail
   exit "$rc"
 }
@@ -1217,7 +1217,7 @@ verify_vendor_core_set() {
   done
 
   echo "[SG-Gateway] Проверяю SHA-256 локального vendor-комплекта"
-  (cd "$VENDOR_CORES_DIR" && sha256sum -c SHA256SUMS)
+  (cd "$VENDOR_CORES_DIR" && sha256sum -c --quiet SHA256SUMS)
 
   unzip -tqq "$VENDOR_CORES_DIR/$XRAY_VENDOR_FILE"
   gzip -t "$VENDOR_CORES_DIR/$MIHOMO_VENDOR_FILE"

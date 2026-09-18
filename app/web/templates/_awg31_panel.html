@@ -5,18 +5,13 @@
       <span class="cnv1-compact-protocol-icon">A31</span>
       <div>
         <h3>AmneziaWG 3.1</h3>
-        <p>UDP VPN · порт 587</p>
+        <p>UDP VPN</p>
       </div>
     </div>
     <span class="cnv1-engine-status {{ 'success' if awg31_ready else 'warning' }}">
       <span></span>{{ 'Работает' if awg31_ready else 'Не запущен' }}
     </span>
   </header>
-
-  <div class="cnv1-compact-protocol-endpoint">
-    <span>Внешняя точка</span>
-    <strong>{{ awg31_public_host }}:587</strong>
-  </div>
 
   <form method="post" action="{{ url_for('update_awg_dns') }}" class="cnv1-compact-protocol-controls awg31-compact-dns">
     <label>
@@ -58,7 +53,6 @@
       </div>
     </details>
     <footer class="cnv1-form-actions">
-      <span>Адрес подключения: {{ awg31_public_host }}:587</span>
       <button class="button primary" type="submit">Сохранить</button>
     </footer>
   </form>
