@@ -48,3 +48,13 @@ def test_mihomo_compact_spacing_contract() -> None:
     assert "align-items: center;" in action_css
     assert "flex-wrap: wrap;" in action_css
     assert "justify-content: center;" in action_css
+
+
+def test_mieru_user_hint_checkbox_stays_compact() -> None:
+    source = TEMPLATE.read_text(encoding="utf-8")
+
+    assert '#mihomo .mhv2-check input[type="checkbox"] {' in source
+    assert 'width: 16px !important;' in source
+    assert 'height: 16px !important;' in source
+    assert 'min-width: 16px !important;' in source
+    assert 'min-height: 16px !important;' in source
