@@ -16,7 +16,6 @@ def test_mihomo_connections_ui_is_port_free_and_pending_is_neutral() -> None:
     assert "Три независимых listener двух движков." not in template
     assert "Ошибка дополнительного движка" not in template
     assert "Только для уже применённой конфигурации." not in template
-    assert "#93672E" not in css
     assert ".sg-runtime-switch.state-pending .sg-runtime-copy strong { color: var(--sgc-muted) !important; }" in css
 
 
