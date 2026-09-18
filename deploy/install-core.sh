@@ -2340,7 +2340,10 @@ EOF
 
   install -m 0644 "$PREFIX/deploy/sg-gateway-awg.service" /etc/systemd/system/sg-gateway-awg.service
   install -m 0644 "$PREFIX/deploy/sg-gateway-awg3.service" /etc/systemd/system/sg-gateway-awg3.service
-  install -m 0644 "$PREFIX/deploy/sg-gateway-singbox.service" /etc/systemd/system/sg-gateway-singbox.service\n  install -m 0644 "$PREFIX/deploy/sg-gateway-sgnet.service" /etc/systemd/system/sg-gateway-sgnet.service\n  install -m 0644 "$PREFIX/deploy/mihomo.service" /etc/systemd/system/mihomo.service\n
+  install -m 0644 "$PREFIX/deploy/sg-gateway-singbox.service" /etc/systemd/system/sg-gateway-singbox.service
+  install -m 0644 "$PREFIX/deploy/sg-gateway-sgnet.service" /etc/systemd/system/sg-gateway-sgnet.service
+  install -m 0644 "$PREFIX/deploy/mihomo.service" /etc/systemd/system/mihomo.service
+
   install -d -m 0755 /etc/nginx/stream-conf.d /etc/nginx/sites-available /etc/nginx/sites-enabled
   local https_domain=""
   https_domain="$(saved_https_access)"
