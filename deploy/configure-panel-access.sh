@@ -185,6 +185,7 @@ server {
     add_header X-Content-Type-Options "nosniff" always;
     add_header X-Frame-Options "SAMEORIGIN" always;
     add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    # SG_GATEWAY_02111_RESTORE_RESTART_PAGE_FIX
     error_page 502 503 504 =200 /__sg_gateway_restarting;
     location = /__sg_gateway_restarting {
         internal;
@@ -193,6 +194,7 @@ server {
         default_type text/html;
         add_header Cache-Control "no-store" always;
     }
+    # SG_GATEWAY_FULL_BACKUP_UPLOAD_FIX1
     location = /maintenance/full-backups/restore {
         client_max_body_size 0;
         proxy_pass http://127.0.0.1:$BACKEND_PORT;
@@ -291,6 +293,7 @@ verify_https_contract(){
   grep -Fq "$REALITY_SNI 127.0.0.1:$XRAY_INTERNAL_PORT;" "$STREAM_CONF" || fail "SNI Reality не направлен в Xray"
   grep -Fq "default 127.0.0.1:$PLACEHOLDER_TLS_INTERNAL_PORT;" "$STREAM_CONF" || fail "browser fallback не направлен на заглушку"
   systemctl is-active --quiet nginx.service || fail "Nginx не активен"
+  # SG_GATEWAY_02111_RESTORE_HTTPS_BOOTSTRAP_FIX
   if [[ "${SG_GATEWAY_HTTPS_DEFER_XRAY_CHECK:-0}" == "1" ]]; then
     log "Xray: проверка активности отложена до пересборки runtime"
   else
