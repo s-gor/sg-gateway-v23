@@ -39,6 +39,36 @@ BACKUP_ROOT="$STATE_DIR/backups"
 PUBLIC_PORT="${PUBLIC_PORT:-$CONFIGURED_PUBLIC_PORT}"
 REALITY_SNI="$(get_env "$RUNTIME_ENV" SG_GATEWAY_REALITY_SNI www.bing.com)"; REALITY_SNI="${REALITY_SNI,,}"
 XHTTP_REALITY_SNI="$(get_env "$RUNTIME_ENV" SG_GATEWAY_XHTTP_REALITY_SNI www.cloudflare.com)"; XHTTP_REALITY_SNI="${XHTTP_REALITY_SNI,,}"
+DATA_DIR="$(get_env "$ENV_FILE" SG_GATEWAY_DATA_DIR /var/lib/sg-gateway)"
+SGNET_SNI="$(python3 - "$DATA_DIR/sg-gateway.sqlite" <<'PY'
+import json, sqlite3, sys
+from pathlib import Path
+path = Path(sys.argv[1])
+if not path.is_file():
+    print("")
+    raise SystemExit(0)
+try:
+    with sqlite3.connect(path) as db:
+        row = db.execute(
+            "SELECT enabled, config_json FROM connection_settings WHERE engine='sgnet'"
+        ).fetchone()
+except Exception:
+    row = None
+if not row or not int(row[0] or 0):
+    print("")
+    raise SystemExit(0)
+try:
+    config = json.loads(row[1] or "{}")
+except Exception:
+    config = {}
+print(str(config.get("server_name") or "").strip().lower())
+PY
+)"
+if [[ -n "$SGNET_SNI" ]]; then
+  [[ "$SGNET_SNI" =~ ^[a-z0-9.-]+$ ]] || fail "некорректный SG-Net server name"
+  [[ "$SGNET_SNI" != *sgnet* && "$SGNET_SNI" != *sg-net* ]] || fail "SG-Net server name не должен раскрывать название протокола"
+  [[ "$SGNET_SNI" != "$REALITY_SNI" && "$SGNET_SNI" != "$XHTTP_REALITY_SNI" && "$SGNET_SNI" != "\${HOST,,}" ]] || fail "SG-Net server name конфликтует с Single Edge"
+fi
 [[ "$BACKEND_PORT" =~ ^[0-9]+$ && "$PUBLIC_PORT" =~ ^[0-9]+$ ]] || fail "некорректный порт"
 [[ "$PUBLIC_PORT" == "$CONFIGURED_PUBLIC_PORT" ]] || fail "порт должен совпадать с установленным портом панели $CONFIGURED_PUBLIC_PORT"
 case "$PUBLIC_PORT" in 22|80|443|585|7443|7444|8090|18080) fail "порт $PUBLIC_PORT зарезервирован";; esac
