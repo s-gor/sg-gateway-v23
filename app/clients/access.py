@@ -445,6 +445,35 @@ def build_access_cards(
                 )
             )
 
+    sgnet = deployments.get("sgnet")
+    if sgnet is not None:
+        try:
+            ready = protocol_ready(client, "sgnet", device)
+            status = _status(client, device, sgnet, ready=ready)
+            cards.append(
+                AccessCard(
+                    kind="sgnet",
+                    title="SG-Net",
+                    status=status,
+                    description="Закрытый профиль SG-Net для SG Client / SG Mobile.",
+                    primary_action="",
+                    export_url="",
+                    qr_url="",
+                    payload="",
+                    show_qr=False,
+                )
+            )
+        except Exception as exc:
+            cards.append(
+                _error_card(
+                    client,
+                    device,
+                    kind="sgnet",
+                    title="SG-Net",
+                    exc=exc,
+                )
+            )
+
     sgclient = deployments.get("sgclient")
     if sgclient is not None:
         try:
