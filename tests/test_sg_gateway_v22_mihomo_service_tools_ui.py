@@ -21,7 +21,7 @@ def test_mihomo_restart_is_visible_in_primary_action_row() -> None:
     assert actions.index('value="test"') < actions.index('value="apply"')
     assert actions.index('value="apply"') < actions.index('value="restart"')
     assert 'value="restart">Перезапустить</button>' in actions
-    assert "mhv2-restart-note" not in actions
+    assert '<span class="mhv2-restart-note">Только для уже применённой конфигурации.</span>' in actions
 
 
 def test_mihomo_listener_runtime_statuses_are_preserved_without_aggregate_counter() -> None:
