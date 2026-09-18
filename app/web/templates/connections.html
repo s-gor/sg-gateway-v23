@@ -24,7 +24,7 @@
     <div>
       <div class="cnv1-kicker"><span></span> SG-GATEWAY / CONNECTIONS</div>
       <h1>Connections</h1>
-      <p>AmneziaWG 3.1, четыре независимых Xray-профиля, Mihomo и NaiveProxy.</p>
+      <p>AmneziaWG 3.1, четыре независимых Xray-профиля, Mihomo, NaiveProxy и SG-Net.</p>
     </div>
 
     <div class="cnv1-heading-actions sg-ui-actions">
@@ -312,6 +312,71 @@
       {% include "_awg31_panel.html" %}
       {% include "_naiveproxy_panel.html" %}
     </div>
+  </section>
+
+  <section id="sgnet" class="cnv1-engine-card cnv1-engine-wide sg-ljd-card sg-ui-card sg-ui-section" data-sgnet-connection>
+    <header class="cnv1-engine-head">
+      <div class="cnv1-engine-title">
+        <div>
+          <div class="cnv1-card-kicker">SG-NET · ЗАКРЫТОЕ ПОДКЛЮЧЕНИЕ</div>
+          <h2>SG-Net</h2>
+          <p>SG-Net/1 · SG-TLS · внешний TCP 443 через Single Edge.</p>
+        </div>
+      </div>
+      <span class="cnv1-engine-status {{ 'success' if sgnet_runtime.status == 'ok' and sgnet_runtime.payload.get('service_active') else ('warning' if sgnet.enabled else '') }}">
+        <span></span>
+        {{ 'Работает' if sgnet_runtime.status == 'ok' and sgnet_runtime.payload.get('service_active') else ('Настроен, не запущен' if sgnet.enabled else 'Выключен') }}
+      </span>
+    </header>
+
+    <section class="cnv1-endpoint-card sg-ljd-nested sg-ui-nested">
+      <div class="cnv1-endpoint-main">
+        <div>
+          <span>ВНЕШНЯЯ ТОЧКА</span>
+          <strong>{{ sgnet.public_host or 'Не настроена' }}{% if sgnet.public_host %}:443{% endif %}</strong>
+          <small>TLS name: {{ sgnet.server_name or 'не настроено' }} · внутренний listener {{ sgnet.internal_host }}:{{ sgnet.internal_port }}</small>
+        </div>
+      </div>
+      <span class="cnv1-port-chip">SG-TLS</span>
+    </section>
+
+    <form method="post" action="{{ url_for('update_sgnet') }}" class="cnv1-engine-form">
+      <div class="cnv1-form-grid">
+        <label>
+          <span>Состояние</span>
+          <select name="enabled">
+            <option value="0" {% if not sgnet.enabled %}selected{% endif %}>Выключен</option>
+            <option value="1" {% if sgnet.enabled %}selected{% endif %}>Включен</option>
+          </select>
+        </label>
+        <label>
+          <span>Публичный адрес</span>
+          <input type="text" name="host" value="{{ sgnet.public_host }}" placeholder="vpn.example.com">
+        </label>
+        <label>
+          <span>TLS server name</span>
+          <input type="text" name="server_name" value="{{ sgnet.server_name }}" placeholder="edge.example.com">
+        </label>
+        <label>
+          <span>Сертификат</span>
+          <input type="text" name="certificate_path" value="{{ sgnet.certificate_path }}" placeholder="/etc/letsencrypt/live/example/fullchain.pem">
+        </label>
+        <label>
+          <span>Private key path</span>
+          <input type="text" name="private_key_path" value="{{ sgnet.private_key_path }}" placeholder="/etc/letsencrypt/live/example/privkey.pem">
+        </label>
+      </div>
+      <footer class="cnv1-form-actions">
+        <span>Секреты устройств здесь не отображаются. Runtime принимает трафик только на loopback :10448.</span>
+        <div>
+          <button class="button" type="submit" name="action" value="save">Сохранить</button>
+          <button class="button" type="submit" name="action" value="test">Проверить</button>
+          <button class="button primary" type="submit" name="action" value="apply">Сохранить и применить</button>
+          <button class="button" type="submit" name="action" value="restart">Перезапустить</button>
+          <button class="button" type="submit" name="action" value="rollback">Откатить runtime</button>
+        </div>
+      </footer>
+    </form>
   </section>
 
   <section class="cnv1-note-panel sg-ljd-card sg-ui-card">
