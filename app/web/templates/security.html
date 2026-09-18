@@ -106,7 +106,7 @@
     <form class="secv2-domain-form secv2-domain-form-fix1"
           method="post"
           action="{{ url_for('security_tls_check') }}">
-      <label class="secv2-domain-label" for="secv2-domain-input">Домен протоколов</label>
+      <label class="secv2-domain-label" for="secv2-domain-input">Домен SG-Gateway</label>
       <div class="secv2-domain-line">
         <input id="secv2-domain-input"
                type="text"
@@ -115,20 +115,10 @@
                placeholder="vpn.example.com"
                autocomplete="off"
                required>
-        <button class="button primary" type="submit">Проверить домены</button>
+        <button class="button primary" type="submit">Проверить домен</button>
       </div>
 
-      <label class="secv2-domain-label" for="secv2-panel-domain-input">Домен панели</label>
-      <div class="secv2-domain-line">
-        <input id="secv2-panel-domain-input"
-               type="text"
-               name="panel_domain"
-               value="{{ tls.panel_domain if tls.panel_domain != tls.domain else '' }}"
-               placeholder="forum.example.com"
-               autocomplete="off"
-               required>
-      </div>
-      <small class="secv2-domain-help">Протоколы сохраняют первый домен. Панель будет открываться по второму домену на TCP 443.</small>
+      <small class="secv2-domain-help">HTTPS-панель работает на этом домене через порт 63443. TCP 443 остаётся только для Single Edge и заглушки.</small>
     </form>
 
     <div class="secv2-checks sg-ljd-nested-group">
