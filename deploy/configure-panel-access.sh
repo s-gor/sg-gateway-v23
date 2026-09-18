@@ -181,19 +181,40 @@ server {
 EOFPORT
 )"
   fi
-  cat > "$NGINX_CONF" <<EOF
-# SG_GATEWAY_PLACEHOLDER_80_443_V3
+  local http_redirect_servers=""
+  if [[ "$panel_domain" != "$domain" ]]; then
+    http_redirect_servers="$(cat <<EOFHTTP
 server {
     listen 80 default_server;
     listen [::]:80 default_server;
-    server_name $domain $panel_domain _;
-    root $PLACEHOLDER_ROOT;
-    index index.html;
+    server_name $domain _;
     location ^~ /.well-known/acme-challenge/ { root $ACME_ROOT; default_type text/plain; }
-    location = / { try_files /index.html =404; add_header Cache-Control "no-cache" always; add_header X-Content-Type-Options "nosniff" always; add_header X-Frame-Options "SAMEORIGIN" always; add_header Referrer-Policy "strict-origin-when-cross-origin" always; }
-    location = /index.html { try_files /index.html =404; add_header Cache-Control "no-cache" always; add_header X-Content-Type-Options "nosniff" always; add_header X-Frame-Options "SAMEORIGIN" always; add_header Referrer-Policy "strict-origin-when-cross-origin" always; }
-    location / { return 404; }
+    return 308 https://$domain\$request_uri;
 }
+server {
+    listen 80;
+    listen [::]:80;
+    server_name $panel_domain;
+    location ^~ /.well-known/acme-challenge/ { root $ACME_ROOT; default_type text/plain; }
+    return 308 https://$panel_domain\$request_uri;
+}
+EOFHTTP
+)"
+  else
+    http_redirect_servers="$(cat <<EOFHTTP
+server {
+    listen 80 default_server;
+    listen [::]:80 default_server;
+    server_name $domain _;
+    location ^~ /.well-known/acme-challenge/ { root $ACME_ROOT; default_type text/plain; }
+    return 308 https://$domain\$request_uri;
+}
+EOFHTTP
+)"
+  fi
+  cat > "$NGINX_CONF" <<EOF
+# SG_GATEWAY_PLACEHOLDER_80_443_V3
+$http_redirect_servers
 server {
     listen 127.0.0.1:$PLACEHOLDER_TLS_INTERNAL_PORT ssl;
     server_name $domain;
@@ -285,6 +306,23 @@ wait_placeholder_contract(){
   fail "$label не прошёл проверку после перезагрузки Nginx (HTTP ${code:-000})"
 }
 
+wait_http_redirect_contract(){
+  local source_domain="$1" target_domain="$2" result="" attempt
+  for attempt in $(seq 1 30); do
+    result="$(curl --noproxy '*' -sS --max-time 5 \
+      --resolve "$source_domain:80:127.0.0.1" \
+      -o /dev/null -D - \
+      "http://$source_domain/security" 2>/dev/null \
+      | awk 'BEGIN{IGNORECASE=1} /^HTTP\// {code=$2} /^Location:/ {sub(/\r$/,"",$2); location=$2} END{print code "|" location}')"
+    if [[ "$result" == "308|https://$target_domain/security" ]]; then
+      log "HTTP $source_domain → HTTPS $target_domain: OK"
+      return 0
+    fi
+    sleep 1
+  done
+  fail "HTTP redirect $source_domain → $target_domain не готов"
+}
+
 wait_panel_contract(){
   local panel_domain="$1" port="${2:-443}" code="" attempt
   for attempt in $(seq 1 30); do
@@ -314,9 +352,10 @@ verify_https_contract(){
   local domain="$1" panel_domain="${2:-$1}"
   # systemctl reload returns before every old worker has exited. During that
   # short interval the temporary ACME vhost can still answer HTTP 404.
-  wait_placeholder_contract http 80 "$domain" "HTTP 80"
+  wait_http_redirect_contract "$domain" "$domain"
   wait_placeholder_contract https 443 "$domain" "HTTPS 443 fallback"
   if [[ "$panel_domain" != "$domain" ]]; then
+    wait_http_redirect_contract "$panel_domain" "$panel_domain"
     wait_panel_contract "$panel_domain" 443
     wait_bootstrap_redirect_contract "$domain" "$panel_domain"
     grep -Fq "$panel_domain 127.0.0.1:$PANEL_TLS_INTERNAL_PORT;" "$STREAM_CONF" || fail "SNI панели не направлен на внутренний TLS listener"
