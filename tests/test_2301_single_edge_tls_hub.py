@@ -150,3 +150,15 @@ def test_tls_bootstrap_loads_installed_runtime_environment():
     assert 'os.environ[name] = value' in bootstrap
     assert "from app.connections.settings import get_connection_settings" in bootstrap
     assert bootstrap.index("os.environ[name] = value") < bootstrap.index("from app.connections.settings import get_connection_settings")
+
+
+def test_certificate_activation_avoids_mid_transaction_hooks_and_stale_tls_sessions():
+    access = (ROOT / "deploy/configure-panel-access.sh").read_text(encoding="utf-8")
+    configure = access[access.index("configure_https(){"):access.index("refresh_https(){")]
+    refresh = access[access.index("refresh_https(){"):access.index("refresh_stream_config(){")]
+    renew = access[access.index("renew_https(){"):access.index("rollback_https(){")]
+    assert configure.count("--no-directory-hooks") >= 2
+    assert "systemctl restart nginx.service" in configure
+    assert "systemctl restart nginx.service" in refresh
+    assert "--no-directory-hooks" in renew
+    assert "apply_client_runtime" not in renew
