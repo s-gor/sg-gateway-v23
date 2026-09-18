@@ -75,3 +75,10 @@ def test_mihomo_pending_guidance_is_compact_and_actionable() -> None:
     assert "Ошибка дополнительного движка" not in source
     assert "Подключите клиента" in source
     assert "Выключено" in source
+
+
+def test_aggregate_pending_banner_is_removed() -> None:
+    source = TEMPLATE.read_text(encoding="utf-8")
+
+    assert "Есть неприменённые изменения" not in source
+    assert "mihomo.has_pending_changes" not in source
