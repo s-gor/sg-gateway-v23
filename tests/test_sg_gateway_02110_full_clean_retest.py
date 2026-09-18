@@ -87,6 +87,7 @@ def test_exact_https_shell_functions_survive_two_404_responses(tmp_path: Path) -
     stream = tmp_path / "stream.conf"
     stream.write_text(
         "www.bing.com 127.0.0.1:10443;\n"
+        "example.test 127.0.0.1:10447;\n"
         "default 127.0.0.1:7444;\n",
         encoding="utf-8",
     )
