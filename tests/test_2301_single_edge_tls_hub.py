@@ -32,14 +32,14 @@ def test_shared_tls_hub_uses_placeholder_not_panel_gateway():
     assert "$cookie_security_directive" in access
 
 
-def test_panel_https_can_share_443_with_a_separate_sni():
+def test_panel_https_stays_on_dedicated_63443_not_tcp443():
     access = (ROOT / "deploy/configure-panel-access.sh").read_text(encoding="utf-8")
-    assert 'PANEL_TLS_INTERNAL_PORT="7445"' in access
-    assert '$panel_domain 127.0.0.1:$PANEL_TLS_INTERNAL_PORT;' in access
-    assert 'listen 127.0.0.1:$PANEL_TLS_INTERNAL_PORT ssl;' in access
-    assert 'wait_panel_contract "$panel_domain" 443' in access
-    assert 'log "Панель: https://$PANEL_HOST/"' in access
-    assert '--panel-host' in access
+    configure = access[access.index("configure_https(){"):access.index("refresh_https(){")]
+    verify = access[access.index("verify_https_contract(){"):access.index("# SG_GATEWAY_02111_XRAY_FULL_ACCESS_POLICY")]
+    assert 'PANEL_HOST="$HOST"' in configure
+    assert 'log "Панель: https://$HOST:$PUBLIC_PORT/"' in configure
+    assert 'wait_panel_contract "$domain" "$PUBLIC_PORT"' in verify
+    assert 'fail "панель не должна публиковаться через TCP 443"' in verify
 
 
 def test_https_bootstraps_shared_tls_edge_before_verification():
