@@ -36,6 +36,13 @@ from sg_hostd.data_backup_runtime import (
     verify_uploaded_data_backup,
 )
 from sg_hostd.runtime_contracts import inspect_runtime_contract
+from sg_hostd.sgnet_runtime import (
+    apply as apply_sgnet_runtime,
+    restart as restart_sgnet_runtime,
+    rollback as rollback_sgnet_runtime,
+    status as sgnet_runtime_status,
+    test_candidate as test_sgnet_candidate,
+)
 
 
 @dataclass(frozen=True)
@@ -816,7 +823,45 @@ def _full_backup_restore() -> HostCommandResult:
     )
 
 
+def _sgnet_result(command: str, action) -> HostCommandResult:
+    try:
+        payload = action()
+        return HostCommandResult(
+            command=command,
+            status="ok" if payload.get("ok", True) else "error",
+            message=str(payload.get("message") or command),
+            payload={key: value for key, value in payload.items() if key not in {"ok", "message"}},
+        )
+    except Exception as exc:
+        return HostCommandResult(command=command, status="error", message=str(exc), payload={})
+
+
+def _sgnet_test() -> HostCommandResult:
+    return _sgnet_result("sgnet.test", test_sgnet_candidate)
+
+
+def _sgnet_apply() -> HostCommandResult:
+    return _sgnet_result("sgnet.apply", apply_sgnet_runtime)
+
+
+def _sgnet_status() -> HostCommandResult:
+    return _sgnet_result("sgnet.status", sgnet_runtime_status)
+
+
+def _sgnet_restart() -> HostCommandResult:
+    return _sgnet_result("sgnet.restart", restart_sgnet_runtime)
+
+
+def _sgnet_rollback() -> HostCommandResult:
+    return _sgnet_result("sgnet.rollback", rollback_sgnet_runtime)
+
+
 _COMMANDS: dict[str, Callable[[], HostCommandResult]] = {
+    "sgnet.test": _sgnet_test,
+    "sgnet.apply": _sgnet_apply,
+    "sgnet.status": _sgnet_status,
+    "sgnet.restart": _sgnet_restart,
+    "sgnet.rollback": _sgnet_rollback,
     "tls.issue.start": _tls_issue_start,
     "xray.apply": _xray_apply,
     "xray.restore.apply": _xray_restore_apply,
