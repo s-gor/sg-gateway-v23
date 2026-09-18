@@ -101,6 +101,7 @@ def test_stage6_update_repairs_empty_hosts_instead_of_asserting(tmp_path: Path):
         "amneziawg3": "",
         "amneziawg31": "awg31.internal",
         "mihomo": "203.0.113.10",
+        "sgnet": "",
         "xray": "203.0.113.10",
     }
     for row in rows:
@@ -110,6 +111,10 @@ def test_stage6_update_repairs_empty_hosts_instead_of_asserting(tmp_path: Path):
             assert "country_code" not in config
         elif row["engine"] in {"mihomo", "xray"}:
             assert config["country_code"] == "fr"
+        elif row["engine"] == "sgnet":
+            assert config["protocol_version"] == 1
+            assert config["internal_port"] == 10448
+            assert "country_code" not in config
         else:
             assert row["engine"] in {"amneziawg", "amneziawg3"}
             assert config["country_code"] == "nl"
