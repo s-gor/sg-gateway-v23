@@ -41,3 +41,21 @@ def test_full_uninstall_still_removes_installer_firewall_rules_it_created():
     uninstall = (ROOT / "deploy/full-uninstall-ubuntu.sh").read_text(encoding="utf-8")
     assert 'PANEL_PORT="63443"' in uninstall
     assert '"${PANEL_PORT}/tcp"' in uninstall
+
+
+def test_http_hosts_redirect_to_matching_https_and_keep_acme_reachable():
+    access = (ROOT / "deploy/configure-panel-access.sh").read_text(encoding="utf-8")
+    https_site = access[access.index("write_https_site(){"):access.index("wait_backend(){")]
+    assert 'server_name $domain _;' in https_site
+    assert 'location / { return 308 https://$domain\\$request_uri; }' in https_site
+    assert 'server_name $panel_domain;' in https_site
+    assert 'location / { return 308 https://$panel_domain\\$request_uri; }' in https_site
+    assert https_site.count('location ^~ /.well-known/acme-challenge/') >= 2
+
+
+def test_https_contract_verifies_both_http_redirects():
+    access = (ROOT / "deploy/configure-panel-access.sh").read_text(encoding="utf-8")
+    assert 'wait_http_redirect_contract(){' in access
+    verify = access[access.index("verify_https_contract(){"):access.index("xray_full_access(){")]
+    assert 'wait_http_redirect_contract "$domain" "$domain"' in verify
+    assert 'wait_http_redirect_contract "$panel_domain" "$panel_domain"' in verify
