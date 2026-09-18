@@ -1048,7 +1048,8 @@ def delete_awg31_peer(device_id: int) -> bool:
 
 
 def snapshot_client(client_id: int) -> ClientSnapshot | None:
-    init_db()
+    # Runtime rollback snapshots operate on an already initialized database.
+    # Re-running init_db() here can rewrite unrelated credential JSON.
     with connect() as connection:
         client = connection.execute(
             "SELECT id, name, enabled, expires_at, created_at FROM clients WHERE id = ?",
