@@ -6,7 +6,6 @@ ENV_FILE="/etc/sg-gateway/sg-gateway.env"
 RUNTIME_ENV="/etc/sg-gateway/runtime.env"
 STATE_DIR="/var/lib/sg-gateway/security"
 STATE_FILE="$STATE_DIR/tls-state.json"
-REQUEST_FILE="$STATE_DIR/tls-request.json"
 BACKUP_ROOT="$STATE_DIR/backups"
 NGINX_MAIN="/etc/nginx/nginx.conf"
 NGINX_CONF="/etc/nginx/sites-available/sg-gateway"
@@ -55,46 +54,6 @@ from pathlib import Path
 try: data=json.loads(Path(sys.argv[1]).read_text(encoding='utf-8'))
 except Exception: data={}
 print(data.get(sys.argv[2], '') or '')
-PY
-}
-read_effective_panel_domain(){
-  local domain="$1"
-  python3 - "$STATE_FILE" "$REQUEST_FILE" "$domain" <<'PY'
-import json
-import re
-import subprocess
-import sys
-from pathlib import Path
-
-state_path, request_path, domain = map(str, sys.argv[1:4])
-def load(path):
-    try:
-        value = json.loads(Path(path).read_text(encoding="utf-8"))
-    except Exception:
-        return {}
-    return value if isinstance(value, dict) else {}
-
-for payload in (load(state_path), load(request_path)):
-    value = str(payload.get("panel_domain") or "").strip().lower().rstrip(".")
-    if value:
-        print(value)
-        raise SystemExit(0)
-
-cert = Path(f"/etc/letsencrypt/live/{domain}/fullchain.pem")
-if cert.is_file():
-    result = subprocess.run(
-        ["openssl", "x509", "-in", str(cert), "-noout", "-ext", "subjectAltName"],
-        capture_output=True, text=True, timeout=10, check=False,
-    )
-    if result.returncode == 0:
-        names = re.findall(r"DNS:([^,\s]+)", result.stdout)
-        for name in names:
-            value = name.strip().lower().rstrip(".")
-            if value and value != domain:
-                print(value)
-                raise SystemExit(0)
-
-print(domain)
 PY
 }
 write_state(){ local domain="$1" panel_domain="$2" action="$3" message="$4" backup_name="${5:-}"; python3 - "$STATE_FILE" "$domain" "$panel_domain" "$PUBLIC_PORT" "$BACKEND_PORT" "$action" "$message" "$backup_name" "$PANEL_GROUP" <<'PY'
@@ -147,11 +106,8 @@ PY
 }
 nginx_cookie_security_directive(){ local version="$(nginx -v 2>&1 | sed -n 's#^nginx version: nginx/\([^ ]*\).*$#\1#p')"; if [[ -n "$version" ]] && command -v dpkg >/dev/null 2>&1 && dpkg --compare-versions "$version" ge '1.19.3'; then printf '%s' 'proxy_cookie_flags ~ secure httponly samesite=lax;'; else printf '%s' 'proxy_cookie_path / "/; Secure; HttpOnly; SameSite=Lax";'; fi; }
 write_stream_config(){
-  local default_backend="$1" domain="$2" panel_domain="${3:-}" panel_route=""
+  local default_backend="$1" domain="$2"
   [[ -n "$domain" ]] || fail "не задан домен для stream routing"
-  if [[ -n "$panel_domain" && "$panel_domain" != "$domain" ]]; then
-    panel_route="    $panel_domain 127.0.0.1:$PANEL_TLS_INTERNAL_PORT;"
-  fi
   cat > "$STREAM_CONF" <<EOF
 # SG_GATEWAY_PLACEHOLDER_80_443_V3
 map \$ssl_preread_server_name \$sg_gateway_sni_backend {
@@ -159,7 +115,6 @@ map \$ssl_preread_server_name \$sg_gateway_sni_backend {
     $REALITY_SNI 127.0.0.1:$XRAY_INTERNAL_PORT;
     $XHTTP_REALITY_SNI 127.0.0.1:$XHTTP_REALITY_INTERNAL_PORT;
     $domain 127.0.0.1:$TLS_EDGE_INTERNAL_PORT;
-$panel_route
     default $default_backend;
 }
 map \$ssl_preread_protocol \$sg_gateway_protocol_backend {
@@ -181,68 +136,10 @@ server {
 EOF
 }
 write_https_site(){
-  local domain="$1" panel_domain="$2" cert="$3" key="$4"
+  local domain="$1" _panel_domain="$2" cert="$3" key="$4"
   local cookie_security_directive="$(nginx_cookie_security_directive)"
-  local public_port_server=""
-  if [[ "$panel_domain" != "$domain" ]]; then
-    public_port_server="$(cat <<EOFPORT
-server {
-    listen $PUBLIC_PORT ssl;
-    listen [::]:$PUBLIC_PORT ssl;
-    server_name $domain $panel_domain;
-    ssl_certificate $cert;
-    ssl_certificate_key $key;
-    ssl_session_cache shared:SG_GATEWAY_PANEL_REDIRECT_TLS:1m;
-    return 308 https://$panel_domain\$request_uri;
-}
-EOFPORT
-)"
-  else
-    public_port_server="$(cat <<EOFPORT
-server {
-    listen $PUBLIC_PORT ssl;
-    listen [::]:$PUBLIC_PORT ssl;
-    server_name $domain;
-    ssl_certificate $cert;
-    ssl_certificate_key $key;
-    ssl_session_cache shared:SG_GATEWAY_PANEL_TLS:5m;
-    location / {
-        proxy_pass http://127.0.0.1:$BACKEND_PORT;
-        proxy_http_version 1.1;
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto https;
-        proxy_set_header Upgrade \$http_upgrade;
-        proxy_set_header Connection "upgrade";
-        $cookie_security_directive
-        proxy_read_timeout 120s;
-    }
-}
-EOFPORT
-)"
-  fi
-  local http_redirect_servers=""
-  if [[ "$panel_domain" != "$domain" ]]; then
-    http_redirect_servers="$(cat <<EOFHTTP
-server {
-    listen 80 default_server;
-    listen [::]:80 default_server;
-    server_name $domain _;
-    location ^~ /.well-known/acme-challenge/ { root $ACME_ROOT; default_type text/plain; }
-    location / { return 308 https://$domain\$request_uri; }
-}
-server {
-    listen 80;
-    listen [::]:80;
-    server_name $panel_domain;
-    location ^~ /.well-known/acme-challenge/ { root $ACME_ROOT; default_type text/plain; }
-    location / { return 308 https://$panel_domain\$request_uri; }
-}
-EOFHTTP
-)"
-  else
-    http_redirect_servers="$(cat <<EOFHTTP
+  cat > "$NGINX_CONF" <<EOF
+# SG_GATEWAY_PLACEHOLDER_80_443_V3
 server {
     listen 80 default_server;
     listen [::]:80 default_server;
@@ -250,12 +147,6 @@ server {
     location ^~ /.well-known/acme-challenge/ { root $ACME_ROOT; default_type text/plain; }
     location / { return 308 https://$domain:$PUBLIC_PORT\$request_uri; }
 }
-EOFHTTP
-)"
-  fi
-  cat > "$NGINX_CONF" <<EOF
-# SG_GATEWAY_PLACEHOLDER_80_443_V3
-$http_redirect_servers
 server {
     listen 127.0.0.1:$PLACEHOLDER_TLS_INTERNAL_PORT ssl;
     server_name $domain;
@@ -278,11 +169,12 @@ server {
     location / { return 404; }
 }
 server {
-    listen 127.0.0.1:$PANEL_TLS_INTERNAL_PORT ssl;
-    server_name $panel_domain;
+    listen $PUBLIC_PORT ssl;
+    listen [::]:$PUBLIC_PORT ssl;
+    server_name $domain;
     ssl_certificate $cert;
     ssl_certificate_key $key;
-    ssl_session_cache shared:SG_GATEWAY_PANEL_EDGE_TLS:5m;
+    ssl_session_cache shared:SG_GATEWAY_PANEL_TLS:5m;
     add_header X-Content-Type-Options "nosniff" always;
     add_header X-Frame-Options "SAMEORIGIN" always;
     add_header Referrer-Policy "strict-origin-when-cross-origin" always;
@@ -320,7 +212,6 @@ server {
         proxy_read_timeout 120s;
     }
 }
-$public_port_server
 EOF
   rm -f "$ACME_LINK" "$ACME_CONF" /etc/nginx/sites-enabled/default
   ln -sfn "$NGINX_CONF" "$NGINX_LINK"
