@@ -182,13 +182,10 @@ def stage_request(
 ) -> dict:
     _ensure_dirs()
     normalized_domain = normalize_domain(domain)
-    normalized_panel_domain = normalize_domain(panel_domain or domain)
+    # SG-Gateway 23.01 rollback: one public hostname; panel stays on HTTPS 63443.
+    normalized_panel_domain = normalized_domain
     dns = check_domain(normalized_domain)
-    panel_dns = (
-        dns
-        if normalized_panel_domain == normalized_domain
-        else check_domain(normalized_panel_domain)
-    )
+    panel_dns = dns
     config = load_config()
     payload = {
         "domain": normalized_domain,
