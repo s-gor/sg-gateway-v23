@@ -323,9 +323,9 @@
           <p>SG-Net/1 · SG-TLS · внешний TCP 443 через Single Edge.</p>
         </div>
       </div>
-      <span class="cnv1-engine-status {{ 'success' if sgnet_runtime.status == 'ok' and sgnet_runtime.payload.get('service_active') else ('warning' if sgnet.enabled else '') }}">
+      <span class="cnv1-engine-status {{ 'success' if sgnet.enabled and sgnet.ready else ('warning' if sgnet.enabled else '') }}">
         <span></span>
-        {{ 'Работает' if sgnet_runtime.status == 'ok' and sgnet_runtime.payload.get('service_active') else ('Настроен, не запущен' if sgnet.enabled else 'Выключен') }}
+        {{ 'Готов' if sgnet.enabled and sgnet.ready else ('Настроен не полностью' if sgnet.enabled else 'Выключен') }}
       </span>
     </header>
 
