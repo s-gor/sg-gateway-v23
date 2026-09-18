@@ -25,8 +25,9 @@ _PROFILE_SPECS = (
     ("anytls", "anytls", "anytls", "AnyTLS", "anytls", "uri"),
     ("tuic", "tuic", "tuic", "TUIC v5", "tuic", "uri"),
     ("naiveproxy", "naiveproxy", "naiveproxy", "NaiveProxy", "naiveproxy", "uri"),
-    ("sgnet", "sgnet", "sgnet", "SG-Net", "sg-net", "config"),
 )
+
+_SGNET_PROFILE_SPEC = ("sgnet", "sgnet", "sgnet", "SG-Net", "sg-net", "config")
 
 _COMPATIBLE_PROFILE_IDS = (
     "xray_reality_tcp",
@@ -110,6 +111,12 @@ def build_sg_subscription_document(client: Client) -> dict:
             if spec[1] not in assigned:
                 continue
             profile = _profile_entry(client, device, spec)
+            profiles.append(profile)
+            total_assigned += 1
+            if profile["ready"]:
+                total_ready += 1
+        if "sgnet" in assigned:
+            profile = _profile_entry(client, device, _SGNET_PROFILE_SPEC)
             profiles.append(profile)
             total_assigned += 1
             if profile["ready"]:
