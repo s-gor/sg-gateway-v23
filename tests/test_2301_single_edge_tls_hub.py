@@ -141,3 +141,12 @@ def test_transactional_stage9_migrates_existing_anytls_and_naiveproxy_tcp_edge()
     stage10 = updater.index('run_stage 10 "UDP/443 edge service rollout" ensure_udp_edge_service')
     finish = updater.index("\n  UPDATE_FINISHED=1\n", stage10)
     assert verify < stage9 < stage10 < finish
+
+
+def test_tls_bootstrap_loads_installed_runtime_environment():
+    access = (ROOT / "deploy/configure-panel-access.sh").read_text(encoding="utf-8")
+    bootstrap = access[access.index("bootstrap_tls_edge(){"):access.index("detect_public_ipv4(){")]
+    assert '"$ENV_FILE" "$RUNTIME_ENV" /etc/sg-gateway/engine-secrets.env' in bootstrap
+    assert 'os.environ[name] = value' in bootstrap
+    assert "from app.connections.settings import get_connection_settings" in bootstrap
+    assert bootstrap.index("os.environ[name] = value") < bootstrap.index("from app.connections.settings import get_connection_settings")
