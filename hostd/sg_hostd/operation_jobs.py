@@ -171,9 +171,9 @@ printf 'running\\n' > "$STATUS"
 def start_tls_issue_job() -> dict[str, Any]:
     request = _read_json(REQUEST)
     domain = str(request.get("domain") or "").strip()
-    panel_domain = str(request.get("panel_domain") or domain).strip()
-    if not domain or not panel_domain:
-        raise RuntimeError("Сначала проверьте домены в Security")
+    panel_domain = domain
+    if not domain:
+        raise RuntimeError("Сначала проверьте домен в Security")
     public_port = int(
         request.get("public_port") or request.get("panel_port") or 443
     )
@@ -185,7 +185,7 @@ def start_tls_issue_job() -> dict[str, Any]:
         f"Получение сертификата и включение HTTPS · {domain}",
         f"https://{domain}{suffix}/security",
         "/security",
-        {"domain": domain, "panel_domain": panel_domain, "public_port": public_port},
+        {"domain": domain, "panel_domain": domain, "public_port": public_port},
         command=(
             "/bin/bash",
             str(PANEL_ACCESS_SCRIPT),
