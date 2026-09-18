@@ -264,29 +264,33 @@ wait_placeholder_contract(){
 }
 
 wait_panel_contract(){
-  local domain="$1" code="" attempt
+  local panel_domain="$1" port="${2:-443}" code="" attempt
   for attempt in $(seq 1 30); do
     code="$(curl --noproxy '*' -ksS --max-time 5 \
-      --resolve "$domain:$PUBLIC_PORT:127.0.0.1" \
+      --resolve "$panel_domain:$port:127.0.0.1" \
       -o /dev/null -w '%{http_code}' \
-      "https://$domain:$PUBLIC_PORT/health" 2>/dev/null || true)"
-    [[ "$code" == "200" ]] && { log "Панель HTTPS $PUBLIC_PORT: OK"; return 0; }
+      "https://$panel_domain:$port/health" 2>/dev/null || true)"
+    [[ "$code" == "200" ]] && { log "Панель HTTPS $panel_domain:$port: OK"; return 0; }
     sleep 1
   done
-  fail "панель не отвечает на $PUBLIC_PORT после перезагрузки Nginx (HTTP ${code:-000})"
+  fail "панель не отвечает на $panel_domain:$port после перезагрузки Nginx (HTTP ${code:-000})"
 }
 
 verify_https_contract(){
-  local domain="$1"
+  local domain="$1" panel_domain="${2:-$1}"
   # systemctl reload returns before every old worker has exited. During that
   # short interval the temporary ACME vhost can still answer HTTP 404.
   wait_placeholder_contract http 80 "$domain" "HTTP 80"
   wait_placeholder_contract https 443 "$domain" "HTTPS 443 fallback"
-  wait_panel_contract "$domain"
+  if [[ "$panel_domain" != "$domain" ]]; then
+    wait_panel_contract "$panel_domain" 443
+    grep -Fq "$panel_domain 127.0.0.1:$PANEL_TLS_INTERNAL_PORT;" "$STREAM_CONF" || fail "SNI панели не направлен на внутренний TLS listener"
+  else
+    wait_panel_contract "$domain" "$PUBLIC_PORT"
+  fi
   grep -Fq "$REALITY_SNI 127.0.0.1:$XRAY_INTERNAL_PORT;" "$STREAM_CONF" || fail "SNI Reality не направлен в Xray"
   grep -Fq "default 127.0.0.1:$PLACEHOLDER_TLS_INTERNAL_PORT;" "$STREAM_CONF" || fail "browser fallback не направлен на заглушку"
   systemctl is-active --quiet nginx.service || fail "Nginx не активен"
-  # SG_GATEWAY_02111_RESTORE_HTTPS_BOOTSTRAP_FIX
   if [[ "${SG_GATEWAY_HTTPS_DEFER_XRAY_CHECK:-0}" == "1" ]]; then
     log "Xray: проверка активности отложена до пересборки runtime"
   else
