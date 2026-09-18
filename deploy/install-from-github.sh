@@ -33,8 +33,10 @@ fail() {
   exit 1
 }
 
-[[ "$BRANCH" == "dev-02301" ]] || fail "development installer is pinned to dev-02301; requested branch: $BRANCH"
 [[ -z "$SOURCE_COMMIT" || "$SOURCE_COMMIT" =~ ^[0-9a-f]{40}$ ]] || fail "SG_GATEWAY_SOURCE_COMMIT must be a lowercase 40-character commit SHA"
+if [[ "$BRANCH" != "dev-02301" && -z "$SOURCE_COMMIT" ]]; then
+  fail "non-default development branch requires SG_GATEWAY_SOURCE_COMMIT"
+fi
 
 cleanup() {
   rm -f /tmp/sg-gateway-bootstrap-output.* 2>/dev/null || true
@@ -273,13 +275,13 @@ run_quiet "Подготовка 4/6 · Обновление Ubuntu" prepare_clea
 run_quiet "Подготовка 5/6 · Подготовка инструментов" prepare_bootstrap_tools
 
 TEMP_DIR="$(mktemp -d /tmp/sg-gateway-github-install.XXXXXX)"
-ARCHIVE="$TEMP_DIR/sg-gateway-dev-02301.tar.gz"
+ARCHIVE="$TEMP_DIR/sg-gateway-source.tar.gz"
 SOURCE_DIR="$TEMP_DIR/source"
 mkdir -p "$SOURCE_DIR"
 run_quiet "Подготовка 6/6 · Загрузка SG-Gateway" download_gateway_source
 
 printf '[SG-Gateway] GitHub source version: %s\n' "$(tr -d '\r\n' < "$SOURCE_DIR/VERSION")"
-printf '[SG-Gateway] DEV channel: dev-02301\n'
+printf '[SG-Gateway] DEV channel: %s\n' "$BRANCH"
 printf '[SG-Gateway] Starting the native Ubuntu CLEAN installer...\n'
 SG_GATEWAY_SOURCE_DIR="$SOURCE_DIR" \
 SG_GATEWAY_SOURCE_COMMIT="$SOURCE_COMMIT" \
