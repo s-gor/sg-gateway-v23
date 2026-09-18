@@ -22,13 +22,10 @@ func testInput() ClientProofInput {
 
 func TestComputeProofGoldenVector(t *testing.T) {
 	got := ComputeProof([]byte("0123456789abcdef0123456789abcdef"), testInput())
-	const want = "REPLACE_ME"
-	if hex.EncodeToString(got[:]) == want {
-		return
+	const want = "06d71223906711af97a561f625e095228c2b90a739db9499e317df4d22fc2887"
+	if encoded := hex.EncodeToString(got[:]); encoded != want {
+		t.Fatalf("proof = %s, want %s", encoded, want)
 	}
-	// This guard intentionally exposes the deterministic value when the vector
-	// is first frozen. Replace want with the emitted digest and keep it fixed.
-	t.Fatalf("proof = %x; freeze this digest as the golden vector", got)
 }
 
 func TestVerifyProof(t *testing.T) {
