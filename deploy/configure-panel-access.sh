@@ -105,13 +105,20 @@ p.write_text(b,encoding='utf-8',newline='\n')
 PY
 }
 nginx_cookie_security_directive(){ local version="$(nginx -v 2>&1 | sed -n 's#^nginx version: nginx/\([^ ]*\).*$#\1#p')"; if [[ -n "$version" ]] && command -v dpkg >/dev/null 2>&1 && dpkg --compare-versions "$version" ge '1.19.3'; then printf '%s' 'proxy_cookie_flags ~ secure httponly samesite=lax;'; else printf '%s' 'proxy_cookie_path / "/; Secure; HttpOnly; SameSite=Lax";'; fi; }
-write_stream_config(){ local default_backend="$1" domain="$2"; [[ -n "$domain" ]] || fail "не задан домен для stream routing"; cat > "$STREAM_CONF" <<EOF
+write_stream_config(){
+  local default_backend="$1" domain="$2" panel_domain="${3:-}" panel_route=""
+  [[ -n "$domain" ]] || fail "не задан домен для stream routing"
+  if [[ -n "$panel_domain" && "$panel_domain" != "$domain" ]]; then
+    panel_route="    $panel_domain 127.0.0.1:$PANEL_TLS_INTERNAL_PORT;"
+  fi
+  cat > "$STREAM_CONF" <<EOF
 # SG_GATEWAY_PLACEHOLDER_80_443_V3
 map \$ssl_preread_server_name \$sg_gateway_sni_backend {
     hostnames;
     $REALITY_SNI 127.0.0.1:$XRAY_INTERNAL_PORT;
     $XHTTP_REALITY_SNI 127.0.0.1:$XHTTP_REALITY_INTERNAL_PORT;
     $domain 127.0.0.1:$TLS_EDGE_INTERNAL_PORT;
+$panel_route
     default $default_backend;
 }
 map \$ssl_preread_protocol \$sg_gateway_protocol_backend {
@@ -132,12 +139,15 @@ server {
 }
 EOF
 }
-write_https_site(){ local domain="$1" cert="$2" key="$3" cookie_security_directive="$(nginx_cookie_security_directive)"; cat > "$NGINX_CONF" <<EOF
+write_https_site(){
+  local domain="$1" panel_domain="$2" cert="$3" key="$4"
+  local cookie_security_directive="$(nginx_cookie_security_directive)"
+  cat > "$NGINX_CONF" <<EOF
 # SG_GATEWAY_PLACEHOLDER_80_443_V3
 server {
     listen 80 default_server;
     listen [::]:80 default_server;
-    server_name $domain _;
+    server_name $domain $panel_domain _;
     root $PLACEHOLDER_ROOT;
     index index.html;
     location ^~ /.well-known/acme-challenge/ { root $ACME_ROOT; default_type text/plain; }
@@ -167,16 +177,14 @@ server {
     location / { return 404; }
 }
 server {
-    listen $PUBLIC_PORT ssl;
-    listen [::]:$PUBLIC_PORT ssl;
-    server_name $domain;
+    listen 127.0.0.1:$PANEL_TLS_INTERNAL_PORT ssl;
+    server_name $panel_domain;
     ssl_certificate $cert;
     ssl_certificate_key $key;
-    ssl_session_cache shared:SG_GATEWAY_PANEL_TLS:5m;
+    ssl_session_cache shared:SG_GATEWAY_PANEL_EDGE_TLS:5m;
     add_header X-Content-Type-Options "nosniff" always;
     add_header X-Frame-Options "SAMEORIGIN" always;
     add_header Referrer-Policy "strict-origin-when-cross-origin" always;
-    # SG_GATEWAY_02111_RESTORE_RESTART_PAGE_FIX
     error_page 502 503 504 =200 /__sg_gateway_restarting;
     location = /__sg_gateway_restarting {
         internal;
@@ -185,7 +193,6 @@ server {
         default_type text/html;
         add_header Cache-Control "no-store" always;
     }
-    # SG_GATEWAY_FULL_BACKUP_UPLOAD_FIX1
     location = /maintenance/full-backups/restore {
         client_max_body_size 0;
         proxy_pass http://127.0.0.1:$BACKEND_PORT;
@@ -210,8 +217,30 @@ server {
         proxy_read_timeout 120s;
     }
 }
+server {
+    listen $PUBLIC_PORT ssl;
+    listen [::]:$PUBLIC_PORT ssl;
+    server_name $panel_domain;
+    ssl_certificate $cert;
+    ssl_certificate_key $key;
+    ssl_session_cache shared:SG_GATEWAY_PANEL_TLS:5m;
+    location / {
+        proxy_pass http://127.0.0.1:$BACKEND_PORT;
+        proxy_http_version 1.1;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection "upgrade";
+        $cookie_security_directive
+        proxy_read_timeout 120s;
+    }
+}
 EOF
-rm -f "$ACME_LINK" "$ACME_CONF" /etc/nginx/sites-enabled/default; ln -sfn "$NGINX_CONF" "$NGINX_LINK"; }
+  rm -f "$ACME_LINK" "$ACME_CONF" /etc/nginx/sites-enabled/default
+  ln -sfn "$NGINX_CONF" "$NGINX_LINK"
+}
 wait_backend(){ local i; for i in $(seq 1 45); do curl -fsS --max-time 3 "http://127.0.0.1:$BACKEND_PORT/health" >/dev/null 2>&1 && return 0; sleep 1; done; fail "backend панели не отвечает"; }
 # SG_GATEWAY_02110_HTTPS_VERIFY_RETRY_FIX1
 wait_placeholder_contract(){
