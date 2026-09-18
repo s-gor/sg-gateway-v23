@@ -44,7 +44,7 @@ def test_02208_security_owns_page_assets_and_preserves_form_contracts() -> None:
     ):
         assert f"url_for('{endpoint}')" in SECURITY
 
-    for field in ("domain", "panel_domain", "current_password", "new_password", "confirm_password"):
+    for field in ("domain", "current_password", "new_password", "confirm_password"):
         assert f'name="{field}"' in SECURITY
     assert 'autocomplete="current-password"' in SECURITY
     assert SECURITY.count('autocomplete="new-password"') == 2
@@ -65,8 +65,8 @@ def test_02208_security_legacy_styles_no_longer_own_outer_rails() -> None:
     assert "margin-inline: 0" in page_css
 
 
-def test_security_separates_protocol_and_panel_domains() -> None:
-    assert "Домен протоколов" in SECURITY
-    assert "Домен панели" in SECURITY
-    assert 'name="panel_domain"' in SECURITY
-    assert 'placeholder="forum.example.com"' in SECURITY
+def test_security_uses_single_domain_and_dedicated_panel_port() -> None:
+    assert "Домен SG-Gateway" in SECURITY
+    assert "порт 63443" in SECURITY
+    assert 'name="panel_domain"' not in SECURITY
+    assert 'placeholder="forum.example.com"' not in SECURITY
