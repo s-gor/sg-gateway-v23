@@ -79,3 +79,11 @@ def test_update_verifies_panel_domain_on_443_after_managed_refresh():
     assert '("PANEL_DOMAIN", panel_domain)' in core
     assert '("PANEL_EDGE_443", "1" if panel_edge_443 else "0")' in core
     assert '--resolve "${PANEL_DOMAIN}:443:127.0.0.1"' in core
+
+
+def test_protocol_domain_placeholder_redirects_stale_panel_paths_to_panel_host():
+    access = (ROOT / "deploy/configure-panel-access.sh").read_text(encoding="utf-8")
+    https_site = access[access.index("write_https_site(){"):access.index("wait_backend(){")]
+    assert https_site.count('return 308 https://$panel_domain\\$request_uri;') >= 3
+    assert 'location = / { try_files /index.html =404;' in https_site
+    assert 'location = /index.html { try_files /index.html =404;' in https_site
