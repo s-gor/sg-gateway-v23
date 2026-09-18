@@ -12,27 +12,29 @@ def test_clean_install_keeps_63443_bootstrap_panel_contract():
     assert '"$PUBLIC_ADDRESS" "$PANEL_PORT"' in installer
 
 
-def test_separate_panel_domain_retires_public_bootstrap_listener_without_firewall_changes():
+def test_separate_panel_domain_turns_63443_into_redirect_only_listener():
     access = (ROOT / "deploy/configure-panel-access.sh").read_text(encoding="utf-8")
-    https_site = access[access.index("write_https_site(){"):access.index("wait_placeholder_contract(){")]
-    assert 'if [[ "$panel_domain" == "$domain" ]]' in https_site
-    assert 'listen $PUBLIC_PORT ssl;' in https_site
-    assert '$bootstrap_listener' in https_site
+    https_site = access[access.index("write_https_site(){"):access.index("wait_backend(){")]
+    assert 'if [[ "$panel_domain" != "$domain" ]]' in https_site
+    assert 'return 308 https://$panel_domain\\$request_uri;' in https_site
+    redirect_part = https_site.split('if [[ "$panel_domain" != "$domain" ]]', 1)[1].split('else', 1)[0]
+    assert 'proxy_pass http://127.0.0.1:$BACKEND_PORT;' not in redirect_part
     assert 'PANEL_TLS_INTERNAL_PORT="7445"' in access
     assert '$panel_domain 127.0.0.1:$PANEL_TLS_INTERNAL_PORT;' in access
+
+
+def test_https_contract_verifies_legacy_redirect_to_panel_443():
+    access = (ROOT / "deploy/configure-panel-access.sh").read_text(encoding="utf-8")
+    assert 'wait_bootstrap_redirect_contract(){' in access
+    verify = access[access.index("verify_https_contract(){"):access.index("xray_full_access(){")]
+    assert 'wait_bootstrap_redirect_contract "$domain" "$panel_domain"' in verify
+    assert '308|https://$panel_domain/security' in access
+
+
+def test_https_transition_does_not_mutate_firewall():
+    access = (ROOT / "deploy/configure-panel-access.sh").read_text(encoding="utf-8")
     assert 'ufw allow' not in access
     assert 'ufw --force delete' not in access
-
-
-def test_https_activation_and_rollback_are_nginx_only_for_bootstrap_port():
-    access = (ROOT / "deploy/configure-panel-access.sh").read_text(encoding="utf-8")
-    configure = access[access.index("configure_https(){"):access.index("refresh_https(){")]
-    refresh = access[access.index("refresh_https(){"):access.index("refresh_stream_config(){")]
-    rollback = access[access.index("rollback_https(){"):access.index('case "$MODE" in')]
-    assert 'set_bootstrap_port_access' not in access
-    assert 'systemctl restart nginx.service' in configure
-    assert 'systemctl restart nginx.service' in refresh
-    assert 'systemctl restart nginx.service' in rollback
 
 
 def test_full_uninstall_still_removes_installer_firewall_rules_it_created():
