@@ -1,0 +1,36 @@
+name: Temporary source checksum sync
+
+on:
+  push:
+    branches:
+      - recovery/2301-post-buttons-good
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: recovery/2301-post-buttons-good
+          fetch-depth: 0
+      - name: Rebuild SOURCE-SHA256SUMS
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import hashlib, subprocess
+          tracked = sorted(subprocess.check_output(['git','ls-files'], text=True).splitlines())
+          expected = [p for p in tracked if p != 'SOURCE-SHA256SUMS' and not p.startswith('.github/workflows/')]
+          rows = [f"{hashlib.sha256(Path(p).read_bytes()).hexdigest()}  {p}" for p in expected]
+          Path('SOURCE-SHA256SUMS').write_text("\n".join(rows)+"\n", encoding='utf-8')
+          PY
+      - name: Commit checksum manifest
+        run: |
+          if git diff --quiet -- SOURCE-SHA256SUMS; then exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add SOURCE-SHA256SUMS
+          git commit -m "ci: sync recovery source checksums"
+          git push origin HEAD:recovery/2301-post-buttons-good
