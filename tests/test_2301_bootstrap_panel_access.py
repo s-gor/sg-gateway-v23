@@ -6,16 +6,35 @@ ROOT = Path(__file__).resolve().parents[1]
 def test_clean_install_keeps_63443_bootstrap_panel_contract():
     installer = (ROOT / "install.sh").read_text(encoding="utf-8")
     assert 'DEFAULT_PANEL_PORT="63443"' in installer
-    assert 'listen ${PANEL_PORT};' in installer
-    assert '"80/tcp" "${PANEL_PORT}/tcp" "443/tcp" "443/udp"' in installer
+    assert 'listen \${PANEL_PORT};' in installer
+    assert '"80/tcp" "\${PANEL_PORT}/tcp" "443/tcp" "443/udp"' in installer
     assert "http://%s:%s" in installer
     assert '"$PUBLIC_ADDRESS" "$PANEL_PORT"' in installer
 
 
-def test_https_activation_keeps_bootstrap_panel_listener():
+def test_separate_panel_domain_retires_public_bootstrap_listener():
     access = (ROOT / "deploy/configure-panel-access.sh").read_text(encoding="utf-8")
     https_site = access[access.index("write_https_site(){"):access.index("wait_placeholder_contract(){")]
+    assert 'if [[ "$panel_domain" == "$domain" ]]' in https_site
     assert 'listen $PUBLIC_PORT ssl;' in https_site
-    assert 'proxy_pass http://127.0.0.1:$BACKEND_PORT;' in https_site
+    assert '$bootstrap_listener' in https_site
     assert 'PANEL_TLS_INTERNAL_PORT="7445"' in access
     assert '$panel_domain 127.0.0.1:$PANEL_TLS_INTERNAL_PORT;' in access
+
+
+def test_https_activation_closes_63443_and_rollback_can_restore_it():
+    access = (ROOT / "deploy/configure-panel-access.sh").read_text(encoding="utf-8")
+    assert 'set_bootstrap_port_access(){' in access
+    assert 'ufw --force delete allow "$rule"' in access
+    configure = access[access.index("configure_https(){"):access.index("refresh_https(){")]
+    refresh = access[access.index("refresh_https(){"):access.index("refresh_stream_config(){")]
+    rollback = access[access.index("rollback_https(){"):access.index('case "$MODE" in')]
+    assert 'set_bootstrap_port_access close' in configure
+    assert 'set_bootstrap_port_access close' in refresh
+    assert 'set_bootstrap_port_access open' in rollback
+
+
+def test_full_uninstall_removes_bootstrap_firewall_rule():
+    uninstall = (ROOT / "deploy/full-uninstall-ubuntu.sh").read_text(encoding="utf-8")
+    assert 'PANEL_PORT="63443"' in uninstall
+    assert '"${PANEL_PORT}/tcp"' in uninstall
