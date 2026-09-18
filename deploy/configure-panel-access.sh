@@ -248,7 +248,7 @@ server {
     listen [::]:80 default_server;
     server_name $domain _;
     location ^~ /.well-known/acme-challenge/ { root $ACME_ROOT; default_type text/plain; }
-    location / { return 308 https://$domain\$request_uri; }
+    location / { return 308 https://$domain:$PUBLIC_PORT\$request_uri; }
 }
 EOFHTTP
 )"
@@ -266,9 +266,7 @@ server {
     index index.html;
     location = / { try_files /index.html =404; add_header Cache-Control "no-cache" always; add_header X-Content-Type-Options "nosniff" always; add_header X-Frame-Options "SAMEORIGIN" always; add_header Referrer-Policy "strict-origin-when-cross-origin" always; }
     location = /index.html { try_files /index.html =404; add_header Cache-Control "no-cache" always; add_header X-Content-Type-Options "nosniff" always; add_header X-Frame-Options "SAMEORIGIN" always; add_header Referrer-Policy "strict-origin-when-cross-origin" always; }
-    location / {
-        return 308 https://$panel_domain\$request_uri;
-    }
+    location / { return 404; }
 }
 server {
     listen 127.0.0.1:$PLACEHOLDER_HTTP_INTERNAL_PORT;
@@ -277,9 +275,7 @@ server {
     index index.html;
     location = / { try_files /index.html =404; add_header Cache-Control "no-cache" always; add_header X-Content-Type-Options "nosniff" always; add_header X-Frame-Options "SAMEORIGIN" always; add_header Referrer-Policy "strict-origin-when-cross-origin" always; }
     location = /index.html { try_files /index.html =404; add_header Cache-Control "no-cache" always; add_header X-Content-Type-Options "nosniff" always; add_header X-Frame-Options "SAMEORIGIN" always; add_header Referrer-Policy "strict-origin-when-cross-origin" always; }
-    location / {
-        return 308 https://$panel_domain\$request_uri;
-    }
+    location / { return 404; }
 }
 server {
     listen 127.0.0.1:$PANEL_TLS_INTERNAL_PORT ssl;
@@ -352,20 +348,21 @@ wait_placeholder_contract(){
 }
 
 wait_http_redirect_contract(){
-  local source_domain="$1" target_domain="$2" result="" attempt
+  local source_domain="$1" target_domain="$2" target_port="${3:-443}" result="" attempt suffix=""
+  [[ "$target_port" == "443" ]] || suffix=":$target_port"
   for attempt in $(seq 1 30); do
     result="$(curl --noproxy '*' -sS --max-time 5 \
       --resolve "$source_domain:80:127.0.0.1" \
       -o /dev/null -D - \
       "http://$source_domain/security" 2>/dev/null \
       | awk 'BEGIN{IGNORECASE=1} /^HTTP\// {code=$2} /^Location:/ {sub(/\r$/,"",$2); location=$2} END{print code "|" location}')"
-    if [[ "$result" == "308|https://$target_domain/security" ]]; then
-      log "HTTP $source_domain → HTTPS $target_domain: OK"
+    if [[ "$result" == "308|https://$target_domain$suffix/security" ]]; then
+      log "HTTP $source_domain → HTTPS $target_domain$suffix: OK"
       return 0
     fi
     sleep 1
   done
-  fail "HTTP redirect $source_domain → $target_domain не готов"
+  fail "HTTP redirect $source_domain → $target_domain$suffix не готов"
 }
 
 wait_panel_contract(){
@@ -394,21 +391,16 @@ wait_bootstrap_redirect_contract(){
   fail "bootstrap redirect на $PUBLIC_PORT не готов"
 }
 verify_https_contract(){
-  local domain="$1" panel_domain="${2:-$1}"
-  # systemctl reload returns before every old worker has exited. During that
-  # short interval the temporary ACME vhost can still answer HTTP 404.
-  wait_http_redirect_contract "$domain" "$domain"
+  local domain="$1"
+  wait_http_redirect_contract "$domain" "$domain" "$PUBLIC_PORT"
   wait_placeholder_contract https 443 "$domain" "HTTPS 443 fallback"
-  if [[ "$panel_domain" != "$domain" ]]; then
-    wait_http_redirect_contract "$panel_domain" "$panel_domain"
-    wait_panel_contract "$panel_domain" 443
-    wait_bootstrap_redirect_contract "$domain" "$panel_domain"
-    grep -Fq "$panel_domain 127.0.0.1:$PANEL_TLS_INTERNAL_PORT;" "$STREAM_CONF" || fail "SNI панели не направлен на внутренний TLS listener"
-  else
-    wait_panel_contract "$domain" "$PUBLIC_PORT"
-  fi
+  wait_panel_contract "$domain" "$PUBLIC_PORT"
   grep -Fq "$REALITY_SNI 127.0.0.1:$XRAY_INTERNAL_PORT;" "$STREAM_CONF" || fail "SNI Reality не направлен в Xray"
+  grep -Fq "$domain 127.0.0.1:$TLS_EDGE_INTERNAL_PORT;" "$STREAM_CONF" || fail "домен Single Edge не направлен на TLS edge"
   grep -Fq "default 127.0.0.1:$PLACEHOLDER_TLS_INTERNAL_PORT;" "$STREAM_CONF" || fail "browser fallback не направлен на заглушку"
+  if grep -Fq "127.0.0.1:$PANEL_TLS_INTERNAL_PORT;" "$STREAM_CONF"; then
+    fail "панель не должна публиковаться через TCP 443"
+  fi
   systemctl is-active --quiet nginx.service || fail "Nginx не активен"
   # SG_GATEWAY_02111_RESTORE_HTTPS_BOOTSTRAP_FIX
   if [[ "${SG_GATEWAY_HTTPS_DEFER_XRAY_CHECK:-0}" == "1" ]]; then
@@ -480,10 +472,8 @@ detect_public_ipv4(){ local token="" value=""; token="$(curl -fsS --connect-time
 configure_https(){
   [[ -n "$HOST" ]] || fail "укажите домен протоколов"
   HOST="${HOST,,}"
-  PANEL_HOST="${PANEL_HOST:-$HOST}"
-  PANEL_HOST="${PANEL_HOST,,}"
+  PANEL_HOST="$HOST"
   [[ "$HOST" =~ ^([A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,63}$ ]] || fail "некорректный домен протоколов"
-  [[ "$PANEL_HOST" =~ ^([A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,63}$ ]] || fail "некорректный домен панели"
 
   local public_ip resolved panel_resolved cert_file key_file backup
   SG_HTTPS_BACKUP_DIR=""
@@ -548,22 +538,18 @@ set -Eeuo pipefail
 exec /bin/bash /opt/sg-gateway/deploy/configure-panel-access.sh --mode refresh
 EOF
   chmod 0755 "$RENEW_HOOK"
-  write_state "$HOST" "$PANEL_HOST" issue "HTTPS, Single Edge 443 и панель проверены" "$(basename "$backup")"
+  write_state "$HOST" "$HOST" issue "HTTPS-панель на 63443 и Single Edge 443 проверены" "$(basename "$backup")"
   apply_client_runtime
   SG_HTTPS_COMMITTED=1
   trap - EXIT ERR INT TERM
-  if [[ "$PANEL_HOST" != "$HOST" ]]; then
-    log "Панель: https://$PANEL_HOST/"
-  else
-    log "Панель: https://$HOST:$PUBLIC_PORT/"
-  fi
+  log "Панель: https://$HOST:$PUBLIC_PORT/"
   log "Домен протоколов: $HOST"
 }
 refresh_https(){
   local domain panel_domain cert key
   domain="$(read_state_value domain)"
   [[ -n "$domain" ]] || fail "HTTPS ещё не настроен"
-  panel_domain="$(read_effective_panel_domain "$domain")"
+  panel_domain="$domain"
   cert="/etc/letsencrypt/live/$domain/fullchain.pem"
   key="/etc/letsencrypt/live/$domain/privkey.pem"
   [[ -s "$cert" && -s "$key" ]] || fail "файлы сертификата не найдены"
@@ -583,7 +569,7 @@ refresh_nginx_https(){
   local domain panel_domain cert key
   domain="$(read_state_value domain)"
   [[ -n "$domain" ]] || fail "HTTPS ещё не настроен"
-  panel_domain="$(read_effective_panel_domain "$domain")"
+  panel_domain="$domain"
   cert="/etc/letsencrypt/live/$domain/fullchain.pem"
   key="/etc/letsencrypt/live/$domain/privkey.pem"
   [[ -s "$cert" && -s "$key" ]] || fail "файлы сертификата не найдены"
@@ -594,13 +580,14 @@ refresh_nginx_https(){
   systemctl restart nginx.service
   wait_backend
   verify_https_contract "$domain" "$panel_domain"
-  log "Nginx HTTPS/Single Edge конфигурация обновлена без изменения runtime"
+  write_state "$domain" "$domain" refresh "Панель возвращена на HTTPS 63443; TCP 443 оставлен Single Edge" "$(read_state_value backup)"
+  log "Nginx HTTPS/Single Edge конфигурация обновлена: панель https://$domain:$PUBLIC_PORT/"
 }
 refresh_stream_config(){
   local domain panel_domain
   domain="$(read_state_value domain)"
   [[ -n "$domain" ]] || fail "HTTPS ещё не настроен"
-  panel_domain="$(read_effective_panel_domain "$domain")"
+  panel_domain="$domain"
   ensure_stream_include
   write_stream_config "127.0.0.1:$PLACEHOLDER_TLS_INTERNAL_PORT" "$domain" "$panel_domain"
   nginx -t
