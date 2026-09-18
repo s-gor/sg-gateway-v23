@@ -25,6 +25,10 @@ func main() {
 		fmt.Fprintln(os.Stderr, "sgnet-server: invalid configuration")
 		os.Exit(2)
 	}
+	if err := cfg.ValidateTLSIdentity(); err != nil {
+		fmt.Fprintln(os.Stderr, "sgnet-server: invalid tls identity")
+		os.Exit(2)
+	}
 	if *check {
 		fmt.Println("sgnet-server: configuration OK")
 		return
