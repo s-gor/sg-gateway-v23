@@ -227,8 +227,7 @@ def _validate_access(engines: list[str], raw_tokens: list[str]) -> str | None:
     if TLS_PROTOCOL_TOKENS & set(raw_tokens):
         if not bool(tls_overview().get("https_ready")):
             return "TLS-протоколы требуют настроенного HTTPS в Security"
-    sources = {"xray", "mihomo", "anytls", "tuic"}
-    if "sgclient" in engines and not (sources & set(engines)):
+    sources = {"xray", "mihomo", "anytls", "tuic", "sgnet"}\n    if "sgclient" in engines and not (sources & set(engines)):
         return "SG Client требует хотя бы один ссылочный протокол"
     return None
 
