@@ -26,9 +26,9 @@ def main() -> int:
     if action == "issue":
         request = _request()
         domain = str(request.get("domain") or "").strip()
-        panel_domain = str(request.get("panel_domain") or domain).strip()
+        panel_domain = domain
         port = int(request.get("public_port") or request.get("panel_port") or 0)
-        if not domain or not panel_domain or not port:
+        if not domain or not port:
             print(
                 json.dumps(
                     {"ok": False, "message": "Сначала проверьте домен"},
