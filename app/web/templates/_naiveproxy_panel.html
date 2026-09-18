@@ -12,16 +12,32 @@
     <span class="cnv1-engine-status warning" data-naive-state><span></span><b>Проверка…</b></span>
   </header>
 
-  <div class="cnv1-compact-protocol-endpoint">
-    <span>HTTPS-домен</span>
-    <strong data-naive-host>—</strong>
-    <small data-naive-endpoint>Требуется HTTPS в Security</small>
-  </div>
-
-  <div class="cnv1-compact-protocol-actions">
-    <span class="xps2-naiveproxy-message" data-naive-message aria-live="polite"></span>
+  <div class="cnv1-compact-protocol-endpoint naiveproxy-endpoint-row">
+    <div class="naiveproxy-endpoint-copy">
+      <span>HTTPS-домен</span>
+      <strong data-naive-host>—</strong>
+      <small data-naive-endpoint>Требуется HTTPS в Security</small>
+      <span class="xps2-naiveproxy-message" data-naive-message aria-live="polite"></span>
+    </div>
     <button class="button primary" type="button" data-naive-submit>Проверить и применить</button>
   </div>
+
+  <style>
+  #sg-naiveproxy-settings .naiveproxy-endpoint-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+  }
+  #sg-naiveproxy-settings .naiveproxy-endpoint-copy {
+    display: grid;
+    gap: 3px;
+    min-width: 0;
+  }
+  #sg-naiveproxy-settings [data-naive-submit] {
+    flex: 0 0 auto;
+  }
+  </style>
 </article>
 
 <script>
