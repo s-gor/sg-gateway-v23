@@ -43,7 +43,7 @@ AWG31_UNIT="$(system_path /etc/systemd/system/sg-gateway-awg31.service)"
 AWG3_ROOT="$PREFIX/awg3"
 NAIVE_SERVICE="sg-gateway-naiveproxy.service"
 NAIVE_ROOT="$PREFIX/naiveproxy"
-LETSENCRYPT_DIR="$(system_path /etc/letsencrypt)"
+SGNET_SERVICE="sg-gateway-sgnet.service"\nSGNET_CONFIG="$(system_path /etc/sg-gateway/sgnet.json)"\nSGNET_UNIT="$(system_path /etc/systemd/system/sg-gateway-sgnet.service)"\nSGNET_BINARY="$(system_path /usr/local/bin/sgnet-server)"\nLETSENCRYPT_DIR="$(system_path /etc/letsencrypt)"
 NGINX_CONFIG="$(system_path /etc/nginx/nginx.conf)"
 NGINX_SITE_AVAILABLE="$(system_path /etc/nginx/sites-available/sg-gateway)"
 NGINX_SITE_ENABLED="$(system_path /etc/nginx/sites-enabled/sg-gateway)"
@@ -181,9 +181,7 @@ ensure_safety_backup_space() {
     "$AWG3_UNIT"
     "$AWG31_CONFIG"
     "$AWG31_STATE"
-    "$AWG31_UNIT"
-    "$NGINX_CONFIG"
-    "$NGINX_SITE_AVAILABLE"
+    "$AWG31_UNIT"\n    "$SGNET_CONFIG"\n    "$SGNET_UNIT"\n    "$SGNET_BINARY"\n    "$NGINX_CONFIG"\n    "$NGINX_SITE_AVAILABLE"
     "$NGINX_SITE_ENABLED"
     "$NGINX_STREAM_CONFIG"
     "$PANEL_UNIT"
@@ -612,8 +610,7 @@ capture_service_states() {
   : > "$output"
   for service in \
     nginx.service xray.service mihomo.service sg-gateway-awg.service "$AWG3_SERVICE" "$AWG31_SERVICE" \
-    sg-gateway-singbox.service "$NAIVE_SERVICE" "$HOSTD_SERVICE" "$PANEL_SERVICE"; do
-    active=0
+    sg-gateway-singbox.service "$NAIVE_SERVICE" "$SGNET_SERVICE" "$HOSTD_SERVICE" "$PANEL_SERVICE"; do\n    active=0
     enabled=0
     failed=0
     systemctl is-active --quiet "$service" && active=1 || true
@@ -696,8 +693,7 @@ protected_runtime_paths() {
     "$LETSENCRYPT_DIR" "$DATA_DIR/security/tls-state.json" \
     "$AWG2_CONFIG" "$AWG2_UNIT" \
     "$AWG3_CONFIG" "$AWG3_ROOT" \
-    "$AWG31_CONFIG" "$AWG31_STATE" "$AWG31_UNIT" "$PREFIX/awg31" "$NAIVE_ROOT" \
-    -- "$cert" "$key" <<'PYPROTECTED'
+    "$AWG31_CONFIG" "$AWG31_STATE" "$AWG31_UNIT" "$PREFIX/awg31" "$NAIVE_ROOT" \\\n    "$SGNET_CONFIG" "$SGNET_UNIT" "$SGNET_BINARY" \\\n    -- "$cert" "$key" <<'PYPROTECTED'
 import os
 import sys
 from pathlib import Path
