@@ -6,6 +6,7 @@ ENV_FILE="/etc/sg-gateway/sg-gateway.env"
 RUNTIME_ENV="/etc/sg-gateway/runtime.env"
 STATE_DIR="/var/lib/sg-gateway/security"
 STATE_FILE="$STATE_DIR/tls-state.json"
+REQUEST_FILE="$STATE_DIR/tls-request.json"
 BACKUP_ROOT="$STATE_DIR/backups"
 NGINX_MAIN="/etc/nginx/nginx.conf"
 NGINX_CONF="/etc/nginx/sites-available/sg-gateway"
@@ -54,6 +55,46 @@ from pathlib import Path
 try: data=json.loads(Path(sys.argv[1]).read_text(encoding='utf-8'))
 except Exception: data={}
 print(data.get(sys.argv[2], '') or '')
+PY
+}
+read_effective_panel_domain(){
+  local domain="$1"
+  python3 - "$STATE_FILE" "$REQUEST_FILE" "$domain" <<'PY'
+import json
+import re
+import subprocess
+import sys
+from pathlib import Path
+
+state_path, request_path, domain = map(str, sys.argv[1:4])
+def load(path):
+    try:
+        value = json.loads(Path(path).read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+    return value if isinstance(value, dict) else {}
+
+for payload in (load(state_path), load(request_path)):
+    value = str(payload.get("panel_domain") or "").strip().lower().rstrip(".")
+    if value:
+        print(value)
+        raise SystemExit(0)
+
+cert = Path(f"/etc/letsencrypt/live/{domain}/fullchain.pem")
+if cert.is_file():
+    result = subprocess.run(
+        ["openssl", "x509", "-in", str(cert), "-noout", "-ext", "subjectAltName"],
+        capture_output=True, text=True, timeout=10, check=False,
+    )
+    if result.returncode == 0:
+        names = re.findall(r"DNS:([^,\s]+)", result.stdout)
+        for name in names:
+            value = name.strip().lower().rstrip(".")
+            if value and value != domain:
+                print(value)
+                raise SystemExit(0)
+
+print(domain)
 PY
 }
 write_state(){ local domain="$1" panel_domain="$2" action="$3" message="$4" backup_name="${5:-}"; python3 - "$STATE_FILE" "$domain" "$panel_domain" "$PUBLIC_PORT" "$BACKEND_PORT" "$action" "$message" "$backup_name" "$PANEL_GROUP" <<'PY'
@@ -521,9 +562,8 @@ EOF
 refresh_https(){
   local domain panel_domain cert key
   domain="$(read_state_value domain)"
-  panel_domain="$(read_state_value panel_domain)"
   [[ -n "$domain" ]] || fail "HTTPS ещё не настроен"
-  panel_domain="${panel_domain:-$domain}"
+  panel_domain="$(read_effective_panel_domain "$domain")"
   cert="/etc/letsencrypt/live/$domain/fullchain.pem"
   key="/etc/letsencrypt/live/$domain/privkey.pem"
   [[ -s "$cert" && -s "$key" ]] || fail "файлы сертификата не найдены"
@@ -542,9 +582,8 @@ refresh_https(){
 refresh_nginx_https(){
   local domain panel_domain cert key
   domain="$(read_state_value domain)"
-  panel_domain="$(read_state_value panel_domain)"
   [[ -n "$domain" ]] || fail "HTTPS ещё не настроен"
-  panel_domain="${panel_domain:-$domain}"
+  panel_domain="$(read_effective_panel_domain "$domain")"
   cert="/etc/letsencrypt/live/$domain/fullchain.pem"
   key="/etc/letsencrypt/live/$domain/privkey.pem"
   [[ -s "$cert" && -s "$key" ]] || fail "файлы сертификата не найдены"
@@ -560,9 +599,8 @@ refresh_nginx_https(){
 refresh_stream_config(){
   local domain panel_domain
   domain="$(read_state_value domain)"
-  panel_domain="$(read_state_value panel_domain)"
   [[ -n "$domain" ]] || fail "HTTPS ещё не настроен"
-  panel_domain="${panel_domain:-$domain}"
+  panel_domain="$(read_effective_panel_domain "$domain")"
   ensure_stream_include
   write_stream_config "127.0.0.1:$PLACEHOLDER_TLS_INTERNAL_PORT" "$domain" "$panel_domain"
   nginx -t
