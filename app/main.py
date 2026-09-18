@@ -171,7 +171,8 @@ COUNTRY_NAMES = dict(COUNTRY_OPTIONS)
 
 
 # SG_GATEWAY_02206_AWG_ONLY_PROTOCOLS_V3
-_CLIENT_SUBSCRIPTION_SOURCES = {"mihomo", "anytls", "tuic", "sgnet"}\n
+_CLIENT_SUBSCRIPTION_SOURCES = {"mihomo", "anytls", "tuic", "sgnet"}
+
 
 def _prepare_client_protocols(values) -> list[str]:
     # Add SG Client only when at least one subscription source is selected.
