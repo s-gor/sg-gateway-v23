@@ -55,6 +55,7 @@ def test_test_candidate_rejects_validation_failure(monkeypatch, tmp_path):
 
 
 def test_apply_restores_previous_config_after_restart_failure(monkeypatch, tmp_path):
+    monkeypatch.setattr(runtime, "_refresh_single_edge", lambda script=runtime.DEFAULT_EDGE_REFRESH: None)
     config_path = tmp_path / "sgnet.json"
     previous_path = tmp_path / "sgnet.json.previous"
     candidate = tmp_path / "sgnet.json.new"
@@ -87,6 +88,7 @@ def test_apply_restores_previous_config_after_restart_failure(monkeypatch, tmp_p
 
 
 def test_disabled_apply_stops_service_without_writing_config(monkeypatch, tmp_path):
+    monkeypatch.setattr(runtime, "_refresh_single_edge", lambda script=runtime.DEFAULT_EDGE_REFRESH: None)
     monkeypatch.setattr(runtime, "get_connection_settings", lambda engine: _settings(False))
     monkeypatch.setattr(runtime, "_service_active", lambda service=runtime.DEFAULT_SERVICE: False)
     commands = []
