@@ -121,4 +121,4 @@ def list_connections(*, settings_map=None) -> list[ConnectionSummary]:
 
     # AWG2/AWG3 are retired. Their legacy settings/credentials may remain in
     # old backups, but they are deliberately absent from the Connections UI.
-    return [awg31, xray, mihomo, sgnet]\n
+    return [awg31, xray, mihomo, sgnet]
