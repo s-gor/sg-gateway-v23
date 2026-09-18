@@ -16,6 +16,7 @@ DEFAULT_CONFIG = Path("/etc/sg-gateway/sgnet.json")
 DEFAULT_PREVIOUS = Path("/etc/sg-gateway/sgnet.json.previous")
 DEFAULT_HEALTH_SOCKET = Path("/run/sg-gateway/sgnet.sock")
 DEFAULT_SERVICE = "sg-gateway-sgnet.service"
+DEFAULT_EDGE_REFRESH = Path("/opt/sg-gateway/deploy/configure-panel-access.sh")
 
 
 class SgNetRuntimeError(RuntimeError):
@@ -112,6 +113,14 @@ def _atomic_write(path: Path, payload: dict) -> Path:
     return path
 
 
+def _refresh_single_edge(script: Path = DEFAULT_EDGE_REFRESH) -> None:
+    if not script.is_file():
+        raise SgNetRuntimeError("Single Edge refresh script is unavailable")
+    result = _run([str(script), "--mode", "refresh"], timeout=120)
+    if result.returncode != 0:
+        raise SgNetRuntimeError("Single Edge refresh failed")
+
+
 def _service_active(service: str = DEFAULT_SERVICE) -> bool:
     return _run(["systemctl", "is-active", "--quiet", service], timeout=10).returncode == 0
 
@@ -193,6 +202,7 @@ def apply(
         stop = _run(["systemctl", "stop", service], timeout=30)
         if stop.returncode != 0:
             raise SgNetRuntimeError("Failed to stop disabled SG-Net service")
+        _refresh_single_edge()
         return {"ok": True, "enabled": False, "message": "SG-Net disabled"}
 
     _atomic_write(candidate_path, build_runtime_document())
@@ -212,6 +222,7 @@ def apply(
         if restart.returncode != 0:
             raise SgNetRuntimeError("Failed to restart SG-Net service")
         payload = _health(health_socket)
+        _refresh_single_edge()
         return {
             "ok": True,
             "enabled": True,
