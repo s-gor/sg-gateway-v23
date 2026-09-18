@@ -659,30 +659,24 @@ https_state() {
   local runtime_file="$CONFIG_DIR/runtime.env"
   local panel_port
   panel_port="$(env_value "$runtime_file" SG_GATEWAY_PANEL_PORT 2>/dev/null || true)"
-  python3 - "$state_file" "$DATA_DIR/security/tls-request.json" "$panel_port" <<'PYHTTPS'
+  python3 - "$state_file" "$panel_port" <<'PYHTTPS'
 import json
 import shlex
 import sys
 from pathlib import Path
 
 state_path = Path(sys.argv[1])
-request_path = Path(sys.argv[2])
-panel_port = str(sys.argv[3] or "").strip()
+panel_port = str(sys.argv[2] or "").strip()
 payload = {}
-request_payload = {}
 try:
     payload = json.loads(state_path.read_text(encoding="utf-8"))
 except Exception:
     payload = {}
-try:
-    request_payload = json.loads(request_path.read_text(encoding="utf-8"))
-except Exception:
-    request_payload = {}
 
 ready = bool(payload.get("https_ready"))
 domain = str(payload.get("domain") or "").strip().lower().rstrip(".")
-panel_domain = str(payload.get("panel_domain") or request_payload.get("panel_domain") or domain).strip().lower().rstrip(".")
-panel_edge_443 = bool(panel_domain and panel_domain != domain)
+panel_domain = domain
+panel_edge_443 = False
 cert = str(payload.get("certificate_path") or "").strip()
 key = str(payload.get("key_path") or "").strip()
 public_port = str(payload.get("public_port") or payload.get("panel_port") or panel_port or "").strip()
