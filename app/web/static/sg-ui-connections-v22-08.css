@@ -307,3 +307,34 @@ body.page-connections .cnv1-compact-protocol-warning {
   }
   body.page-connections .cnv1-compact-protocol-port { position: static; }
 }
+
+
+/* V23: compact NaiveProxy action sits beside the HTTPS domain. */
+body.page-connections .naiveproxy-endpoint-row {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+}
+body.page-connections .naiveproxy-endpoint-copy {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+body.page-connections .naiveproxy-endpoint-copy > span {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+body.page-connections .naiveproxy-endpoint-row .button {
+  min-height: 42px;
+  justify-content: center;
+}
+@media (max-width: 620px) {
+  body.page-connections .naiveproxy-endpoint-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  body.page-connections .naiveproxy-endpoint-row .button {
+    width: 100%;
+  }
+}
