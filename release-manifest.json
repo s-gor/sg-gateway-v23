@@ -655,5 +655,53 @@
       "packet-up"
     ],
     "xhttp_vision": true
+  },
+  "sgnet": {
+    "engine": "sgnet",
+    "protocol_version": 1,
+    "runtime_version": "0.1.0",
+    "runtime_language": "go",
+    "public_tcp_port": 443,
+    "internal_listener": "127.0.0.1:10448",
+    "service": "sg-gateway-sgnet.service",
+    "binary": "/usr/local/bin/sgnet-server",
+    "config": "/etc/sg-gateway/sgnet.json",
+    "transports": [
+      "sg-tls"
+    ],
+    "binary_delivery": "prebuilt-release-artifact-required-before-production",
+    "production_files": [
+      "app/clients/access.py",
+      "app/clients/exports.py",
+      "app/clients/repository.py",
+      "app/clients/sg_subscription.py",
+      "app/connections/service.py",
+      "app/db.py",
+      "app/engines/provisioning.py",
+      "app/main.py",
+      "app/production.py",
+      "app/sgnet/__init__.py",
+      "app/sgnet/config.py",
+      "app/sgnet/credentials.py",
+      "app/sgnet/http.py",
+      "app/sgnet/service.py",
+      "app/single_edge.py",
+      "deploy/configure-panel-access.sh",
+      "deploy/install-core.sh",
+      "deploy/sg-gateway-sgnet.service",
+      "deploy/update-from-github-core.sh",
+      "hostd/sg_hostd/commands.py",
+      "hostd/sg_hostd/sgnet_runtime.py",
+      "runtime/sgnet/go.mod",
+      "runtime/sgnet/cmd/sgnet-server/main.go",
+      "runtime/sgnet/internal/auth/auth.go",
+      "runtime/sgnet/internal/config/config.go",
+      "runtime/sgnet/internal/health/health.go",
+      "runtime/sgnet/internal/protocol/frame.go",
+      "runtime/sgnet/internal/relay/tcp.go",
+      "runtime/sgnet/internal/relay/udp.go",
+      "runtime/sgnet/internal/server/server.go",
+      "runtime/sgnet/internal/session/session.go"
+    ]
   }
 }
