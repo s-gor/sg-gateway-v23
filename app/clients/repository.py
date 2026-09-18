@@ -1108,7 +1108,8 @@ def snapshot_client(client_id: int) -> ClientSnapshot | None:
 
 
 def restore_client_snapshot(snapshot: ClientSnapshot) -> bool:
-    init_db()
+    # Snapshot rollback runs against an already initialized database. Re-running
+    # init_db() here can mutate unrelated credentials through global migrations.
     with connect() as connection:
         connection.execute(
             """
