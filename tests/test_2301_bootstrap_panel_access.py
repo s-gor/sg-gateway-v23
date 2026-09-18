@@ -87,3 +87,20 @@ def test_protocol_domain_placeholder_redirects_stale_panel_paths_to_panel_host()
     assert https_site.count('return 308 https://$panel_domain\\$request_uri;') >= 3
     assert 'location = / { try_files /index.html =404;' in https_site
     assert 'location = /index.html { try_files /index.html =404;' in https_site
+
+
+def test_panel_domain_recovery_prefers_state_then_request_then_certificate_san():
+    access = (ROOT / "deploy/configure-panel-access.sh").read_text(encoding="utf-8")
+    assert 'REQUEST_FILE="$STATE_DIR/tls-request.json"' in access
+    assert 'read_effective_panel_domain(){' in access
+    assert 'payload.get("panel_domain")' in access
+    assert 'DNS:([^,\\s]+)' in access
+    refresh = access[access.index("refresh_nginx_https(){"):access.index("refresh_stream_config(){")]
+    assert 'panel_domain="$(read_effective_panel_domain "$domain")"' in refresh
+
+
+def test_updater_recovers_panel_domain_from_tls_request():
+    core = (ROOT / "deploy/update-from-github-core.sh").read_text(encoding="utf-8")
+    assert '"$DATA_DIR/security/tls-request.json"' in core
+    assert 'request_payload.get("panel_domain")' in core
+    assert 'panel_edge_443 = bool(panel_domain and panel_domain != domain)' in core
