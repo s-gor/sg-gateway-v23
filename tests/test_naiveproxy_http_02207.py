@@ -136,7 +136,8 @@ def test_connections_uses_native_naiveproxy_panel_after_legacy_content(monkeypat
     assert template.index('_naiveproxy_panel.html') < template.index("cnv1-note-panel")
     assert panel.count('id="sg-naiveproxy-settings"') == 1
     assert "data-naive-host" in panel
-    assert "data-naive-endpoint" in panel
+    assert "data-naive-endpoint" not in panel
+    assert "naiveproxy-endpoint-row" in panel
     assert "data-naive-port" not in panel
     assert "data-naive-runtime" not in panel
     assert "'/api/naiveproxy/status'" in panel
