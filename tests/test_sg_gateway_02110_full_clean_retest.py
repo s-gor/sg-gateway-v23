@@ -113,7 +113,7 @@ curl() {{
     esac
   done
   if [[ \"$url\" == \"http://example.test/security\" ]]; then
-    printf 'HTTP/1.1 308 Permanent Redirect\\r\\nLocation: https://example.test/security\\r\\n\\r\\n'; return 0
+    printf 'HTTP/1.1 308 Permanent Redirect\\r\\nLocation: https://example.test:63443/security\\r\\n\\r\\n'; return 0
   fi
   count=0; [[ ! -f \"$COUNTER\" ]] || count=\"$(cat \"$COUNTER\")\"
   count=$((count+1)); printf '%s' \"$count\" > \"$COUNTER\"
@@ -132,7 +132,7 @@ verify_https_contract example.test
 """
     result = subprocess.run(["bash", "-c", harness], text=True, capture_output=True)
     assert result.returncode == 0, result.stderr + result.stdout
-    assert "HTTP example.test → HTTPS example.test: OK" in result.stdout
+    assert "HTTP example.test → HTTPS example.test:63443: OK" in result.stdout
     assert "HTTPS 443 fallback: OK" in result.stdout
     assert "Панель HTTPS example.test:63443: OK" in result.stdout
 
