@@ -675,6 +675,8 @@ except Exception:
 
 ready = bool(payload.get("https_ready"))
 domain = str(payload.get("domain") or "").strip().lower().rstrip(".")
+panel_domain = str(payload.get("panel_domain") or domain).strip().lower().rstrip(".")
+panel_edge_443 = bool(panel_domain and panel_domain != domain and payload.get("panel_edge_443") is True)
 cert = str(payload.get("certificate_path") or "").strip()
 key = str(payload.get("key_path") or "").strip()
 public_port = str(payload.get("public_port") or payload.get("panel_port") or panel_port or "").strip()
@@ -688,6 +690,8 @@ if ready:
 for name, value in (
     ("HTTPS_READY", "1" if ready else "0"),
     ("HTTPS_DOMAIN", domain),
+    ("PANEL_DOMAIN", panel_domain),
+    ("PANEL_EDGE_443", "1" if panel_edge_443 else "0"),
     ("HTTPS_CERT", cert),
     ("HTTPS_KEY", key),
     ("PANEL_PORT", public_port or panel_port),
@@ -1563,25 +1567,17 @@ run_udp443_compat_migration() {
   "$PREFIX/.venv/bin/python" -B -m app.maintenance.udp443_compat
 }
 
-repair_managed_nginx_if_needed() {
-  if nginx -t >/dev/null 2>&1; then
-    return 0
-  fi
-
+refresh_managed_nginx(){
   local state
   state="$(https_state)"
   eval "$state"
-  [[ "${HTTPS_READY:-0}" == "1" && -n "${HTTPS_DOMAIN:-}" ]] || \
-    fail "Nginx on-disk config is invalid and HTTPS state is unavailable for managed repair"
-  [[ -x "$PREFIX/deploy/configure-panel-access.sh" ]] || \
-    fail "managed Nginx repair helper is unavailable"
-
-  printf '[SG-Gateway Update] Existing managed Nginx config is invalid; rebuilding Single Edge stream routing.\n'
-  "$PREFIX/deploy/configure-panel-access.sh" --mode stream-refresh
+  [[ "${HTTPS_READY:-0}" == "1" && -n "${HTTPS_DOMAIN:-}" ]] || return 0
+  [[ -x "$PREFIX/deploy/configure-panel-access.sh" ]] || fail "managed Nginx refresh helper is unavailable"
+  printf '[SG-Gateway Update] Rebuilding managed HTTPS/Single Edge Nginx config from current source.\n'
+  "$PREFIX/deploy/configure-panel-access.sh" --mode nginx-refresh
   nginx -t >/dev/null
   NGINX_REPAIRED=1
 }
-
 verify_final() {
   local before after
   local protected_paths=()
@@ -1608,10 +1604,8 @@ verify_final() {
     "$NGINX_SITE_AVAILABLE" \
     "$NGINX_SITE_ENABLED" \
     "$NGINX_STREAM_CONFIG")"
-  if (( NGINX_REPAIRED == 1 )); then
-    [[ "$before" != "$after" ]] || fail "managed Nginx repair did not change the invalid configuration"
-  else
-    [[ "$before" == "$after" ]] || fail "Nginx configuration changed during Update"
+  if (( NGINX_REPAIRED == 0 )); then
+    [[ "$before" == "$after" ]] || fail "Nginx configuration changed outside managed refresh"
   fi
 
   cmp -s "$PREFIX/deploy/sg-gateway-awg3.service" "$AWG3_UNIT" || \
@@ -1625,9 +1619,15 @@ verify_final() {
   # shellcheck disable=SC1090
   source "$BACKUP_DIR/https-before.env"
   if [[ "${HTTPS_READY:-0}" == "1" ]]; then
-    curl --noproxy '*' -fsS --max-time 15 \
-      --resolve "${HTTPS_DOMAIN}:${PANEL_PORT}:127.0.0.1" \
-      "https://${HTTPS_DOMAIN}:${PANEL_PORT}/health" >/dev/null
+    if [[ "${PANEL_EDGE_443:-0}" == "1" && -n "${PANEL_DOMAIN:-}" ]]; then
+      curl --noproxy '*' -fsS --max-time 15 \
+        --resolve "${PANEL_DOMAIN}:443:127.0.0.1" \
+        "https://${PANEL_DOMAIN}/health" >/dev/null
+    else
+      curl --noproxy '*' -fsS --max-time 15 \
+        --resolve "${HTTPS_DOMAIN}:${PANEL_PORT}:127.0.0.1" \
+        "https://${HTTPS_DOMAIN}:${PANEL_PORT}/health" >/dev/null
+    fi
   else
     curl -fsS --max-time 8 "http://127.0.0.1:${PANEL_PORT}/health" >/dev/null
   fi
@@ -1734,7 +1734,7 @@ main() {
   run_stage 4 "Python/UI проверка без изменения runtime" validate_deployed_panel
   run_stage 5 "Перезапуск только panel + hostd" restart_panel
   run_stage 6 "AWG31 Stage3A migration внутри Update transaction" run_stage3a_migration
-  run_stage 7 "Repair managed Nginx Single Edge config if needed" repair_managed_nginx_if_needed
+  run_stage 7 "Обновление managed Nginx HTTPS/Single Edge" refresh_managed_nginx
   run_stage 8 "Проверка HTTPS, credentials, Nginx и runtime" verify_final
   run_stage 9 "UDP/443 Hysteria2/TUIC compatibility migration" run_udp443_compat_migration
   run_stage 10 "UDP/443 edge service rollout" ensure_udp_edge_service
