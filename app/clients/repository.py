@@ -22,8 +22,9 @@ SUPPORTED_ENGINES = (
     "anytls",
     "tuic",
     "sgclient",
+    "sgnet",
 )
-RUNTIME_ENGINES = ("amneziawg", "amneziawg3", "xray", "mihomo", "anytls", "tuic")
+RUNTIME_ENGINES = ("amneziawg", "amneziawg3", "xray", "mihomo", "anytls", "tuic", "sgnet")
 XRAY_PROFILE_TOKENS = {
     "xray_reality_tcp": "reality_tcp",
     "xray_xhttp_reality": "xhttp_reality",
@@ -31,7 +32,7 @@ XRAY_PROFILE_TOKENS = {
     "xray_hysteria2": "hysteria2",
 }
 DEFAULT_XRAY_PROFILES = ("reality_tcp", "xhttp_reality")
-TLS_PROTOCOL_TOKENS = {"xray_xhttp_tls", "xray_hysteria2", "anytls", "tuic"}
+TLS_PROTOCOL_TOKENS = {"xray_xhttp_tls", "xray_hysteria2", "anytls", "tuic", "sgnet"}
 
 
 @dataclass(frozen=True)
@@ -46,6 +47,7 @@ class Client:
     anytls_status: str = "missing"
     tuic_status: str = "missing"
     sgclient_status: str = "missing"
+    sgnet_status: str = "missing"
     device_count: int = 0
     active_device_count: int = 0
     awg3_status: str = "missing"
@@ -336,6 +338,7 @@ def _client_from_row(connection, row) -> Client:
         anytls_status=_aggregate_status(credentials, "anytls"),
         tuic_status=_aggregate_status(credentials, "tuic"),
         sgclient_status=_aggregate_status(credentials, "sgclient"),
+        sgnet_status=_aggregate_status(credentials, "sgnet"),
         device_count=len(devices),
         active_device_count=sum(1 for item in devices if bool(item["enabled"])),
     )
