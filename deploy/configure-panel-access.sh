@@ -141,11 +141,44 @@ EOF
 }
 write_https_site(){
   local domain="$1" panel_domain="$2" cert="$3" key="$4"
-  local cookie_security_directive="$(nginx_cookie_security_directive)" bootstrap_listener=""
-  if [[ "$panel_domain" == "$domain" ]]; then
-    bootstrap_listener="$(cat <<EOFBOOT
-$bootstrap_listener
-EOFBOOT
+  local cookie_security_directive="$(nginx_cookie_security_directive)"
+  local public_port_server=""
+  if [[ "$panel_domain" != "$domain" ]]; then
+    public_port_server="$(cat <<EOFPORT
+server {
+    listen $PUBLIC_PORT ssl;
+    listen [::]:$PUBLIC_PORT ssl;
+    server_name $domain $panel_domain;
+    ssl_certificate $cert;
+    ssl_certificate_key $key;
+    ssl_session_cache shared:SG_GATEWAY_PANEL_REDIRECT_TLS:1m;
+    return 308 https://$panel_domain\$request_uri;
+}
+EOFPORT
+)"
+  else
+    public_port_server="$(cat <<EOFPORT
+server {
+    listen $PUBLIC_PORT ssl;
+    listen [::]:$PUBLIC_PORT ssl;
+    server_name $domain;
+    ssl_certificate $cert;
+    ssl_certificate_key $key;
+    ssl_session_cache shared:SG_GATEWAY_PANEL_TLS:5m;
+    location / {
+        proxy_pass http://127.0.0.1:$BACKEND_PORT;
+        proxy_http_version 1.1;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection "upgrade";
+        $cookie_security_directive
+        proxy_read_timeout 120s;
+    }
+}
+EOFPORT
 )"
   fi
   cat > "$NGINX_CONF" <<EOF
@@ -191,7 +224,6 @@ server {
     add_header X-Content-Type-Options "nosniff" always;
     add_header X-Frame-Options "SAMEORIGIN" always;
     add_header Referrer-Policy "strict-origin-when-cross-origin" always;
-    # SG_GATEWAY_02111_RESTORE_RESTART_PAGE_FIX
     error_page 502 503 504 =200 /__sg_gateway_restarting;
     location = /__sg_gateway_restarting {
         internal;
@@ -200,7 +232,6 @@ server {
         default_type text/html;
         add_header Cache-Control "no-store" always;
     }
-    # SG_GATEWAY_FULL_BACKUP_UPLOAD_FIX1
     location = /maintenance/full-backups/restore {
         client_max_body_size 0;
         proxy_pass http://127.0.0.1:$BACKEND_PORT;
@@ -225,26 +256,7 @@ server {
         proxy_read_timeout 120s;
     }
 }
-server {
-    listen $PUBLIC_PORT ssl;
-    listen [::]:$PUBLIC_PORT ssl;
-    server_name $panel_domain;
-    ssl_certificate $cert;
-    ssl_certificate_key $key;
-    ssl_session_cache shared:SG_GATEWAY_PANEL_TLS:5m;
-    location / {
-        proxy_pass http://127.0.0.1:$BACKEND_PORT;
-        proxy_http_version 1.1;
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto https;
-        proxy_set_header Upgrade \$http_upgrade;
-        proxy_set_header Connection "upgrade";
-        $cookie_security_directive
-        proxy_read_timeout 120s;
-    }
-}
+$public_port_server
 EOF
   rm -f "$ACME_LINK" "$ACME_CONF" /etc/nginx/sites-enabled/default
   ln -sfn "$NGINX_CONF" "$NGINX_LINK"
@@ -284,6 +296,18 @@ wait_panel_contract(){
   fail "панель не отвечает на $panel_domain:$port после перезагрузки Nginx (HTTP ${code:-000})"
 }
 
+wait_bootstrap_redirect_contract(){
+  local source_domain="$1" panel_domain="$2" result="" attempt
+  for attempt in $(seq 1 30); do
+    result="$(curl --noproxy '*' -ksS --max-time 5       --resolve "$source_domain:$PUBLIC_PORT:127.0.0.1"       -o /dev/null -D -       "https://$source_domain:$PUBLIC_PORT/security" 2>/dev/null       | awk 'BEGIN{IGNORECASE=1} /^HTTP\// {code=$2} /^Location:/ {sub(/\r$/,"",$2); location=$2} END{print code "|" location}')"
+    if [[ "$result" == "308|https://$panel_domain/security" ]]; then
+      log "Bootstrap redirect $source_domain:$PUBLIC_PORT → $panel_domain:443: OK"
+      return 0
+    fi
+    sleep 1
+  done
+  fail "bootstrap redirect на $PUBLIC_PORT не готов"
+}
 verify_https_contract(){
   local domain="$1" panel_domain="${2:-$1}"
   # systemctl reload returns before every old worker has exited. During that
@@ -292,6 +316,7 @@ verify_https_contract(){
   wait_placeholder_contract https 443 "$domain" "HTTPS 443 fallback"
   if [[ "$panel_domain" != "$domain" ]]; then
     wait_panel_contract "$panel_domain" 443
+    wait_bootstrap_redirect_contract "$domain" "$panel_domain"
     grep -Fq "$panel_domain 127.0.0.1:$PANEL_TLS_INTERNAL_PORT;" "$STREAM_CONF" || fail "SNI панели не направлен на внутренний TLS listener"
   else
     wait_panel_contract "$domain" "$PUBLIC_PORT"
