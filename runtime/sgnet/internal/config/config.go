@@ -1,6 +1,9 @@
 package config
 
 import (
+	"crypto/tls"
+	"crypto/x509"
+	"encoding/pem"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -89,6 +92,29 @@ func (c Config) Validate() error {
 	}
 	return nil
 }
+
+func (c Config) ValidateTLSIdentity() error {
+	if _, err := tls.LoadX509KeyPair(c.TLS.Certificate, c.TLS.PrivateKey); err != nil {
+		return fmt.Errorf("invalid tls certificate/key pair: %w", err)
+	}
+	raw, err := os.ReadFile(c.TLS.Certificate)
+	if err != nil {
+		return fmt.Errorf("read tls certificate: %w", err)
+	}
+	block, _ := pem.Decode(raw)
+	if block == nil || block.Type != "CERTIFICATE" {
+		return errors.New("invalid tls certificate pem")
+	}
+	cert, err := x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		return fmt.Errorf("parse tls certificate: %w", err)
+	}
+	if err := cert.VerifyHostname(c.TLS.ServerName); err != nil {
+		return fmt.Errorf("tls certificate does not match server_name: %w", err)
+	}
+	return nil
+}
+
 
 func (d Device) SecretBytes() ([]byte, error) {
 	return base64.RawURLEncoding.DecodeString(d.Secret)
