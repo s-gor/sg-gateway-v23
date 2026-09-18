@@ -1604,7 +1604,7 @@ def create_app() -> Flask:
 
     @app.get("/connections")
     def connections():
-        settings_map = list_connection_settings(("xray", "mihomo", "amneziawg31", "sgnet"))
+        settings_map = list_connection_settings(("xray", "mihomo", "amneziawg31"))
         return render_template(
             "connections.html",
             active_page="connections",
@@ -1613,6 +1613,7 @@ def create_app() -> Flask:
             xray_settings=settings_map["xray"],
             xray_profiles=xray_profiles_overview(),
             mihomo=mihomo_overview(),
+            sgnet=sgnet_overview(),
             client_total=count_clients(),
         )
 
@@ -1624,7 +1625,7 @@ def create_app() -> Flask:
             flash(f"SG-Net: {exc}", "error")
             return redirect(url_for("connections") + "#sgnet")
 
-        action = request.form.get("action", "save").strip().lower()
+        action = request.form.get("sgnet_action", "save").strip().lower()
         if action == "save":
             flash("Настройки SG-Net сохранены.", "success")
             return redirect(url_for("connections") + "#sgnet")
