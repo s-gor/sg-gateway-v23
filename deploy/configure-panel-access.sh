@@ -379,7 +379,7 @@ EOF
   if [[ -s "$cert_file" && -s "$key_file" ]] \
       && openssl x509 -checkend 604800 -noout -in "$cert_file" >/dev/null 2>&1 \
       && openssl x509 -checkhost "$PANEL_HOST" -noout -in "$cert_file" >/dev/null 2>&1; then
-    log "Использую существующий сертификат для обоих доменов"
+    log "Использую существующий сертификат"
   else
     if [[ "$PANEL_HOST" == "$HOST" ]]; then
       certbot certonly --webroot -w "$ACME_ROOT" --cert-name "$HOST" --domain "$HOST" --register-unsafely-without-email --agree-tos --non-interactive --keep-until-expiring
