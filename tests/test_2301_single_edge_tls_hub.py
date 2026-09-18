@@ -32,14 +32,14 @@ def test_shared_tls_hub_uses_placeholder_not_panel_gateway():
     assert "$cookie_security_directive" in access
 
 
-def test_panel_https_is_separate_from_shared_443():
+def test_panel_https_can_share_443_with_a_separate_sni():
     access = (ROOT / "deploy/configure-panel-access.sh").read_text(encoding="utf-8")
-    assert 'CONFIGURED_PUBLIC_PORT="$(get_env "$ENV_FILE" SG_GATEWAY_PUBLIC_PORT 63443)"' in access
-    assert 'case "$PUBLIC_PORT" in 22|80|443|' in access
-    assert '"https://$domain:$PUBLIC_PORT/health"' in access
-    assert 'log "Панель HTTPS $PUBLIC_PORT: OK"' in access
-    assert 'log "Панель: https://$HOST:$PUBLIC_PORT/"' in access
-    assert 'log "Заглушка: http://$HOST/ и https://$HOST/"' in access
+    assert 'PANEL_TLS_INTERNAL_PORT="7445"' in access
+    assert '$panel_domain 127.0.0.1:$PANEL_TLS_INTERNAL_PORT;' in access
+    assert 'listen 127.0.0.1:$PANEL_TLS_INTERNAL_PORT ssl;' in access
+    assert 'wait_panel_contract "$panel_domain" 443' in access
+    assert 'log "Панель: https://$PANEL_HOST/"' in access
+    assert '--panel-host' in access
 
 
 def test_https_bootstraps_shared_tls_edge_before_verification():
@@ -91,18 +91,19 @@ def test_refresh_uses_explicit_domain_and_updater_self_heals_managed_stream_conf
     access = (ROOT / "deploy/configure-panel-access.sh").read_text(encoding="utf-8")
     updater = (ROOT / "deploy/update-from-github-core.sh").read_text(encoding="utf-8")
 
-    assert 'write_stream_config(){ local default_backend="$1" domain="$2";' in access
+    assert 'write_stream_config(){' in access
     assert '$domain 127.0.0.1:$TLS_EDGE_INTERNAL_PORT;' in access
+    assert '$panel_domain 127.0.0.1:$PANEL_TLS_INTERNAL_PORT;' in access
 
     configure = access[access.index("configure_https(){"):access.index("refresh_https(){")]
-    assert 'write_stream_config "127.0.0.1:$PLACEHOLDER_TLS_INTERNAL_PORT" "$HOST"' in configure
+    assert 'write_stream_config "127.0.0.1:$PLACEHOLDER_TLS_INTERNAL_PORT" "$HOST" "$PANEL_HOST"' in configure
 
     refresh = access[access.index("refresh_https(){"):access.index("refresh_stream_config(){")]
-    assert 'write_stream_config "127.0.0.1:$PLACEHOLDER_TLS_INTERNAL_PORT" "$domain"' in refresh
+    assert 'write_stream_config "127.0.0.1:$PLACEHOLDER_TLS_INTERNAL_PORT" "$domain" "$panel_domain"' in refresh
 
     assert 'refresh_stream_config(){' in access
     stream_refresh = access[access.index("refresh_stream_config(){"):access.index("renew_https(){")]
-    assert 'write_stream_config "127.0.0.1:$PLACEHOLDER_TLS_INTERNAL_PORT" "$domain"' in stream_refresh
+    assert 'write_stream_config "127.0.0.1:$PLACEHOLDER_TLS_INTERNAL_PORT" "$domain" "$panel_domain"' in stream_refresh
     assert "bootstrap_tls_edge" not in stream_refresh
     assert "apply_client_runtime" not in stream_refresh
     assert 'stream-refresh) refresh_stream_config' in access
