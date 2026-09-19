@@ -192,6 +192,10 @@
             <summary class="button">QR</summary>
             <div class="dv16-qr-popover">
               <button type="button" aria-label="Закрыть QR" onclick="this.closest('details').removeAttribute('open')">×</button>
+              <div class="sg-smart-qr-meta">
+                <strong>OpenWrt · HomeProxy SUB</strong>
+                <small>{{ display_name }} · подписка устройства</small>
+              </div>
               <img src="{{ subscription.qr_url }}" alt="QR подписки {{ display_name }}">
             </div>
           </details>
@@ -260,6 +264,10 @@
                 <summary class="button">{{ 'QR · Mieru' if card.kind == 'mihomo' else 'QR' }}</summary>
                 <div class="dv16-qr-popover">
                   <button type="button" aria-label="Закрыть QR" onclick="this.closest('details').removeAttribute('open')">×</button>
+                  <div class="sg-smart-qr-meta">
+                    <strong>{{ card.title }}</strong>
+                    <small>{{ display_name }} · сканируйте в приложении</small>
+                  </div>
                   <img src="{{ card.qr_url }}" alt="QR {{ card.title }}">
                 </div>
               </details>
@@ -272,6 +280,10 @@
                 <summary class="button">QR · iPhone</summary>
                 <div class="dv16-qr-popover">
                   <button type="button" aria-label="Закрыть QR · iPhone" onclick="this.closest('details').removeAttribute('open')">×</button>
+                  <div class="sg-smart-qr-meta">
+                    <strong>Mieru JSON · iPhone</strong>
+                    <small>{{ display_name }} · сканируйте в приложении</small>
+                  </div>
                   <img src="{{ card.secondary_qr_url }}" alt="QR Mieru JSON · iPhone">
                 </div>
               </details>
