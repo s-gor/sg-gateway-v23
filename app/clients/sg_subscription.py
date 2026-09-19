@@ -222,12 +222,14 @@ def build_keenetic_subscription_body(client: Client, device_id: int) -> str:
     return "\n".join(links) + ("\n" if links else "")
 
 
-def _base_profile_name(profile: dict) -> str:
+def _base_profile_name(profile: dict, device: dict) -> str:
     profile_id = str(profile.get("id") or "")
-    for spec in _PROFILE_SPECS:
-        if spec[0] == profile_id:
-            return str(spec[3])
-    return str(profile.get("name") or profile_id or "Профиль")
+    name = str(profile.get("name") or profile_id or "Профиль")
+    device_name = _subscription_device_name(device)
+    prefix = f"{device_name} · " if device_name else ""
+    if prefix and name.startswith(prefix):
+        return name[len(prefix):]
+    return name
 
 
 def _subscription_label(client_name: str, device: dict, profile_name: str) -> str:
@@ -284,7 +286,7 @@ def _ready_uri_lines(document: dict) -> list[str]:
             label = _subscription_label(
                 client_name,
                 device,
-                _base_profile_name(profile),
+                _base_profile_name(profile, device),
             )
             lines.append(_with_fragment(str(profile["uri"]), label))
     return lines
@@ -334,7 +336,7 @@ def build_sg_subscription_text(client: Client) -> str:
                 label = _subscription_label(
                     client.name,
                     device,
-                    _base_profile_name(profile),
+                    _base_profile_name(profile, device),
                 )
                 lines.append(_with_fragment(str(profile["uri"]), label))
             elif profile.get("format") == "config" and profile.get("config"):
