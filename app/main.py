@@ -22,7 +22,7 @@ from app.clients.exports import (
 from app.clients.qr import ClientQrError, build_qr_svg
 from app.clients.awg31_stage2 import register_awg31
 from app.clients.runtime import ClientWorkflowError, apply_clients_runtime
-from app.clients.sg_subscription_http_v4 import register_sg_subscription
+from app.clients.sg_subscription_store import build_sg_device_subscription_url
 from app.clients.repository import (
     count_clients,
     client_activity_counts,
@@ -719,7 +719,6 @@ def create_app() -> Flask:
 
     init_db()
     register_awg31(app)
-    register_sg_subscription(app)
 
     @app.before_request
     def protect_panel():
@@ -1255,6 +1254,7 @@ def create_app() -> Flask:
                 "device": device,
                 "access_cards": build_access_cards(client, device, xray_state=xray_state),
                 "protocol_tokens": deployment_access_tokens(deployments_by_device.get(device.id, [])),
+                "sg_subscription_universal_url": build_sg_device_subscription_url(client, device),
             }
             for device in devices
         ]
