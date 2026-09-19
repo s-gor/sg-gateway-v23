@@ -112,8 +112,8 @@
         </div>
       </header>
 
-      {% set device_subscription_universal = sg_device_subscription_universal_url(client, device) if client.enabled and device.enabled else '' %}
-      {% set device_subscription_native = sg_device_subscription_native_url(client, device) if device_subscription_universal else '' %}
+      {% set device_subscription_universal = view.sg_subscription_universal_url if client.enabled and device.enabled else '' %}
+      {% set device_subscription_native = (device_subscription_universal ~ '?format=sg') if device_subscription_universal else '' %}
       <section class="dv16-subscription sg-subscription-dual {{ 'state-applied' if device_subscription_universal and device_subscription_native else 'state-missing' }}" data-sg-device-subscription-v1>
         <div class="dv16-subscription-summary sg-subscription-dual-summary">
           <strong>Подписки устройства</strong>
@@ -141,7 +141,7 @@
                     <strong>{{ display_name }} · универсальная</strong>
                     <small>Сканируйте в приложении</small>
                   </div>
-                  <img src="{{ url_for('sg_device_subscription_v1_universal_qr', client_id=client.id, device_id=device.id) }}" alt="QR универсальной подписки {{ display_name }}">
+                  <img src="/clients/{{ client.id }}/devices/{{ device.id }}/sg-subscription-v1/qr/universal" alt="QR универсальной подписки {{ display_name }}">
                 </div>
               </details>
             </div>
@@ -161,7 +161,7 @@
                     <strong>{{ display_name }} · SG подписка</strong>
                     <small>Сканируйте в приложении</small>
                   </div>
-                  <img src="{{ url_for('sg_device_subscription_v1_qr', client_id=client.id, device_id=device.id) }}" alt="QR SG Subscription {{ display_name }}">
+                  <img src="/clients/{{ client.id }}/devices/{{ device.id }}/sg-subscription-v1/qr" alt="QR SG Subscription {{ display_name }}">
                 </div>
               </details>
             </div>
