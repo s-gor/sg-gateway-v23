@@ -162,6 +162,7 @@ html[data-theme="dark"] .r096-primary-button { border-color: var(--r096-accent-l
 .r096-rule-list .route-direct { background: var(--r096-accent-soft); color: var(--r096-accent); }
 .r096-rule-list .route-proxy { background: rgba(77, 184, 255, .13); color: #4DB8FF; }
 .r096-rule-list .route-block { background: rgba(240, 139, 164, .14); color: var(--r096-error); }
+.r096-rule-list .route-skip { background: var(--r096-soft); color: var(--r096-muted); border: 1px solid var(--r096-line); }
 .r096-empty { display: grid; place-items: center; min-height: 110px; margin-top: 12px; border: 1px dashed var(--r096-line); border-radius: 9px; color: var(--r096-muted); padding: 18px; text-align: center; font-size: 12px; }
 
 .r096-geofiles-summary { display: flex; justify-content: space-between; align-items: center; gap: 20px; }
