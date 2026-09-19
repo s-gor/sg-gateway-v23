@@ -159,6 +159,27 @@ def build_sg_subscription_document(client: Client) -> dict:
     }
 
 
+def build_sg_device_subscription_document(client: Client, device_id: int) -> dict | None:
+    document = build_sg_subscription_document(client)
+    device = next(
+        (item for item in document["devices"] if int(item.get("id") or 0) == int(device_id)),
+        None,
+    )
+    if device is None or not device.get("enabled"):
+        return None
+    profiles = list(device.get("profiles", []))
+    ready = sum(1 for item in profiles if item.get("ready"))
+    result = dict(document)
+    result["scope"] = "device"
+    result["devices"] = [device]
+    result["summary"] = {
+        "devices": 1,
+        "profiles_assigned": len(profiles),
+        "profiles_ready": ready,
+    }
+    return result
+
+
 def build_router_subscription_document(client: Client, device_id: int) -> dict | None:
     """Build the small device-scoped JSON contract used by router subscriptions."""
     document = build_sg_subscription_document(client)
@@ -302,6 +323,17 @@ def build_compatible_subscription_body(client: Client) -> str:
     return base64.b64encode(decoded.encode("utf-8")).decode("ascii")
 
 
+def build_compatible_device_subscription_body(client: Client, device_id: int) -> str:
+    document = build_sg_device_subscription_document(client, device_id)
+    if document is None:
+        return ""
+    lines = _ready_uri_lines(document)
+    decoded = "\n".join(lines)
+    if decoded:
+        decoded += "\n"
+    return base64.b64encode(decoded.encode("utf-8")).decode("ascii")
+
+
 def build_sg_subscription_text(client: Client) -> str:
     """Build the SG v1 human-readable envelope with URI and SG-CONFIG records."""
     document = build_sg_subscription_document(client)
@@ -342,4 +374,46 @@ def build_sg_subscription_text(client: Client) -> str:
             elif profile.get("format") == "config" and profile.get("config"):
                 lines.append(_config_marker(profile, device, client.name))
 
+    return "\n".join(lines) + "\n"
+
+
+def build_sg_device_subscription_text(client: Client, device_id: int) -> str:
+    document = build_sg_device_subscription_document(client, device_id)
+    if document is None:
+        return ""
+    summary = document["summary"]
+    lines = [
+        "# SG-SUBSCRIPTION/1",
+        "# scope=device",
+        f"# client-name={client.name}",
+        f"# devices={summary['devices']}",
+        f"# profiles-assigned={summary['profiles_assigned']}",
+        f"# profiles-ready={summary['profiles_ready']}",
+    ]
+    for device in document["devices"]:
+        lines.append(
+            "# SG-DEVICE "
+            + json.dumps(
+                {
+                    "id": device.get("id"),
+                    "name": _subscription_device_name(device),
+                    "primary": bool(device.get("primary")),
+                    "enabled": bool(device.get("enabled")),
+                },
+                ensure_ascii=False,
+                separators=(",", ":"),
+            )
+        )
+        for profile in device.get("profiles", []):
+            if not profile.get("ready"):
+                continue
+            if profile.get("format") == "uri" and profile.get("uri"):
+                label = _subscription_label(
+                    client.name,
+                    device,
+                    _base_profile_name(profile, device),
+                )
+                lines.append(_with_fragment(str(profile["uri"]), label))
+            elif profile.get("format") == "config" and profile.get("config"):
+                lines.append(_config_marker(profile, device, client.name))
     return "\n".join(lines) + "\n"
