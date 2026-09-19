@@ -43,7 +43,7 @@ def test_compact_protocol_polish_matches_mihomo_rail_and_removes_noise() -> None
     assert 'HTTPS proxy · TLS · порт' not in NAIVE
     assert 'data-naive-summary-port' not in NAIVE
     assert 'data-naive-port' not in NAIVE
-    assert 'data-naive-endpoint' in NAIVE
+    assert 'data-naive-endpoint' not in NAIVE
     assert 'padding-inline: var(--sg-ui-rail-inset, 18px);' in CSS
 
 
@@ -53,3 +53,20 @@ def test_naiveproxy_action_is_aligned_with_https_domain() -> None:
     assert 'data-naive-host' in row
     assert 'data-naive-submit' in NAIVE
     assert 'class="cnv1-compact-protocol-actions"' not in NAIVE
+
+
+def test_naiveproxy_helper_labels_are_removed() -> None:
+    assert "HTTPS-домен" not in NAIVE
+    assert "HTTPS настроен" not in NAIVE
+
+
+def test_compact_protocol_badges_are_unified_and_endpoint_has_no_separators() -> None:
+    assert "body.page-connections .mhv2-listener-icon," in CSS
+    assert "body.page-connections .cnv1-compact-protocol-icon" in CSS
+    assert "width: 40px;" in CSS
+    assert "height: 40px;" in CSS
+    assert "font-size: 11px;" in CSS
+    endpoint = CSS.split("body.page-connections .cnv1-compact-protocol-endpoint {", 1)[1].split("}", 1)[0]
+    assert "border: 0;" in endpoint
+    assert "border-top" not in endpoint
+    assert "border-bottom" not in endpoint
