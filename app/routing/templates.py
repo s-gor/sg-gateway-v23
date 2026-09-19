@@ -808,7 +808,7 @@ def _smart_outbound(action: str) -> str:
     return action if action in SMART_ACTIONS else "direct"
 
 
-def _smart_rule(title: str, action: str, *, domains=None, ips=None, missing=None) -> dict:
+def _smart_rule(title: str, action: str, *, domains=None, ips=None, missing=None, required: bool = True) -> dict:
     domains = list(domains or [])
     ips = list(ips or [])
     missing = list(missing or [])
@@ -822,7 +822,7 @@ def _smart_rule(title: str, action: str, *, domains=None, ips=None, missing=None
         "title": title,
         "action": action,
         "enabled": enabled,
-        "required": True,
+        "required": required,
         "selected_geosite": next((v[8:] for v in domains if v.startswith("geosite:")), None),
         "selected_geoip": next((v[6:] for v in ips if v.startswith("geoip:")), None),
         "missing": missing,
@@ -896,6 +896,7 @@ def _smart_build(state: dict) -> dict:
                 state["blocked_action"],
                 domains=[f"geosite:{category}"] if category else [],
                 missing=[] if category else ["geosite:ru-blocked"],
+                required=state["preset"] == "blocked_warp",
             )
         )
 
@@ -907,6 +908,7 @@ def _smart_build(state: dict) -> dict:
                 state["ads_action"],
                 domains=[f"geosite:{category}"] if category else [],
                 missing=[] if category else ["geosite:category-ads"],
+                required=state["preset"] == "ads_block",
             )
         )
 
@@ -961,17 +963,25 @@ def _smart_build(state: dict) -> dict:
             )
 
     missing = [item for item in rules if item["missing"]]
-    ready = not missing
+    required_missing = [item for item in missing if item.get("required", True)]
+    optional_missing = [item for item in missing if not item.get("required", True)]
+    ready = not required_missing
     enabled_rules = [
         item["xray_rule"]
         for item in rules
         if item["enabled"] and item["xray_rule"]
     ]
-    note = (
-        "Схема готова: семейство IP зафиксировано отдельно для каждого выбранного выхода"
-        if ready
-        else "Выбранный выход или категория сейчас недоступны"
-    )
+    if not ready:
+        note = "Обязательный выход или категория сейчас недоступны"
+    elif optional_missing:
+        note = (
+            "Схема готова: "
+            + str(len(optional_missing))
+            + " необязательное правило пропущено из-за отсутствующей категории"
+            + ("" if len(optional_missing) == 1 else " или выхода")
+        )
+    else:
+        note = "Схема готова: семейство IP зафиксировано отдельно для каждого выбранного выхода"
     return {
         "template_id": "smart-fix30-ip-family",
         "title": SMART_PRESET_TITLES[state["preset"]],
