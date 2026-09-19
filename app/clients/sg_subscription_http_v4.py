@@ -5,16 +5,20 @@ import json
 from flask import Flask, Response, abort, jsonify, request
 
 from app.clients.qr import ClientQrError, build_qr_svg
-from app.clients.repository import get_client
+from app.clients.repository import get_client, get_device
 from app.clients.sg_subscription import (
     SG_SUBSCRIPTION_FORMAT,
     SG_SUBSCRIPTION_VERSION,
     build_compatible_subscription_body,
+    build_compatible_device_subscription_body,
     build_sg_subscription_document,
+    build_sg_device_subscription_document,
     build_sg_subscription_text,
+    build_sg_device_subscription_text,
 )
 from app.clients.sg_subscription_store import (
     build_sg_subscription_url,
+    build_sg_device_subscription_url,
     get_client_by_subscription_token,
 )
 
@@ -22,6 +26,10 @@ PUBLIC_ENDPOINT = "sg_subscription_v1"
 INFO_ENDPOINT = "sg_subscription_v1_info"
 QR_ENDPOINT = "sg_subscription_v1_qr"
 UNIVERSAL_QR_ENDPOINT = "sg_subscription_v1_universal_qr"
+PUBLIC_DEVICE_ENDPOINT = "sg_device_subscription_v1"
+DEVICE_INFO_ENDPOINT = "sg_device_subscription_v1_info"
+DEVICE_QR_ENDPOINT = "sg_device_subscription_v1_qr"
+DEVICE_UNIVERSAL_QR_ENDPOINT = "sg_device_subscription_v1_universal_qr"
 
 
 def _universal_url(client) -> str:
@@ -35,6 +43,27 @@ def _native_url(client) -> str:
 
 def _json_url(client) -> str:
     url = _universal_url(client)
+    return f"{url}?format=json" if url else ""
+
+
+def _device_for_client(client, device_id: int):
+    device = get_device(device_id)
+    if device is None or int(device.client_id) != int(client.id) or not device.enabled:
+        return None
+    return device
+
+
+def _device_universal_url(client, device) -> str:
+    return build_sg_device_subscription_url(client, device)
+
+
+def _device_native_url(client, device) -> str:
+    url = _device_universal_url(client, device)
+    return f"{url}?format=sg" if url else ""
+
+
+def _device_json_url(client, device) -> str:
+    url = _device_universal_url(client, device)
     return f"{url}?format=json" if url else ""
 
 
@@ -152,6 +181,114 @@ def register_sg_subscription(app: Flask) -> None:
             methods=["GET"],
         )
 
+    if PUBLIC_DEVICE_ENDPOINT not in app.view_functions:
+        def device_feed(token: str, device_id: int):
+            client = get_client_by_subscription_token(token)
+            if client is None or not client.enabled:
+                abort(404)
+            device = _device_for_client(client, device_id)
+            if device is None:
+                abort(404)
+            document = build_sg_device_subscription_document(client, device.id)
+            if document is None:
+                abort(404)
+            mode = request.args.get("format", "").strip().lower()
+            if mode == "json":
+                body = json.dumps(document, ensure_ascii=False, indent=2) + "\n"
+                response = Response(body, content_type="application/json; charset=utf-8")
+            elif mode == "sg":
+                response = Response(
+                    build_sg_device_subscription_text(client, device.id),
+                    content_type="text/plain; charset=utf-8",
+                )
+            else:
+                response = Response(
+                    build_compatible_device_subscription_body(client, device.id),
+                    content_type="text/plain; charset=utf-8",
+                )
+            summary = document.get("summary") or {}
+            response.headers["Cache-Control"] = "no-store, max-age=0"
+            response.headers["Pragma"] = "no-cache"
+            response.headers["X-Content-Type-Options"] = "nosniff"
+            response.headers["X-SG-Subscription-Format"] = SG_SUBSCRIPTION_FORMAT
+            response.headers["X-SG-Subscription-Version"] = str(SG_SUBSCRIPTION_VERSION)
+            response.headers["X-SG-Subscription-Scope"] = "device"
+            response.headers["X-SG-Subscription-Device"] = str(device.id)
+            response.headers["X-SG-Subscription-Profiles-Assigned"] = str(summary.get("profiles_assigned", 0))
+            response.headers["X-SG-Subscription-Profiles-Ready"] = str(summary.get("profiles_ready", 0))
+            return response
+
+        app.add_url_rule(
+            "/sg/sub/v1/<token>/device/<int:device_id>",
+            endpoint=PUBLIC_DEVICE_ENDPOINT,
+            view_func=device_feed,
+            methods=["GET"],
+        )
+
+    if DEVICE_INFO_ENDPOINT not in app.view_functions:
+        def device_info(client_id: int, device_id: int):
+            client = get_client(client_id)
+            if client is None:
+                abort(404)
+            device = _device_for_client(client, device_id)
+            if device is None:
+                abort(404)
+            universal_url = _device_universal_url(client, device)
+            native_url = _device_native_url(client, device)
+            if not universal_url:
+                return jsonify({"ok": False, "message": "Для устройства не включена SG Subscription"}), 409
+            document = build_sg_device_subscription_document(client, device.id)
+            return jsonify({
+                "ok": True,
+                "url": native_url,
+                "compat_url": universal_url,
+                "universal_url": universal_url,
+                "native_url": native_url,
+                "json_url": _device_json_url(client, device),
+                "summary": (document or {}).get("summary", {}),
+            })
+
+        app.add_url_rule(
+            "/api/clients/<int:client_id>/devices/<int:device_id>/sg-subscription-v1",
+            endpoint=DEVICE_INFO_ENDPOINT,
+            view_func=device_info,
+            methods=["GET"],
+        )
+
+    if DEVICE_QR_ENDPOINT not in app.view_functions:
+        def device_qr(client_id: int, device_id: int):
+            client = get_client(client_id)
+            if client is None:
+                abort(404)
+            device = _device_for_client(client, device_id)
+            if device is None:
+                abort(404)
+            return _qr_response(_device_native_url(client, device))
+
+        app.add_url_rule(
+            "/clients/<int:client_id>/devices/<int:device_id>/sg-subscription-v1/qr",
+            endpoint=DEVICE_QR_ENDPOINT,
+            view_func=device_qr,
+            methods=["GET"],
+        )
+
+    if DEVICE_UNIVERSAL_QR_ENDPOINT not in app.view_functions:
+        def device_universal_qr(client_id: int, device_id: int):
+            client = get_client(client_id)
+            if client is None:
+                abort(404)
+            device = _device_for_client(client, device_id)
+            if device is None:
+                abort(404)
+            return _qr_response(_device_universal_url(client, device))
+
+        app.add_url_rule(
+            "/clients/<int:client_id>/devices/<int:device_id>/sg-subscription-v1/qr/universal",
+            endpoint=DEVICE_UNIVERSAL_QR_ENDPOINT,
+            view_func=device_universal_qr,
+            methods=["GET"],
+        )
+
     if not getattr(app, "_sg_subscription_v1_template_context", False):
         def template_context():
             return {
@@ -161,6 +298,8 @@ def register_sg_subscription(app: Flask) -> None:
                 # New UI must use these explicit names instead of guessing format.
                 "sg_subscription_universal_url": _universal_url,
                 "sg_subscription_native_url": _native_url,
+                "sg_device_subscription_universal_url": _device_universal_url,
+                "sg_device_subscription_native_url": _device_native_url,
             }
 
         app.context_processor(template_context)
