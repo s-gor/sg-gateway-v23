@@ -183,3 +183,112 @@ def test_routing_preview_labels_optional_missing_rule_as_skipped():
     assert "Пропущено" in template
     assert "'skip' if optional_skipped" in template
     assert ".r096-rule-list .route-skip" in css
+
+
+
+def test_privacy_preset_builds_available_protection_rules(monkeypatch):
+    from app.routing import templates
+
+    monkeypatch.setattr(
+        templates,
+        "_available_categories",
+        lambda: (
+            {"private"},
+            {
+                "private",
+                "category-ads-all",
+                "category-tracker",
+                "category-malware",
+                "category-phishing",
+                "win-spy",
+            },
+        ),
+    )
+    monkeypatch.setattr(
+        templates,
+        "routing_capabilities",
+        lambda: {
+            "direct4": True,
+            "direct6": False,
+            "warp4": False,
+            "warp6": False,
+            "block": True,
+            "warp_enabled": False,
+        },
+    )
+    state = templates._smart_apply_preset(
+        {**templates._smart_default(), "preset": "privacy"}
+    )
+
+    candidate = templates._smart_build(state)
+
+    assert candidate["ready"] is True
+    titles = {rule["title"] for rule in candidate["rules"] if rule["enabled"]}
+    assert {
+        "Реклама и трекеры",
+        "Трекеры",
+        "Вредоносные домены",
+        "Фишинг",
+        "Телеметрия",
+    } <= titles
+    blocked_domains = {
+        domain
+        for rule in candidate["managed_fragment"]["routing"]["rules"]
+        if rule.get("outboundTag") == "block"
+        for domain in rule.get("domain", [])
+    }
+    assert {
+        "geosite:category-ads-all",
+        "geosite:category-tracker",
+        "geosite:category-malware",
+        "geosite:category-phishing",
+        "geosite:win-spy",
+    } <= blocked_domains
+
+
+def test_strict_adds_miners_and_skips_unavailable_optional_groups(monkeypatch):
+    from app.routing import templates
+
+    monkeypatch.setattr(
+        templates,
+        "_available_categories",
+        lambda: (
+            {"private"},
+            {"private", "category-ads-all", "category-cryptominers"},
+        ),
+    )
+    monkeypatch.setattr(
+        templates,
+        "routing_capabilities",
+        lambda: {
+            "direct4": True,
+            "direct6": False,
+            "warp4": False,
+            "warp6": False,
+            "block": True,
+            "warp_enabled": False,
+        },
+    )
+    state = templates._smart_apply_preset(
+        {**templates._smart_default(), "preset": "strict"}
+    )
+
+    candidate = templates._smart_build(state)
+
+    assert candidate["ready"] is True
+    miners = next(rule for rule in candidate["rules"] if rule["title"] == "Криптомайнеры")
+    assert miners["enabled"] is True
+    assert miners["selected_geosite"] == "category-cryptominers"
+    skipped = [
+        rule for rule in candidate["rules"]
+        if rule["title"] in {"Трекеры", "Вредоносные домены", "Фишинг", "Телеметрия"}
+        and not rule["enabled"]
+    ]
+    assert len(skipped) == 4
+    assert all(rule["required"] is False for rule in skipped)
+
+
+def test_privacy_and_strict_are_visible_in_routing_ui():
+    template = (ROOT / "app/web/templates/routing.html").read_text(encoding="utf-8")
+    assert "Privacy · реклама + трекеры + угрозы" in template
+    assert "Strict · усиленная фильтрация" in template
