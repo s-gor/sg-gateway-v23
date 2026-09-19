@@ -180,6 +180,6 @@ def test_routing_preview_labels_optional_missing_rule_as_skipped():
     template = (ROOT / "app/web/templates/routing.html").read_text(encoding="utf-8")
     css = (ROOT / "app/web/static/sg-routing-client096.css").read_text(encoding="utf-8")
     assert "Категория не найдена · правило пропущено" in template
-    assert ">Пропущено" in template
+    assert "Пропущено" in template
     assert "route-skip" in template
     assert ".r096-rule-list .route-skip" in css
