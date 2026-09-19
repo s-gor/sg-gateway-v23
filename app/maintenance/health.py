@@ -89,11 +89,11 @@ def collect_health_checks() -> list[HealthCheck]:
 
 
 def cached_health_summary(default: str = "warning") -> str:
-    """Return current health using the shared short-lived cache."""
-    try:
-        return health_summary()
-    except Exception:
-        return default
+    """Return the last known health without starting runtime diagnostics."""
+    value = _HEALTH_SUMMARY_CACHE.get("value")
+    if isinstance(value, str) and value in {"ok", "warning", "error"}:
+        return value
+    return default
 
 
 def health_summary() -> str:
