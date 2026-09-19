@@ -1150,8 +1150,11 @@ def create_app() -> Flask:
         import base64 as _subscription_base64
         from urllib.parse import quote as _subscription_quote
 
-        device_title = "Основное устройство" if device.is_primary else device.name
-        profile_title = f"SG-Gateway · {client.name} · {device_title}"
+        profile_title = (
+            f"SG-Gateway · {client.name}"
+            if device.is_primary
+            else f"SG-Gateway · {client.name} · {device.name}"
+        )
         encoded_title = _subscription_base64.b64encode(
             profile_title.encode("utf-8")
         ).decode("ascii")
