@@ -96,6 +96,25 @@ def cached_health_summary(default: str = "warning") -> str:
     return default
 
 
+
+
+def refresh_after_tls_change(default: str = "warning") -> str:
+    """Refresh health once after TLS state changes, never during ordinary navigation."""
+    current_mtime = _tls_state_mtime_ns()
+    cached_mtime = _HEALTH_SUMMARY_CACHE.get("tls_state_mtime_ns")
+    cached_value = _HEALTH_SUMMARY_CACHE.get("value")
+    if (
+        current_mtime == cached_mtime
+        and isinstance(cached_value, str)
+        and cached_value in {"ok", "warning", "error"}
+    ):
+        return cached_value
+    try:
+        checks = collect_health_checks()
+        return _remember_summary(checks)
+    except Exception:
+        return cached_value if isinstance(cached_value, str) else default
+
 def health_summary() -> str:
     now = time.monotonic()
     updated_at = float(_HEALTH_SUMMARY_CACHE.get("updated_at") or 0.0)
