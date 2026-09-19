@@ -84,7 +84,7 @@ from app.maintenance.full_backups import (
     stage_verified_full_backup_for_restore,
 )
 from app.maintenance.diagnostics import build_diagnostic_report, build_diagnostic_report_json
-from app.maintenance.health import cached_health_summary, collect_health_checks, health_summary
+from app.maintenance.health import cached_health_summary, collect_health_checks, health_summary, refresh_after_tls_change
 from app.maintenance.operations import list_operations, log_operation
 from app.maintenance.xray_updates import overview as xray_update_overview
 from app.maintenance.panel_updates import overview as panel_update_overview
@@ -1087,6 +1087,8 @@ def create_app() -> Flask:
             job = read_operation_job(job_id)
         except FileNotFoundError:
             abort(404)
+        if str(job.get("kind") or "") == "tls_issue" and str(job.get("status") or "") == "success":
+            refresh_after_tls_change()
         return jsonify(job)
 
     @app.post("/connections/xray/apply")
@@ -1113,6 +1115,7 @@ def create_app() -> Flask:
     def security_tls_renew():
         try:
             result = renew_certificate()
+            refresh_after_tls_change()
             flash(str(result.get("message", "Сертификат проверен.")), "success")
         except TlsError as exc:
             flash(f"Сертификат не обновлён: {exc}", "error")
@@ -1122,6 +1125,7 @@ def create_app() -> Flask:
     def security_tls_rollback():
         try:
             result = rollback_tls()
+            refresh_after_tls_change()
             flash(str(result.get("message", "HTTPS-конфигурация восстановлена.")), "success")
         except TlsError as exc:
             flash(f"Откат HTTPS не выполнен: {exc}", "error")
