@@ -1213,7 +1213,7 @@ def create_app() -> Flask:
             return redirect(url_for("clients"))
 
         try:
-            result = apply_clients_runtime()
+            result = apply_clients_runtime(stabilize=True)
             flash(
                 str(result.get("message") or "Клиент создан и применён."),
                 "success",
