@@ -642,7 +642,9 @@ def root_rollback_latest() -> dict:
 # candidates and are treated by runtime as strict IPv4 aliases.
 SMART_PRESET_TITLES = {
     "direct": "Обычный доступ · SG-Gateway · IPv4",
-    "ads_block": "Блокировка рекламы и трекеров · SG-Gateway · IPv4",
+    "ads_block": "Блокировка рекламы · SG-Gateway · IPv4",
+    "privacy": "Privacy · реклама, трекеры и угрозы",
+    "strict": "Strict · усиленная фильтрация",
     "blocked_warp": "Ресурсы, заблокированные в РФ через WARP · IPv4",
     "all_warp": "Весь интернет через WARP · IPv4",
     "custom": "Пользовательская схема",
@@ -658,6 +660,11 @@ SMART_BLOCKED_CATEGORIES = (
     "blocked",
 )
 SMART_ADS_CATEGORIES = ("category-ads-all", "category-ads", "ads", "adguard")
+SMART_TRACKER_CATEGORIES = ("category-tracker", "category-trackers", "trackers", "tracking")
+SMART_MALWARE_CATEGORIES = ("category-malware", "malware", "category-malicious", "malicious")
+SMART_PHISHING_CATEGORIES = ("category-phishing", "phishing")
+SMART_TELEMETRY_CATEGORIES = ("win-spy", "category-telemetry", "telemetry")
+SMART_MINER_CATEGORIES = ("category-cryptominers", "category-crypto", "cryptominers", "miners")
 SMART_PRIVATE_IPS = (
     "10.0.0.0/8",
     "172.16.0.0/12",
@@ -763,7 +770,7 @@ def _smart_apply_preset(state: dict) -> dict:
         ads_action="direct4",
         default_action="direct4",
     )
-    if preset == "ads_block":
+    if preset in {"ads_block", "privacy", "strict"}:
         state["ads_action"] = "block"
     elif preset == "blocked_warp":
         state["blocked_action"] = "warp4"
@@ -859,6 +866,32 @@ def _smart_build(state: dict) -> dict:
         )
     )
 
+
+    protection_groups: list[tuple[str, tuple[str, ...]]] = []
+    if state["preset"] in {"privacy", "strict"}:
+        protection_groups.extend(
+            [
+                ("Трекеры", SMART_TRACKER_CATEGORIES),
+                ("Вредоносные домены", SMART_MALWARE_CATEGORIES),
+                ("Фишинг", SMART_PHISHING_CATEGORIES),
+                ("Телеметрия", SMART_TELEMETRY_CATEGORIES),
+            ]
+        )
+    if state["preset"] == "strict":
+        protection_groups.append(("Криптомайнеры", SMART_MINER_CATEGORIES))
+
+    for title, categories in protection_groups:
+        category = _choose(categories, geosite)
+        rules.append(
+            _smart_rule(
+                title,
+                "block",
+                domains=[f"geosite:{category}"] if category else [],
+                missing=[] if category else [f"geosite:{categories[0]}"],
+                required=False,
+            )
+        )
+
     scope = state["russia_scope"]
     if scope != "none":
         domains: list[str] = []
@@ -908,7 +941,7 @@ def _smart_build(state: dict) -> dict:
                 state["ads_action"],
                 domains=[f"geosite:{category}"] if category else [],
                 missing=[] if category else ["geosite:category-ads"],
-                required=state["preset"] == "ads_block",
+                required=state["preset"] in {"ads_block", "privacy", "strict"},
             )
         )
 
@@ -985,7 +1018,7 @@ def _smart_build(state: dict) -> dict:
     return {
         "template_id": "smart-fix30-ip-family",
         "title": SMART_PRESET_TITLES[state["preset"]],
-        "summary": "Family-explicit Routing без автоматического fallback IPv4/IPv6",
+        "summary": "Family-explicit Routing с GeoSite-фильтрацией и без автоматического fallback IPv4/IPv6",
         "recommended_action": "direct4",
         "mode": "replace_managed",
         "checked_at": _utc_now(),
