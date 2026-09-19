@@ -89,7 +89,8 @@ def _subscription_device_name(device: dict) -> str:
 
 def _profile_entry(client: Client, device, spec: tuple[str, ...]) -> dict:
     profile_id, _, export_kind, name, protocol, payload_kind = spec
-    device_name = "" if bool(device.is_primary) else str(device.name or "").strip()
+    is_primary = bool(getattr(device, "is_primary", True))
+    device_name = "" if is_primary else str(getattr(device, "name", "") or "").strip()
     display_name = f"{device_name} · {name}" if device_name else name
     entry = {
         "id": profile_id,
