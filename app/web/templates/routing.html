@@ -87,7 +87,9 @@
         <div class="r096-preset-grid">
           {% for value, label in [
             ('direct','Обычный доступ · SG-Gateway · IPv4'),
-            ('ads_block','Блокировка рекламы и трекеров'),
+            ('ads_block','Блокировка рекламы'),
+            ('privacy','Privacy · реклама + трекеры + угрозы'),
+            ('strict','Strict · усиленная фильтрация'),
             ('blocked_warp','Ресурсы, заблокированные в РФ через WARP · IPv4'),
             ('all_warp','Весь интернет через WARP · IPv4'),
             ('custom','Пользовательская схема')
@@ -142,7 +144,7 @@
         </div>
 
         <div class="r096-rule-row">
-          <div><strong>Реклама и трекеры</strong><small>category-ads-all или совместимая категория текущего набора</small></div>
+          <div><strong>Реклама</strong><small>category-ads-all или совместимая категория текущего набора; Privacy/Strict дополнительно добавляют трекеры, malware, phishing и telemetry</small></div>
           {{ action_group('ads_action', smart.get('ads_action', 'direct4')) }}
         </div>
 
