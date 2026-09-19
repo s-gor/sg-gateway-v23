@@ -731,9 +731,9 @@ def create_app() -> Flask:
     @app.context_processor
     def inject_globals():
         try:
-            panel_health = cached_health_summary()
+            panel_health = health_summary()
         except Exception:
-            panel_health = "warning"
+            panel_health = cached_health_summary()
         return {
             "app_version": get_version(),
             "static_asset": static_asset,
