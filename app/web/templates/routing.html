@@ -119,6 +119,9 @@
           {% for outbound in external_outbounds.outbounds %}
           <label><input type="radio" name="{{ name }}" value="{{ outbound.tag }}" {% if current == outbound.tag %}checked{% endif %}><span>{{ outbound.name }} · {{ outbound.protocol|upper }}</span></label>
           {% endfor %}
+          {% for group in external_outbounds.groups %}
+          <label><input type="radio" name="{{ name }}" value="{{ group.tag }}" {% if current == group.tag %}checked{% endif %}><span>{{ group.name }} · {{ 'Failover' if group.strategy == 'failover' else group.strategy }}</span></label>
+          {% endfor %}
           {% endif %}
           {% if allow_block %}<label><input type="radio" name="{{ name }}" value="block" {% if current == 'block' %}checked{% endif %}><span>Заблокировать</span></label>{% endif %}
         </div>
