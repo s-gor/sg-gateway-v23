@@ -14,7 +14,7 @@ def test_clean_install_waits_for_cloud_init_before_disk_and_apt_work() -> None:
 
     assert "cloud-init status --wait" in source
     assert source.index("wait_for_cloud_init") < source.index(
-        'require_free_space /tmp "temporary storage"'
+        'run_quiet "Подготовка 3/6 · Проверка диска" preflight_disk_space'
     )
 
 
