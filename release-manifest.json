@@ -1,6 +1,6 @@
 {
-  "build": "MAIN-02301-DEV",
-  "channel": "dev-02301",
+  "build": "STABLE-02301",
+  "channel": "stable-02301",
   "client_access_model": {
     "hysteria_auth_per_device": true,
     "independent_enable_disable": true,
@@ -250,7 +250,7 @@
     "sg_admin_enter_defaults_to_yes": true,
     "stage9_exact_failure_logging": true,
     "template_endpoint_audit": true,
-    "version": "02301-dev",
+    "version": "02301",
     "warp_panel_port_v017": true,
     "xhttp_reality_stream_one_migration": true
   },
@@ -279,7 +279,7 @@
     },
     "panel": {
       "automatic_rollback": true,
-      "channel": "dev-02301",
+      "channel": "stable-02301",
       "full_code_backup": true,
       "health_checks": [
         "sg-hostd",
@@ -293,7 +293,7 @@
         "cores"
       ],
       "requirements_change_blocks_panel_only_update": true,
-      "source": "github-dev-02301",
+      "source": "github-stable-02301",
       "staging": true
     }
   },
@@ -414,7 +414,17 @@
       "all_warp",
       "custom"
     ],
-    "source": "SG Client 096"
+    "source": "SG Client 096",
+    "external_outbounds": [
+      "socks",
+      "http"
+    ],
+    "outbound_groups": [
+      "roundRobin",
+      "random",
+      "failover"
+    ],
+    "failover_observatory": true
   },
   "runtime": "native-systemd",
   "safe_update": {
@@ -449,7 +459,7 @@
     "manifest": "SOURCE-SHA256SUMS",
     "mode": "git-blob-sha256"
   },
-  "status": "DEVELOPMENT",
+  "status": "STABLE",
   "system_ui_02110": {
     "cpu_breakdown_margin_top_px": -16,
     "cpu_title_margin_bottom_px": 6,
