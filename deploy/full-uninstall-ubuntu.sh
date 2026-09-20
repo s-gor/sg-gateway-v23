@@ -100,7 +100,72 @@ run_stage(){
   printf '\r\033[K%s[OK]%s Этап %s/%s · %s (%s сек.)\n' "$GREEN" "$RESET" "$stage" "$TOTAL_STAGES" "$label" "$elapsed"
 }
 
+stop_known_sg_diagnostics(){
+  # Remove only the exact packet-capture diagnostic previously used by the
+  # SG-Gateway troubleshooting flow. Never kill arbitrary tcpdump sessions.
+  command -v python3 >/dev/null 2>&1 || return 0
+  python3 - <<'PYSGDIAG'
+from __future__ import annotations
+
+import os
+import signal
+from pathlib import Path
+
+required = (
+    "tcpdump",
+    "-ni",
+    "any",
+    "tcp port 443",
+    "tcp port 10443",
+    "tcp port 10444",
+)
+
+matched: list[int] = []
+for entry in Path("/proc").iterdir():
+    if not entry.name.isdigit():
+        continue
+    try:
+        raw = (entry / "cmdline").read_bytes()
+    except OSError:
+        continue
+    if not raw:
+        continue
+    command = raw.replace(b"\0", b" ").decode("utf-8", errors="replace").strip()
+    if all(token in command for token in required):
+        matched.append(int(entry.name))
+
+for pid in sorted(set(matched), reverse=True):
+    if pid in {os.getpid(), os.getppid()}:
+        continue
+    try:
+        os.kill(pid, signal.SIGTERM)
+        print(f"[SG-Gateway] Остановлена SG-диагностика tcpdump: PID {pid}")
+    except ProcessLookupError:
+        pass
+    except PermissionError as exc:
+        raise SystemExit(f"cannot stop SG diagnostic PID {pid}: {exc}")
+
+if matched:
+    import time
+    time.sleep(0.3)
+
+for pid in sorted(set(matched), reverse=True):
+    if pid in {os.getpid(), os.getppid()}:
+        continue
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        continue
+    try:
+        os.kill(pid, signal.SIGKILL)
+        print(f"[SG-Gateway] Принудительно остановлена SG-диагностика tcpdump: PID {pid}")
+    except ProcessLookupError:
+        pass
+PYSGDIAG
+}
+
 stop_runtime(){
+  stop_known_sg_diagnostics
   local service
   for service in \
     sg-gateway.service sg-hostd.service xray.service mihomo.service sg-gateway-naiveproxy.service \
@@ -335,6 +400,14 @@ remove_account_and_verify(){
   systemctl reset-failed >/dev/null 2>&1 || true
 
   local bad=0 path
+  if command -v pgrep >/dev/null 2>&1; then
+    local diagnostic_left=""
+    diagnostic_left="$(pgrep -af 'tcpdump -ni any.*tcp port 443.*tcp port 10443.*tcp port 10444' 2>/dev/null || true)"
+    if [[ -n "$diagnostic_left" ]]; then
+      echo "Остаток после удаления: SG tcpdump diagnostic: $diagnostic_left" >&2
+      bad=1
+    fi
+  fi
   if id sg-naiveproxy >/dev/null 2>&1; then
     echo "Остаток после удаления: пользователь sg-naiveproxy" >&2
     bad=1
@@ -396,7 +469,7 @@ remove_account_and_verify(){
   (( bad == 0 )) || return 1
 }
 
-run_stage 1 "Остановка SG-служб и интерфейсов" stop_runtime
+run_stage 1 "Остановка SG-служб, интерфейсов и диагностики" stop_runtime
 run_stage 2 "Удаление systemd/Nginx конфигурации" remove_service_and_web_config
 run_stage 3 "Удаление сертификата SG-Gateway" remove_sg_certificate
 run_stage 4 "Удаление приложения, базы, backups и состояния" remove_application_and_state
