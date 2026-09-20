@@ -17,7 +17,7 @@
     <div>
       <div class="hlpv1-kicker"><span></span> SG-GATEWAY / HELP</div>
       <h1>Практическая справка SG-Gateway</h1>
-      <p>Полная практическая справка: установка, клиенты, протоколы, подписки, резервные копии и диагностика.</p>
+      <p>Полная практическая справка: установка, клиенты, протоколы, Outbounds, Routing, GeoFiles, резервные копии и диагностика.</p>
     </div>
 
     <div class="hlpv1-heading-actions sg-ui-actions">
@@ -36,7 +36,7 @@
       <div>
         <div class="hlpv1-summary-label">Разделы справки</div>
         <div class="hlpv1-summary-value">{{ topic_count }}</div>
-        <div class="hlpv1-summary-note">Первый запуск, протоколы, подписки, Backup и диагностика</div>
+        <div class="hlpv1-summary-note">Первый запуск, Outbounds, Routing, Backup и диагностика</div>
       </div>
     </article>
 
@@ -95,7 +95,7 @@
       <input id="help-search"
              type="search"
              autocomplete="off"
-             placeholder="Например: клиент, резервная копия, пароль, Xray…">
+             placeholder="Например: клиент, Routing, Failover, GeoFiles, Xray…">
     </label>
     <button class="button hlpv1-clear-search" id="help-clear" type="button">Очистить</button>
   </section>
@@ -268,7 +268,7 @@
           <span class="hlpv1-journey-number">03</span>
           <div>
             <strong>Проверить Routing</strong>
-            <p>Посмотрите, какие параметры попадут в клиентские профили и каким будет путь трафика.</p>
+            <p>Проверьте правила серверного трафика, выбранные outbounds и фактический порядок маршрутизации.</p>
           </div>
           <span class="hlpv1-journey-arrow">→</span>
         </a>
