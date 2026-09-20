@@ -66,3 +66,13 @@ body.page-connections .xps2-primary-control > .button {
     min-width: 0 !important;
   }
 }
+
+
+/* Native select popup on Windows is light: keep option text readable. */
+body.page-connections .xps2-primary-control select option,
+body.page-connections .xps2-primary-control select optgroup {
+  color: #111827 !important;
+  background: #ffffff !important;
+  font-family: inherit !important;
+  font-weight: 500;
+}
