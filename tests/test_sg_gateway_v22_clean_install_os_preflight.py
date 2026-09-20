@@ -88,3 +88,13 @@ def test_clean_install_reselects_large_temp_storage_after_ubuntu_upgrade() -> No
     assert source.count("select_bootstrap_temp_root") >= 3
     assert 'temporary storage after Ubuntu update' in source
 
+def test_admin_password_prompt_uses_tty_safe_python_getpass() -> None:
+    native = (ROOT / "install.sh").read_text(encoding="utf-8")
+    core = (ROOT / "deploy" / "install-core.sh").read_text(encoding="utf-8")
+
+    for source in (native, core):
+        assert "read_password_secret()" in source
+        assert "getpass.getpass(prompt)" in source
+        assert 'SG_GATEWAY_PASSWORD_PROMPT="$prompt"' in source
+        assert 'read -r -s -t "$timeout_seconds"' not in source
+
