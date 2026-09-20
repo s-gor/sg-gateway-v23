@@ -18,14 +18,28 @@ def test_clean_install_waits_for_cloud_init_before_disk_and_apt_work() -> None:
     )
 
 
-def test_clean_install_updates_ubuntu_before_downloading_gateway_source() -> None:
+def test_clean_install_refreshes_package_index_before_downloading_gateway_source() -> None:
     source = _installer_source()
 
+    assert "apt-get -o Dpkg::Use-Pty=0 update" in source
+    assert 'FULL_OS_UPGRADE="${SG_GATEWAY_FULL_OS_UPGRADE:-0}"' in source
+    assert 'if [[ "$FULL_OS_UPGRADE" == "1" ]]' in source
     assert "full-upgrade -y" in source
     assert "autoremove -y" in source
+    assert source.index('if [[ "$FULL_OS_UPGRADE" == "1" ]]') < source.index(
+        "full-upgrade -y"
+    )
     assert source.index("prepare_clean_ubuntu") < source.index(
         "Downloading GitHub branch"
     )
+
+
+def test_clean_install_passes_prepared_apt_index_to_native_installer() -> None:
+    source = _installer_source()
+    native = (ROOT / "install.sh").read_text(encoding="utf-8")
+
+    assert "SG_GATEWAY_APT_INDEX_READY=1" in source
+    assert 'if [[ "${SG_GATEWAY_APT_INDEX_READY:-0}" == "1" ]]' in native
 
 
 def test_reboot_required_stops_before_gateway_install_without_rebooting() -> None:
@@ -47,7 +61,7 @@ def test_clean_install_bootstrap_uses_quiet_green_progress_contract() -> None:
     assert 'run_quiet "Подготовка 1/6 · Проверка Ubuntu" require_supported_ubuntu' in source
     assert 'run_quiet "Подготовка 2/6 · Ожидание cloud-init" wait_for_cloud_init' in source
     assert 'run_quiet "Подготовка 3/6 · Проверка диска" preflight_disk_space' in source
-    assert 'run_quiet "Подготовка 4/6 · Обновление Ubuntu" prepare_clean_ubuntu' in source
+    assert 'run_quiet "Подготовка 4/6 · Индекс пакетов Ubuntu" prepare_clean_ubuntu' in source
     assert 'run_quiet "Подготовка 5/6 · Подготовка инструментов" prepare_bootstrap_tools' in source
     assert 'run_quiet "Подготовка 6/6 · Загрузка SG-Gateway" download_gateway_source' in source
 
