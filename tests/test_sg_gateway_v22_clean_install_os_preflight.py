@@ -74,7 +74,7 @@ def test_clean_install_uses_dedicated_bootstrap_temp_root() -> None:
     source = _installer_source()
 
     assert 'BOOTSTRAP_TMP_ROOT="/opt/sg-gateway-bootstrap-tmp"' in source
-    assert 'install -d -m 0700 "$BOOTSTRAP_TMP_ROOT"' in source
+    assert 'install -d -m 0711 "$BOOTSTRAP_TMP_ROOT"' in source
     assert 'mktemp -d "$BOOTSTRAP_TMP_ROOT/sg-gateway-github-install.XXXXXX"' in source
     assert 'SG_GATEWAY_INSTALL_TMPDIR="$BOOTSTRAP_TMP_ROOT"' in source
     assert 'TMPDIR="$BOOTSTRAP_TMP_ROOT"' in source
@@ -87,7 +87,19 @@ def test_native_installers_use_dedicated_temp_root() -> None:
 
     for source in (native, core):
         assert 'INSTALL_TMP_ROOT="${SG_GATEWAY_INSTALL_TMPDIR:-/opt/sg-gateway-bootstrap-tmp}"' in source
-        assert 'install -d -m 0700 "$INSTALL_TMP_ROOT"' in source
+        assert 'install -d -m 0711 "$INSTALL_TMP_ROOT"' in source
         assert 'export TMPDIR="$INSTALL_TMP_ROOT"' in source
         assert "/tmp/sg-gateway-" not in source
         assert "VERSION_ID" not in source
+
+
+def test_dedicated_temp_root_is_traversable_by_service_user() -> None:
+    wrapper = _installer_source()
+    native = (ROOT / "install.sh").read_text(encoding="utf-8")
+    core = (ROOT / "deploy" / "install-core.sh").read_text(encoding="utf-8")
+
+    assert 'install -d -m 0711 "$BOOTSTRAP_TMP_ROOT"' in wrapper
+    for source in (native, core):
+        assert 'install -d -m 0711 "$INSTALL_TMP_ROOT"' in source
+        assert 'chown "$PANEL_USER":"$PANEL_GROUP" "$import_test_root"' in source
+        assert 'install -d -o "$PANEL_USER" -g "$PANEL_GROUP" -m 0750' in source
