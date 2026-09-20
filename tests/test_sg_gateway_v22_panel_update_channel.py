@@ -13,13 +13,13 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def test_update_channel_defaults_are_consistent_and_old_repo_is_gone() -> None:
     assert panel_updates.GITHUB_REPO == "s-gor/sg-gateway-v23"
-    # Stable releases track the immutable dev-02301 channel by default.
-    assert panel_updates.GITHUB_BRANCH == "dev-02301"
+    # Stable releases track stable-02301 by default.
+    assert panel_updates.GITHUB_BRANCH == "stable-02301"
     update = (ROOT / "deploy" / "update-from-github.sh").read_text(encoding="utf-8")
     bootstrap = (ROOT / "deploy" / "install-from-github.sh").read_text(encoding="utf-8")
     assert 'REPOSITORY="s-gor/sg-gateway-v23"' in update
-    assert '${SG_GATEWAY_GITHUB_BRANCH:-${SG_GATEWAY_UPDATE_BRANCH:-dev-02301}}' in update
-    assert "dev-02301" in bootstrap
+    assert '${SG_GATEWAY_GITHUB_BRANCH:-${SG_GATEWAY_UPDATE_BRANCH:-stable-02301}}' in update
+    assert "stable-02301" in bootstrap
     assert "SG_GATEWAY_ALLOW_DEVELOPMENT" not in bootstrap
     assert "raw.githubusercontent.com/%s/%s/deploy/update-from-github.sh" in bootstrap
     assert "sudo env SG_GATEWAY_GITHUB_BRANCH=%s bash" in bootstrap
