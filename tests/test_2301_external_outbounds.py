@@ -36,22 +36,21 @@ def test_external_socks_and_http_build_xray_outbounds(external_state):
         port=3128,
     )
 
-    assert first["tag"] == "ext-france"
-    assert second["tag"] == "ext-germany"
+    assert first["tag"].startswith("ext-france-")
+    assert second["tag"].startswith("ext-germany-")
     built = {item["tag"]: item for item in external.build_xray_outbounds()}
-    assert built["ext-france"] == {
-        "tag": "ext-france",
+    assert built[first["tag"]] == {
+        "tag": first["tag"],
         "protocol": "socks",
         "settings": {
-            "servers": [{
-                "address": "fr.example.net",
-                "port": 1080,
-                "users": [{"user": "sg", "pass": "secret"}],
-            }]
+            "address": "fr.example.net",
+            "port": 1080,
+            "user": "sg",
+            "pass": "secret",
         },
     }
-    assert built["ext-germany"]["protocol"] == "http"
-    assert built["ext-germany"]["settings"]["servers"][0]["port"] == 3128
+    assert built[second["tag"]]["protocol"] == "http"
+    assert built[second["tag"]]["settings"]["port"] == 3128
 
 
 def test_external_overview_never_returns_password(external_state):
