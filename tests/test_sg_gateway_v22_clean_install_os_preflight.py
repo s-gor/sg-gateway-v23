@@ -60,3 +60,13 @@ def test_clean_install_bootstrap_hides_raw_output_but_keeps_failure_log() -> Non
     assert 'cat "$raw_output" >> "$BOOTSTRAP_LOG"' in source
     assert 'Полный технический журнал: %s\\n' in source
     assert '"$BOOTSTRAP_LOG"' in source
+
+def test_clean_install_supports_ubuntu_2404_and_2604_only() -> None:
+    bootstrap = _installer_source()
+    core = (ROOT / "deploy" / "install-core.sh").read_text(encoding="utf-8")
+
+    assert '[[ "${VERSION_ID:-}" == "24.04" || "${VERSION_ID:-}" == "26.04" ]]' in bootstrap
+    assert 'only Ubuntu 24.04 and 26.04 are supported' in bootstrap
+    assert '[[ "${VERSION_ID:-}" != "24.04" && "${VERSION_ID:-}" != "26.04" ]]' in core
+    assert 'Поддерживаются Ubuntu 24.04 и 26.04' in core
+
