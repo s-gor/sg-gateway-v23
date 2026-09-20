@@ -14,14 +14,14 @@ def test_public_clean_install_refuses_existing_server() -> None:
     assert "deploy/update-from-github.sh" in body
 
 
-def test_clean_install_rejects_unsupported_ubuntu_before_mutation() -> None:
+def test_clean_install_rejects_non_ubuntu_before_mutation() -> None:
     wrapper = source("deploy/install-from-github.sh")
     installer = source("deploy/install-core.sh")
     for body in (wrapper, installer):
         assert "require_supported_ubuntu()" in body
-        assert '${VERSION_ID:-}' in body
-        assert '"24.04"' in body
-        assert "Ubuntu 24.04" in body
+        assert '${ID:-}' in body
+        assert "VERSION_ID" not in body
+        assert "Ubuntu 24.04" not in body
     assert wrapper.index(
         'run_quiet "Подготовка 1/6 · Проверка Ubuntu" require_supported_ubuntu'
     ) < wrapper.index(
