@@ -11,6 +11,7 @@ ARCHIVE=""
 SOURCE_DIR=""
 BOOTSTRAP_TMP_ROOT="/opt/sg-gateway-bootstrap-tmp"
 MIN_FREE_MIB="${SG_GATEWAY_INSTALL_MIN_FREE_MIB:-1024}"
+FULL_OS_UPGRADE="${SG_GATEWAY_FULL_OS_UPGRADE:-0}"
 BOOTSTRAP_LOG="/var/log/sg-gateway-bootstrap-02301.log"
 CURRENT_BOOTSTRAP_LABEL="Подготовка"
 
@@ -203,22 +204,32 @@ preflight_disk_space() {
 prepare_clean_ubuntu() {
   command -v apt-get >/dev/null 2>&1 || fail "apt-get is required to prepare Ubuntu"
 
-  printf '[SG-Gateway] Updating clean Ubuntu before SG-Gateway installation...\n'
+  # Clean Install prepares the package index and installs only SG-Gateway
+  # dependencies. A full operating-system upgrade is deliberately opt-in:
+  # upgrading the whole cloud image can take several minutes, install a new
+  # kernel and force a reboot before SG-Gateway itself has even started.
+  printf '[SG-Gateway] Refreshing Ubuntu package index...\n'
   apt-get -o Dpkg::Use-Pty=0 update
-  env DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a \
-    apt-get -o Dpkg::Use-Pty=0 full-upgrade -y
-  env DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a \
-    apt-get -o Dpkg::Use-Pty=0 autoremove -y
 
-  if [[ -e /var/run/reboot-required ]]; then
-    printf '[SG-Gateway] Ubuntu update completed, but a reboot is required before SG-Gateway can be installed.\n'
-    printf '[SG-Gateway] Run: reboot\n'
-    printf '[SG-Gateway] After login, repeat the same SG-Gateway install command.\n'
-    exit 10
+  if [[ "$FULL_OS_UPGRADE" == "1" ]]; then
+    printf '[SG-Gateway] Full Ubuntu upgrade requested explicitly.\n'
+    env DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a \
+      apt-get -o Dpkg::Use-Pty=0 full-upgrade -y
+    env DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a \
+      apt-get -o Dpkg::Use-Pty=0 autoremove -y
+
+    if [[ -e /var/run/reboot-required ]]; then
+      printf '[SG-Gateway] Ubuntu update completed, but a reboot is required before SG-Gateway can be installed.\n'
+      printf '[SG-Gateway] Run: reboot\n'
+      printf '[SG-Gateway] After login, repeat the same SG-Gateway install command.\n'
+      exit 10
+    fi
+  else
+    printf '[SG-Gateway] Full Ubuntu upgrade skipped (set SG_GATEWAY_FULL_OS_UPGRADE=1 to request it).\n'
   fi
 
-  require_free_space /opt "installation and temporary storage after Ubuntu update"
-  printf '[SG-Gateway] Ubuntu update: complete; reboot not required.\n'
+  require_free_space /opt "installation and temporary storage after package index refresh"
+  printf '[SG-Gateway] Ubuntu package index: ready.\n'
 }
 
 prepare_bootstrap_tools() {
@@ -267,11 +278,12 @@ install -d -m 0711 "$BOOTSTRAP_TMP_ROOT"
 
 # A fresh cloud image can still be expanding its disk or applying first-boot
 # package changes when SSH becomes available. Wait for that work first, then
-# fully update Ubuntu before downloading or mutating any SG-Gateway state.
+# refresh the package index. Full OS upgrades are opt-in and are not part of
+# the normal SG-Gateway clean-install critical path.
 run_quiet "Подготовка 1/6 · Проверка Ubuntu" require_supported_ubuntu
 run_quiet "Подготовка 2/6 · Ожидание cloud-init" wait_for_cloud_init
 run_quiet "Подготовка 3/6 · Проверка диска" preflight_disk_space
-run_quiet "Подготовка 4/6 · Обновление Ubuntu" prepare_clean_ubuntu
+run_quiet "Подготовка 4/6 · Индекс пакетов Ubuntu" prepare_clean_ubuntu
 run_quiet "Подготовка 5/6 · Подготовка инструментов" prepare_bootstrap_tools
 
 TEMP_DIR="$(mktemp -d "$BOOTSTRAP_TMP_ROOT/sg-gateway-github-install.XXXXXX")"
@@ -286,6 +298,7 @@ printf '[SG-Gateway] Starting the native Ubuntu CLEAN installer...\n'
 SG_GATEWAY_SOURCE_DIR="$SOURCE_DIR" \
 SG_GATEWAY_SOURCE_COMMIT="$SOURCE_COMMIT" \
 SG_GATEWAY_INSTALL_TMPDIR="$BOOTSTRAP_TMP_ROOT" \
+SG_GATEWAY_APT_INDEX_READY=1 \
 TMPDIR="$BOOTSTRAP_TMP_ROOT" \
 bash "$SOURCE_DIR/install.sh"
 
