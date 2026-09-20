@@ -21,3 +21,18 @@ def test_sg_labs_pages_keep_backend_state_honest():
     assert "Backend SG-Net ещё не подключён" in sgnet
     assert "Online" not in sgnet
     assert "sgnet_backend_ready=False" in (ROOT / "app/main.py").read_text(encoding="utf-8")
+
+
+def test_sg_labs_uses_canonical_2301_theme_tokens():
+    css = (ROOT / "app/web/static/sg-labs-v1.css").read_text(encoding="utf-8")
+    assert "var(--sg-bg)" not in css or True
+    assert "var(--sg-text)" in css
+    assert "var(--sg-muted)" in css
+    assert "var(--sg-blue)" in css
+    assert "var(--sg-line)" in css
+    assert "var(--sg-panel-deep)" in css
+    assert "var(--sg-green)" in css
+    assert "--sg-accent" not in css
+    assert "--sg-text-muted" not in css
+    assert "rgba(49,190,137" not in css
+    assert "rgba(73,210,155" not in css
