@@ -651,25 +651,43 @@ read_tty() {
   printf -v "$target" '%s' "$value"
 }
 
+read_password_secret() {
+  local prompt="$1"
+  local target="$2"
+  local value="" tty_state=""
+
+  require_interactive_tty
+  exec 9<>/dev/tty
+  tty_state="$(stty -g <&9)" || {
+    exec 9>&-
+    fail "не удалось получить состояние интерактивного терминала"
+  }
+
+  if ! value="$(
+    trap 'stty "$tty_state" <&9 2>/dev/null || true; printf "\n" >&9' EXIT HUP INT TERM
+    printf '%s' "$prompt" >&9
+    stty -echo <&9
+    IFS= read -r secret <&9
+    printf '%s' "$secret"
+  )"; then
+    stty "$tty_state" <&9 2>/dev/null || true
+    exec 9>&-
+    fail "не удалось прочитать пароль из интерактивного терминала"
+  fi
+
+  stty "$tty_state" <&9 2>/dev/null || true
+  exec 9>&-
+  printf -v "$target" '%s' "$value"
+}
+
 read_password() {
   local first="" second=""
-  local timeout_seconds=300
   require_interactive_tty
   printf '\n[SG-Gateway] Требуется задать пароль администратора панели.\n'
   printf '[SG-Gateway] Ввод выполняется в текущем терминале; символы пароля не отображаются.\n' > /dev/tty
   while true; do
-    printf '[SG-Gateway] Пароль администратора (не менее 8 символов): ' > /dev/tty
-    if ! IFS= read -r -s -t "$timeout_seconds" first < /dev/tty; then
-      printf '\n' > /dev/tty
-      fail "пароль не получен из интерактивного терминала за ${timeout_seconds} секунд"
-    fi
-    printf "\n" > /dev/tty
-    printf '[SG-Gateway] Повторите пароль: ' > /dev/tty
-    if ! IFS= read -r -s -t "$timeout_seconds" second < /dev/tty; then
-      printf '\n' > /dev/tty
-      fail "повтор пароля не получен из интерактивного терминала за ${timeout_seconds} секунд"
-    fi
-    printf "\n" > /dev/tty
+    read_password_secret "[SG-Gateway] Пароль администратора (не менее 8 символов): " first
+    read_password_secret "[SG-Gateway] Повторите пароль: " second
     if (( ${#first} < 8 )); then
       printf "%sПароль слишком короткий.%s\n" "$YELLOW" "$RESET" > /dev/tty
       continue
