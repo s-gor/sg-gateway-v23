@@ -70,3 +70,19 @@ def test_clean_install_supports_ubuntu_2404_and_2604_only() -> None:
     assert '[[ "${VERSION_ID:-}" != "24.04" && "${VERSION_ID:-}" != "26.04" ]]' in core
     assert 'Поддерживаются Ubuntu 24.04 и 26.04' in core
 
+def test_clean_install_does_not_require_large_tmp_on_azure_style_images() -> None:
+    source = _installer_source()
+
+    assert 'require_free_space /tmp "temporary storage"' not in source
+    assert 'for candidate in /var/tmp /opt; do' in source
+    assert 'BOOTSTRAP_TEMP_ROOT="$candidate"' in source
+    assert 'require_free_space "$BOOTSTRAP_TEMP_ROOT" "temporary storage"' in source
+    assert 'mktemp -d "$BOOTSTRAP_TEMP_ROOT/sg-gateway-github-install.XXXXXX"' in source
+
+
+def test_clean_install_reselects_large_temp_storage_after_ubuntu_upgrade() -> None:
+    source = _installer_source()
+
+    assert source.count("select_bootstrap_temp_root") >= 3
+    assert 'temporary storage after Ubuntu update' in source
+
