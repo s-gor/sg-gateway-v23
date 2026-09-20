@@ -87,7 +87,9 @@
         <div class="r096-preset-grid">
           {% for value, label in [
             ('direct','Обычный доступ · SG-Gateway · IPv4'),
-            ('ads_block','Блокировка рекламы и трекеров'),
+            ('ads_block','Блокировка рекламы'),
+            ('privacy','Privacy · реклама + трекеры + угрозы'),
+            ('strict','Strict · усиленная фильтрация'),
             ('blocked_warp','Ресурсы, заблокированные в РФ через WARP · IPv4'),
             ('all_warp','Весь интернет через WARP · IPv4'),
             ('custom','Пользовательская схема')
@@ -142,7 +144,7 @@
         </div>
 
         <div class="r096-rule-row">
-          <div><strong>Реклама и трекеры</strong><small>category-ads-all или совместимая категория текущего набора</small></div>
+          <div><strong>Реклама</strong><small>category-ads-all или совместимая категория текущего набора; Privacy/Strict дополнительно добавляют трекеры, malware, phishing и telemetry</small></div>
           {{ action_group('ads_action', smart.get('ads_action', 'direct4')) }}
         </div>
 
@@ -165,11 +167,26 @@
         {% if rules %}
         <div class="r096-rule-list">
           {% for rule in rules %}
-          {% set route_kind = 'direct' if rule.action in ['direct','direct4','direct6'] else ('warp' if rule.action in ['warp','warp4','warp6'] else 'block') %}
+          {% set optional_skipped = rule.missing and not rule.get('required', True) %}
+          {% set route_kind = 'skip' if optional_skipped else ('direct' if rule.action in ['direct','direct4','direct6'] else ('warp' if rule.action in ['warp','warp4','warp6'] else 'block')) %}
           <div class="{{ '' if rule.enabled else 'disabled' }}">
             <b>{{ '%02d' | format(loop.index * 10) }}</b>
-            <span><strong>{{ rule.title }}</strong><small>{% if rule.missing %}Не найдено: {{ rule.missing | join(', ') }}{% elif rule.selected_geosite %}geosite:{{ rule.selected_geosite }}{% elif rule.selected_geoip %}geoip:{{ rule.selected_geoip }}{% elif rule.get('implicit_default') %}Legacy SG-Gateway · IPv4 по умолчанию{% elif rule.xray_rule and rule.xray_rule.get('network') %}tcp,udp · финальное правило{% else %}Пользовательские значения{% endif %}</small></span>
-            <em class="route-{{ route_kind }}">{{ {'direct':'SG-Gateway · IPv4','direct4':'SG-Gateway · IPv4','direct6':'SG-Gateway · IPv6','warp':'WARP · IPv4','warp4':'WARP · IPv4','warp6':'WARP · IPv6','block':'Заблокировать'}.get(rule.action, rule.action) }}</em>
+            <span>
+              <strong>{{ rule.title }}</strong>
+              <small>
+                {% if optional_skipped %}Категория не найдена · правило пропущено
+                {% elif rule.missing %}Недоступно: {{ rule.missing | join(', ') }}
+                {% elif rule.selected_geosite %}geosite:{{ rule.selected_geosite }}
+                {% elif rule.selected_geoip %}geoip:{{ rule.selected_geoip }}
+                {% elif rule.get('implicit_default') %}Legacy SG-Gateway · IPv4 по умолчанию
+                {% elif rule.xray_rule and rule.xray_rule.get('network') %}tcp,udp · финальное правило
+                {% else %}Пользовательские значения{% endif %}
+              </small>
+            </span>
+            <em class="route-{{ route_kind }}">
+              {% if optional_skipped %}Пропущено
+              {% else %}{{ {'direct':'SG-Gateway · IPv4','direct4':'SG-Gateway · IPv4','direct6':'SG-Gateway · IPv6','warp':'WARP · IPv4','warp4':'WARP · IPv4','warp6':'WARP · IPv6','block':'Заблокировать'}.get(rule.action, rule.action) }}{% endif %}
+            </em>
           </div>
           {% endfor %}
         </div>

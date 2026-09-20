@@ -116,3 +116,12 @@ def build_sg_subscription_url(client: Client) -> str:
     if not token or not base:
         return ""
     return f"{base}/sg/sub/v1/{quote(token, safe='')}"
+
+
+def build_sg_device_subscription_url(client: Client, device) -> str:
+    token = ensure_client_subscription_token(client.id)
+    base = subscription_base_url()
+    device_id = int(getattr(device, "id", 0) or 0)
+    if not token or not base or device_id <= 0:
+        return ""
+    return f"{base}/sg/sub/v1/{quote(token, safe='')}/device/{device_id}"

@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}SG Labs · SG-Gateway{% endblock %}
+{% block content %}
+<div class="sg-ui-page sgl-page">
+  <header class="sg-ui-page-head">
+    <div>
+      <div class="sgl-eyebrow">SG-GATEWAY 23.01</div>
+      <h1>SG Labs</h1>
+      <p>Собственные разработки SG и экспериментальные технологии</p>
+    </div>
+  </header>
+
+  <section class="sgl-hero sg-ui-card">
+    <div class="sgl-hero-icon" aria-hidden="true">⌬</div>
+    <div class="sgl-hero-copy">
+      <div class="sgl-eyebrow">SG LABS</div>
+      <h2>Идеи сегодня. Безопасные сети завтра.</h2>
+      <p>Отдельное пространство для собственных разработок SG. Здесь новые технологии можно развивать независимо от стандартных Connection engines.</p>
+    </div>
+    <div class="sgl-hero-notes"><span>Разрабатываем</span><span>Тестируем</span><span>Закрепляем</span></div>
+  </section>
+
+  <section class="sg-ui-section">
+    <div class="sg-ui-section-head"><div><h2>Наши разработки</h2><p>Активные проекты и подготовленные направления.</p></div></div>
+    <div class="sgl-grid">
+      <article class="sgl-card sgl-card-primary sg-ui-card">
+        <div class="sgl-card-head"><div class="sgl-project-icon">SG</div><div><div class="sgl-title-row"><h3>SG-Net</h3><span class="sgl-badge is-active">Активен</span></div><p>Single Edge · Device Auth · Subscription Export</p></div></div>
+        <p>Собственный сетевой runtime SG. UI проекта вынесен в отдельный раздел и готов к подключению backend-интеграции.</p>
+        <div class="sgl-actions"><a class="button primary" href="{{ url_for('sg_labs_sg_net') }}">Открыть настройки</a><a class="button" href="{{ url_for('help_index') }}">Документация</a></div>
+      </article>
+
+      <article class="sgl-card sg-ui-card"><div class="sgl-card-head"><div class="sgl-project-icon">S</div><div><div class="sgl-title-row"><h3>SG Shield</h3><span class="sgl-badge">В разработке</span></div><p>Security · Threat Detection</p></div></div><p>Площадка для будущих механизмов защиты и анализа сетевых событий.</p><button class="button" disabled>Позже</button></article>
+      <article class="sgl-card sg-ui-card"><div class="sgl-card-head"><div class="sgl-project-icon">R</div><div><div class="sgl-title-row"><h3>SG Route</h3><span class="sgl-badge">В разработке</span></div><p>Smart Routing · Geo Optimization</p></div></div><p>Будущие собственные алгоритмы маршрутизации и оптимизации трафика.</p><button class="button" disabled>Позже</button></article>
+      <article class="sgl-card sg-ui-card"><div class="sgl-card-head"><div class="sgl-project-icon">L</div><div><div class="sgl-title-row"><h3>SG Link</h3><span class="sgl-badge">Скоро</span></div><p>Secure Tunneling · Multi-Protocol</p></div></div><p>Пространство для новых защищённых транспортов и туннелей SG.</p><button class="button" disabled>Позже</button></article>
+      <article class="sgl-card sg-ui-card"><div class="sgl-card-head"><div class="sgl-project-icon">M</div><div><div class="sgl-title-row"><h3>SG Mesh</h3><span class="sgl-badge">Скоро</span></div><p>Mesh Network · Self-Healing</p></div></div><p>Заготовка под будущие распределённые сетевые механизмы.</p><button class="button" disabled>Позже</button></article>
+    </div>
+  </section>
+</div>
+{% endblock %}

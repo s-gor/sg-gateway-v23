@@ -160,7 +160,7 @@ def test_hysteria2_uri_has_exact_encoded_gecko_parameters_and_no_alpn(monkeypatc
     query = parse_qs(parsed.query)
     assert parsed.scheme == "hysteria2"
     assert parsed.username == "auth%3Awith%20space%2F%40"
-    assert parsed.port == 8446
+    assert parsed.port == 443
     assert query["obfs"] == ["gecko"]
     assert query["obfs-password"] == [server_config["hysteria2_obfs_password"]]
     assert query["sni"] == ["vpn.example.com"]

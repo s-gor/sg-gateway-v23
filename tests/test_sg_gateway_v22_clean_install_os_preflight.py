@@ -14,7 +14,7 @@ def test_clean_install_waits_for_cloud_init_before_disk_and_apt_work() -> None:
 
     assert "cloud-init status --wait" in source
     assert source.index("wait_for_cloud_init") < source.index(
-        'require_free_space /tmp "temporary storage"'
+        'require_free_space /opt "installation and temporary storage"'
     )
 
 
@@ -60,3 +60,46 @@ def test_clean_install_bootstrap_hides_raw_output_but_keeps_failure_log() -> Non
     assert 'cat "$raw_output" >> "$BOOTSTRAP_LOG"' in source
     assert 'Полный технический журнал: %s\\n' in source
     assert '"$BOOTSTRAP_LOG"' in source
+
+
+def test_clean_install_accepts_any_ubuntu_version() -> None:
+    source = _installer_source()
+
+    assert '[[ "${ID:-}" == "ubuntu" ]]' in source
+    assert 'VERSION_ID' not in source
+    assert 'only Ubuntu 24.04 is supported' not in source
+
+
+def test_clean_install_uses_dedicated_bootstrap_temp_root() -> None:
+    source = _installer_source()
+
+    assert 'BOOTSTRAP_TMP_ROOT="/opt/sg-gateway-bootstrap-tmp"' in source
+    assert 'install -d -m 0711 "$BOOTSTRAP_TMP_ROOT"' in source
+    assert 'mktemp -d "$BOOTSTRAP_TMP_ROOT/sg-gateway-github-install.XXXXXX"' in source
+    assert 'SG_GATEWAY_INSTALL_TMPDIR="$BOOTSTRAP_TMP_ROOT"' in source
+    assert 'TMPDIR="$BOOTSTRAP_TMP_ROOT"' in source
+    assert 'require_free_space /tmp' not in source
+
+
+def test_native_installers_use_dedicated_temp_root() -> None:
+    native = (ROOT / "install.sh").read_text(encoding="utf-8")
+    core = (ROOT / "deploy" / "install-core.sh").read_text(encoding="utf-8")
+
+    for source in (native, core):
+        assert 'INSTALL_TMP_ROOT="${SG_GATEWAY_INSTALL_TMPDIR:-/opt/sg-gateway-bootstrap-tmp}"' in source
+        assert 'install -d -m 0711 "$INSTALL_TMP_ROOT"' in source
+        assert 'export TMPDIR="$INSTALL_TMP_ROOT"' in source
+        assert "/tmp/sg-gateway-" not in source
+        assert "VERSION_ID" not in source
+
+
+def test_dedicated_temp_root_is_traversable_by_service_user() -> None:
+    wrapper = _installer_source()
+    native = (ROOT / "install.sh").read_text(encoding="utf-8")
+    core = (ROOT / "deploy" / "install-core.sh").read_text(encoding="utf-8")
+
+    assert 'install -d -m 0711 "$BOOTSTRAP_TMP_ROOT"' in wrapper
+    for source in (native, core):
+        assert 'install -d -m 0711 "$INSTALL_TMP_ROOT"' in source
+        assert 'chown "$PANEL_USER":"$PANEL_GROUP" "$import_test_root"' in source
+        assert 'install -d -o "$PANEL_USER" -g "$PANEL_GROUP" -m 0750' in source

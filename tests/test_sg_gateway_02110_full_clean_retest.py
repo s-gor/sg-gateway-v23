@@ -86,7 +86,7 @@ def test_exact_https_shell_functions_survive_two_404_responses(tmp_path: Path) -
     (placeholder / "index.html").write_text("accepted-page\n", encoding="utf-8")
     stream = tmp_path / "stream.conf"
     stream.write_text(
-        "www.bing.com 127.0.0.1:7443;\n"
+        "www.bing.com 127.0.0.1:10443;\n"
         "default 127.0.0.1:7444;\n",
         encoding="utf-8",
     )
@@ -96,7 +96,7 @@ PLACEHOLDER_ROOT={str(placeholder)!r}
 PUBLIC_PORT=63443
 STREAM_CONF={str(stream)!r}
 REALITY_SNI=www.bing.com
-XRAY_INTERNAL_PORT=7443
+XRAY_INTERNAL_PORT=10443
 PLACEHOLDER_TLS_INTERNAL_PORT=7444
 COUNTER={str(counter)!r}
 log() {{ printf '%s\\n' \"$*\"; }}

@@ -4,6 +4,7 @@ set -Eeuo pipefail
 VERSION="0.1.0-022.06"
 INSTALLER_BUILD="02206-full-clean-dual-stack"
 SOURCE_DIR="${SG_GATEWAY_SOURCE_DIR:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)}"
+INSTALL_TMP_ROOT="${SG_GATEWAY_INSTALL_TMPDIR:-/opt/sg-gateway-bootstrap-tmp}"
 PREFIX="/opt/sg-gateway"
 CONFIG_DIR="/etc/sg-gateway"
 DATA_DIR="/var/lib/sg-gateway"
@@ -29,7 +30,7 @@ XRAY_MINIMUM_VERSION="v26.6.27"
 VENDOR_CORES_DIR="${SG_GATEWAY_VENDOR_CORES_DIR:-$SOURCE_DIR/vendor/cores}"
 VENDOR_CORES_MANIFEST="$VENDOR_CORES_DIR/SHA256SUMS"
 XRAY_VENDOR_FILE="Xray-linux-64.zip"
-MIHOMO_VENDOR_FILE="mihomo-linux-amd64-v1.19.29.gz"
+MIHOMO_VENDOR_FILE="mihomo-linux-amd64-compatible-v1.19.29.gz"
 SINGBOX_VENDOR_FILE="sing-box-1.13.14-linux-amd64.tar.gz"
 WGCF_VENDOR_FILE="wgcf-cli-linux-64.tar.zstd"
 AWG_TOOLS_VENDOR_FILE="amneziawg-tools-1.0.20260618-2.tar.gz"
@@ -145,20 +146,16 @@ require_root() {
 
 require_supported_ubuntu() {
   if [[ ! -r /etc/os-release ]]; then
-    echo "Не удалось определить операционную систему. Требуется Ubuntu 24.04." >&2
+    echo "Не удалось определить операционную систему. Требуется Ubuntu." >&2
     exit 1
   fi
   # shellcheck disable=SC1091
   . /etc/os-release
   if [[ "${ID:-}" != "ubuntu" ]]; then
-    printf 'Требуется Ubuntu 24.04. Обнаружено: %s\n' "${PRETTY_NAME:-неизвестная система}" >&2
+    printf 'Требуется Ubuntu. Обнаружено: %s\n' "${PRETTY_NAME:-неизвестная система}" >&2
     exit 1
   fi
-  if [[ "${VERSION_ID:-}" != "24.04" ]]; then
-    printf 'Поддерживается только Ubuntu 24.04. Обнаружено: %s\n' "${PRETTY_NAME:-Ubuntu ${VERSION_ID:-неизвестно}}" >&2
-    exit 1
-  fi
-  printf '[SG-Gateway] Поддерживаемая система: %s\n' "${PRETTY_NAME:-Ubuntu 24.04}"
+  printf '[SG-Gateway] Поддерживаемая система: %s\n' "${PRETTY_NAME:-Ubuntu}"
 }
 
 prepare_log() {
@@ -233,7 +230,7 @@ sys.stdout.write("".join(cleaned))
 sanitize_installer_log_file() {
   [[ -f "$INSTALL_LOG" ]] || return 0
   local sanitized=""
-  sanitized="$(mktemp /tmp/sg-gateway-installer-log.XXXXXX)"
+  sanitized="$(mktemp "$INSTALL_TMP_ROOT/sg-gateway-installer-log.XXXXXX")"
   chmod 0600 "$sanitized"
   sanitize_installer_stream < "$INSTALL_LOG" > "$sanitized"
   cat "$sanitized" > "$INSTALL_LOG"
@@ -410,7 +407,7 @@ restore_backup() {
 unexpected_error() {
   local rc=$?
   trap - ERR INT TERM
-  rm -f /tmp/sg-gateway-installer-output.* /tmp/sg-gateway-installer-log.* 2>/dev/null || true
+  rm -f "$INSTALL_TMP_ROOT"/sg-gateway-installer-output.* "$INSTALL_TMP_ROOT"/sg-gateway-installer-log.* 2>/dev/null || true
   if (( MUTATION_STARTED == 1 && INSTALL_SUCCESS == 0 )); then
     show_service_diagnostics
     restore_backup || true
@@ -418,12 +415,12 @@ unexpected_error() {
   sanitize_installer_log_file || true
   printf "\n%s[SG-Gateway] [ОШИБКА]%s Установка остановлена.\n" "$RED" "$RESET"
   printf "[SG-Gateway] %s\n" "$CURRENT_LABEL"
-  printf "[SG-Gateway] Этот же EC2 можно использовать повторно; пересоздавать сервер не нужно.\n"
+  printf "[SG-Gateway] Текущую машину можно использовать повторно; пересоздавать её не нужно.\n"
   show_log_tail
   exit "$rc"
 }
 trap unexpected_error ERR
-trap 'rm -f /tmp/sg-gateway-installer-output.* /tmp/sg-gateway-installer-log.* 2>/dev/null || true; exit 130' INT TERM
+trap 'rm -f "$INSTALL_TMP_ROOT"/sg-gateway-installer-output.* "$INSTALL_TMP_ROOT"/sg-gateway-installer-log.* 2>/dev/null || true; exit 130' INT TERM
 
 run_quiet() {
   local label="$1"
@@ -431,7 +428,7 @@ run_quiet() {
   CURRENT_LABEL="$label"
   local started=$SECONDS rc=0 pid frame=0 raw_output=""
   local frames=('|' '/' '-' "\\")
-  raw_output="$(mktemp /tmp/sg-gateway-installer-output.XXXXXX)"
+  raw_output="$(mktemp "$INSTALL_TMP_ROOT/sg-gateway-installer-output.XXXXXX")"
   chmod 0600 "$raw_output"
   printf "\r\033[K%s[SG-Gateway] [-]%s %s" "$GREEN" "$RESET" "$label"
   (
@@ -461,7 +458,7 @@ run_live() {
   shift
   CURRENT_LABEL="$label"
   local started=$SECONDS rc=0 raw_output=""
-  raw_output="$(mktemp /tmp/sg-gateway-installer-output.XXXXXX)"
+  raw_output="$(mktemp "$INSTALL_TMP_ROOT/sg-gateway-installer-output.XXXXXX")"
   chmod 0600 "$raw_output"
   printf "%s[SG-Gateway] [..]%s %s\n" "$GREEN" "$RESET" "$label"
   set +e
@@ -1217,7 +1214,7 @@ verify_vendor_core_set() {
   done
 
   echo "[SG-Gateway] Проверяю SHA-256 локального vendor-комплекта"
-  (cd "$VENDOR_CORES_DIR" && sha256sum -c SHA256SUMS)
+  (cd "$VENDOR_CORES_DIR" && sha256sum -c --quiet SHA256SUMS)
 
   unzip -tqq "$VENDOR_CORES_DIR/$XRAY_VENDOR_FILE"
   gzip -t "$VENDOR_CORES_DIR/$MIHOMO_VENDOR_FILE"
@@ -1557,7 +1554,7 @@ stage_python_and_source_check() {
   # isolated writable runtime owned by the real service account.
   (
     local import_test_root
-    import_test_root="$(mktemp -d /tmp/sg-gateway-import-test.XXXXXX)"
+    import_test_root="$(mktemp -d "$INSTALL_TMP_ROOT/sg-gateway-import-test.XXXXXX")"
     trap 'rm -rf "$import_test_root"' EXIT
     chown "$PANEL_USER":"$PANEL_GROUP" "$import_test_root"
     install -d -o "$PANEL_USER" -g "$PANEL_GROUP" -m 0750 \
@@ -1716,7 +1713,7 @@ PYVLESSNORMALIZE
 
 validate_vless_pair_with_xray() {
   local encryption="$1" decryption="$2" temp_dir config uuid output
-  temp_dir="$(mktemp -d /tmp/sg-gateway-vlessenc-test.XXXXXX)"
+  temp_dir="$(mktemp -d "$INSTALL_TMP_ROOT/sg-gateway-vlessenc-test.XXXXXX")"
   config="$temp_dir/config.json"
   if ! uuid="$(xray uuid 2>/dev/null | tail -n 1 | tr -d '\r\n')" || [[ -z "$uuid" ]]; then
     rm -rf "$temp_dir"
@@ -3045,6 +3042,8 @@ main() {
   # Public wrapper performs the same check. Keep this guard here as well for
   # direct/archive launches and fail before log creation or package changes.
   require_supported_ubuntu
+  install -d -m 0711 "$INSTALL_TMP_ROOT"
+  export TMPDIR="$INSTALL_TMP_ROOT"
   # Start from a known-safe installation mask. Secret files below are still
   # created with explicit 0600/0640 modes or inside a scoped umask 077 block.
   # This prevents any restrictive umask inherited through sudo/SSH from
@@ -3117,7 +3116,7 @@ main() {
 
   INSTALL_SUCCESS=1
   sanitize_installer_log_file
-  rm -f /tmp/sg-gateway-installer-output.* /tmp/sg-gateway-installer-log.* 2>/dev/null || true
+  rm -f "$INSTALL_TMP_ROOT"/sg-gateway-installer-output.* "$INSTALL_TMP_ROOT"/sg-gateway-installer-log.* 2>/dev/null || true
   rm -f "$RESUME_FILE" \
     /root/sg-gateway-preview48-installer-resume.env \
     /root/sg-gateway-preview50-installer-resume.env \

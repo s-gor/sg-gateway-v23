@@ -15,6 +15,7 @@ if str(HOSTD) not in sys.path:
 
 from app.clients import exports
 from app.clients.repository import Client
+from app.single_edge import XHTTP_REALITY_DEFAULT_SNI, XHTTP_REALITY_DEFAULT_TARGET
 from app.xray.sg_panel_vless import REALITY_TCP_FLOW
 from sg_hostd import client_runtime
 
@@ -113,7 +114,14 @@ def test_runtime_matches_sg_panel_reality_contract(monkeypatch):
         "path": "/sg-xhttp-reality",
         "mode": "auto",
     }
-    assert xhttp["streamSettings"]["realitySettings"] == tcp["streamSettings"]["realitySettings"]
+    assert xhttp["streamSettings"]["realitySettings"] == {
+        "show": False,
+        "dest": XHTTP_REALITY_DEFAULT_TARGET,
+        "xver": 0,
+        "serverNames": [XHTTP_REALITY_DEFAULT_SNI],
+        "privateKey": "private-key",
+        "shortIds": ["0123456789abcdef"],
+    }
 
 
 def test_export_links_match_sg_panel_parameters(monkeypatch):
@@ -160,7 +168,7 @@ def test_export_links_match_sg_panel_parameters(monkeypatch):
     assert xhttp_query["security"] == ["reality"]
     assert xhttp_query["pbk"] == ["public-key"]
     assert xhttp_query["fp"] == ["firefox"]
-    assert xhttp_query["sni"] == ["www.bing.com"]
+    assert xhttp_query["sni"] == [XHTTP_REALITY_DEFAULT_SNI]
     assert xhttp_query["sid"] == ["0123456789abcdef"]
     assert xhttp_query["path"] == ["/sg-xhttp-reality"]
     assert xhttp_query["mode"] == ["stream-one"]
@@ -214,7 +222,7 @@ def test_exports_ignore_stale_server_values_in_access(monkeypatch):
     assert parsed.hostname == "203.0.113.10"
     assert query["pbk"] == ["current-key"]
     assert query["sid"] == ["0123456789abcdef"]
-    assert query["sni"] == ["www.bing.com"]
+    assert query["sni"] == [XHTTP_REALITY_DEFAULT_SNI]
     assert query["fp"] == ["firefox"]
     assert query["encryption"] == [ENCRYPTION]
     assert "stale" not in link

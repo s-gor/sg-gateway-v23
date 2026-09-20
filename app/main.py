@@ -22,6 +22,7 @@ from app.clients.exports import (
 from app.clients.qr import ClientQrError, build_qr_svg
 from app.clients.awg31_stage2 import register_awg31
 from app.clients.runtime import ClientWorkflowError, apply_clients_runtime
+from app.clients.sg_subscription_store import build_sg_device_subscription_url
 from app.clients.repository import (
     count_clients,
     client_activity_counts,
@@ -84,7 +85,7 @@ from app.maintenance.full_backups import (
     stage_verified_full_backup_for_restore,
 )
 from app.maintenance.diagnostics import build_diagnostic_report, build_diagnostic_report_json
-from app.maintenance.health import cached_health_summary, collect_health_checks, health_summary
+from app.maintenance.health import cached_health_summary, collect_health_checks, health_summary, refresh_after_tls_change
 from app.maintenance.operations import list_operations, log_operation
 from app.maintenance.xray_updates import overview as xray_update_overview
 from app.maintenance.panel_updates import overview as panel_update_overview
@@ -136,6 +137,7 @@ from app.mihomo.service import (
     test_candidate as test_mihomo_candidate,
 )
 from app.xray.profiles import (
+    FINGERPRINT_VALUES,
     XrayProfilesError,
     new_salamander_password,
     overview as xray_profiles_overview,
@@ -729,10 +731,9 @@ def create_app() -> Flask:
 
     @app.context_processor
     def inject_globals():
-        try:
-            panel_health = cached_health_summary()
-        except Exception:
-            panel_health = "warning"
+        # Ordinary page navigation must never run live runtime diagnostics.
+        # The cached summary is refreshed by the dedicated health/system paths.
+        panel_health = cached_health_summary()
         return {
             "app_version": get_version(),
             "static_asset": static_asset,
@@ -1087,6 +1088,8 @@ def create_app() -> Flask:
             job = read_operation_job(job_id)
         except FileNotFoundError:
             abort(404)
+        if str(job.get("kind") or "") == "tls_issue" and str(job.get("status") or "") == "success":
+            refresh_after_tls_change()
         return jsonify(job)
 
     @app.post("/connections/xray/apply")
@@ -1113,6 +1116,7 @@ def create_app() -> Flask:
     def security_tls_renew():
         try:
             result = renew_certificate()
+            refresh_after_tls_change()
             flash(str(result.get("message", "Сертификат проверен.")), "success")
         except TlsError as exc:
             flash(f"Сертификат не обновлён: {exc}", "error")
@@ -1122,6 +1126,7 @@ def create_app() -> Flask:
     def security_tls_rollback():
         try:
             result = rollback_tls()
+            refresh_after_tls_change()
             flash(str(result.get("message", "HTTPS-конфигурация восстановлена.")), "success")
         except TlsError as exc:
             flash(f"Откат HTTPS не выполнен: {exc}", "error")
@@ -1146,8 +1151,11 @@ def create_app() -> Flask:
         import base64 as _subscription_base64
         from urllib.parse import quote as _subscription_quote
 
-        device_title = "Основное устройство" if device.is_primary else device.name
-        profile_title = f"SG-Gateway · {client.name} · {device_title}"
+        profile_title = (
+            f"SG-Gateway · {client.name}"
+            if device.is_primary
+            else f"SG-Gateway · {client.name} · {device.name}"
+        )
         encoded_title = _subscription_base64.b64encode(
             profile_title.encode("utf-8")
         ).decode("ascii")
@@ -1209,7 +1217,7 @@ def create_app() -> Flask:
             return redirect(url_for("clients"))
 
         try:
-            result = apply_clients_runtime()
+            result = apply_clients_runtime(stabilize=True)
             flash(
                 str(result.get("message") or "Клиент создан и применён."),
                 "success",
@@ -1246,6 +1254,7 @@ def create_app() -> Flask:
                 "device": device,
                 "access_cards": build_access_cards(client, device, xray_state=xray_state),
                 "protocol_tokens": deployment_access_tokens(deployments_by_device.get(device.id, [])),
+                "sg_subscription_universal_url": build_sg_device_subscription_url(client, device),
             }
             for device in devices
         ]
@@ -1595,6 +1604,22 @@ def create_app() -> Flask:
             return Response(str(exc), status=409, mimetype="text/plain")
         return Response(svg, mimetype="image/svg+xml")
 
+    @app.get("/sg-labs")
+    def sg_labs():
+        return render_template(
+            "sg_labs.html",
+            active_page="sg_labs",
+            sgnet_backend_ready=False,
+        )
+
+    @app.get("/sg-labs/sg-net")
+    def sg_labs_sg_net():
+        return render_template(
+            "sg_labs_sg_net.html",
+            active_page="sg_labs",
+            sgnet_backend_ready=False,
+        )
+
     @app.get("/connections")
     def connections():
         settings_map = list_connection_settings(("xray", "mihomo", "amneziawg31"))
@@ -1648,6 +1673,29 @@ def create_app() -> Flask:
         flash("Настройки Xray сохранены." if updated else "Настройки Xray не применены. Проверьте адрес и порт.", "success" if updated else "error")
         return redirect(url_for("connections"))
 
+
+
+    @app.post("/connections/xray/fingerprint")
+    def update_xray_fingerprint():
+        current = get_connection_settings("xray")
+        config = dict(current.config)
+        fingerprint = str(request.form.get("fingerprint") or "").strip().lower()
+        if fingerprint not in FINGERPRINT_VALUES:
+            flash("Fingerprint не сохранён: выберите значение из списка.", "error")
+            return redirect(url_for("connections") + "#xray-profiles")
+
+        config["fingerprint"] = fingerprint
+        updated = update_connection_settings(
+            "xray",
+            current.host,
+            current.port,
+            config,
+        )
+        flash(
+            "Fingerprint сохранён." if updated else "Fingerprint не сохранён.",
+            "success" if updated else "error",
+        )
+        return redirect(url_for("connections") + "#xray-profiles")
 
 
     @app.post("/connections/xray/profiles")

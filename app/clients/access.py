@@ -192,7 +192,7 @@ def build_access_cards(
                     kind="amneziawg31",
                     title="AmneziaWG 3.1",
                     status=status,
-                    description="Независимый AmneziaWG 3.1 профиль на UDP 587.",
+                    description="Независимый AmneziaWG 3.1 профиль на UDP 443.",
                     primary_action="Скачать конфигурацию",
                     export_url=export_url,
                     qr_url=qr_url,

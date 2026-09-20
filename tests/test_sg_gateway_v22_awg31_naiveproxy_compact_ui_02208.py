@@ -15,9 +15,11 @@ def test_awg31_and_naiveproxy_share_one_compact_protocol_block() -> None:
     assert 'cnv1-engine-awg awgd-shell' not in TEMPLATE
 
 
-def test_awg31_panel_is_compact_and_keeps_dns_endpoint_contract() -> None:
+def test_awg31_panel_is_compact_and_keeps_dns_contract_without_public_port() -> None:
     assert 'awg31-compact-card' in AWG31
-    assert '{{ awg31_public_host }}:587' in AWG31
+    assert '{{ awg31_public_host }}:587' not in AWG31
+    assert 'UDP VPN · порт 587' not in AWG31
+    assert 'Адрес подключения:' not in AWG31
     assert "url_for('update_awg_dns')" in AWG31
     assert 'name="dns"' in AWG31
     assert 'Независимый userspace runtime' not in AWG31
@@ -37,6 +39,34 @@ def test_compact_protocol_polish_matches_mihomo_rail_and_removes_noise() -> None
     assert 'AmneziaWG 3.1 · NaiveProxy' not in TEMPLATE
     assert 'Два независимых подключения в одном компактном блоке.' not in TEMPLATE
     assert 'country_name(awg31_country)' not in AWG31
-    assert 'HTTPS proxy · TLS · порт' in NAIVE
-    assert 'data-naive-summary-port' in NAIVE
+    assert 'HTTPS proxy · TLS</p>' in NAIVE
+    assert 'HTTPS proxy · TLS · порт' not in NAIVE
+    assert 'data-naive-summary-port' not in NAIVE
+    assert 'data-naive-port' not in NAIVE
+    assert 'data-naive-endpoint' not in NAIVE
     assert 'padding-inline: var(--sg-ui-rail-inset, 18px);' in CSS
+
+
+def test_naiveproxy_action_is_aligned_with_https_domain() -> None:
+    assert 'class="cnv1-compact-protocol-endpoint naiveproxy-endpoint-row"' in NAIVE
+    row = NAIVE.split('class="cnv1-compact-protocol-endpoint naiveproxy-endpoint-row"', 1)[1].split("</div>", 2)[0]
+    assert 'data-naive-host' in row
+    assert 'data-naive-submit' in NAIVE
+    assert 'class="cnv1-compact-protocol-actions"' not in NAIVE
+
+
+def test_naiveproxy_helper_labels_are_removed() -> None:
+    assert "HTTPS-домен" not in NAIVE
+    assert "HTTPS настроен" not in NAIVE
+
+
+def test_compact_protocol_badges_are_unified_and_endpoint_has_no_separators() -> None:
+    assert "body.page-connections .mhv2-listener-icon," in CSS
+    assert "body.page-connections .cnv1-compact-protocol-icon" in CSS
+    assert "width: 40px;" in CSS
+    assert "height: 40px;" in CSS
+    assert "font-size: 11px;" in CSS
+    endpoint = CSS.split("body.page-connections .cnv1-compact-protocol-endpoint {", 1)[1].split("}", 1)[0]
+    assert "border: 0;" in endpoint
+    assert "border-top" not in endpoint
+    assert "border-bottom" not in endpoint
