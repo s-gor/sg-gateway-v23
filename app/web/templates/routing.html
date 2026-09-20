@@ -24,7 +24,7 @@
       <h1>Routing</h1>
       <p>Единая схема правил для серверного Xray и связанных GeoFiles.</p>
     </div>
-    <a class="r096-header-button" href="{{ url_for('help_index') }}">Справка</a>
+    <a class="r096-header-button" href="{{ url_for('help_topic', slug='routing') }}">Справка</a>
   </header>
 
   <nav class="r096-tabs sg-ui-tabs sg-ui-routing-tabs" data-sg-section="routing-tabs" aria-label="Разделы Routing">
@@ -87,7 +87,9 @@
         <div class="r096-preset-grid">
           {% for value, label in [
             ('direct','Обычный доступ · SG-Gateway · IPv4'),
-            ('ads_block','Блокировка рекламы и трекеров'),
+            ('ads_block','Блокировка рекламы'),
+            ('privacy','Privacy · реклама + трекеры + угрозы'),
+            ('strict','Strict · усиленная фильтрация'),
             ('blocked_warp','Ресурсы, заблокированные в РФ через WARP · IPv4'),
             ('all_warp','Весь интернет через WARP · IPv4'),
             ('custom','Пользовательская схема')
@@ -112,6 +114,14 @@
           {% if allow_warp %}
           <label class="{% if not caps.get('warp4') %}disabled{% endif %}" {% if not caps.get('warp4') %}title="WARP IPv4 не готов или выключен"{% endif %}><input type="radio" name="{{ name }}" value="warp4" {% if current == 'warp4' %}checked{% endif %} {% if not caps.get('warp4') %}disabled{% endif %}><span>WARP · IPv4</span></label>
           <label class="{% if not caps.get('warp6') %}disabled{% endif %}" {% if not caps.get('warp6') %}title="WARP IPv6 не готов или выключен"{% endif %}><input type="radio" name="{{ name }}" value="warp6" {% if current == 'warp6' %}checked{% endif %} {% if not caps.get('warp6') %}disabled{% endif %}><span>WARP · IPv6</span></label>
+          {% endif %}
+          {% if allow_warp and external_outbounds and external_outbounds.outbounds %}
+          {% for outbound in external_outbounds.outbounds %}
+          <label><input type="radio" name="{{ name }}" value="{{ outbound.tag }}" {% if current == outbound.tag %}checked{% endif %}><span>{{ outbound.name }} · {{ outbound.protocol|upper }}</span></label>
+          {% endfor %}
+          {% for group in external_outbounds.groups %}
+          <label><input type="radio" name="{{ name }}" value="{{ group.tag }}" {% if current == group.tag %}checked{% endif %}><span>{{ group.name }} · {{ 'Failover' if group.strategy == 'failover' else group.strategy }}</span></label>
+          {% endfor %}
           {% endif %}
           {% if allow_block %}<label><input type="radio" name="{{ name }}" value="block" {% if current == 'block' %}checked{% endif %}><span>Заблокировать</span></label>{% endif %}
         </div>
@@ -142,7 +152,7 @@
         </div>
 
         <div class="r096-rule-row">
-          <div><strong>Реклама и трекеры</strong><small>category-ads-all или совместимая категория текущего набора</small></div>
+          <div><strong>Реклама</strong><small>category-ads-all или совместимая категория текущего набора; Privacy/Strict дополнительно добавляют трекеры, malware, phishing и telemetry</small></div>
           {{ action_group('ads_action', smart.get('ads_action', 'direct4')) }}
         </div>
 
@@ -165,11 +175,26 @@
         {% if rules %}
         <div class="r096-rule-list">
           {% for rule in rules %}
-          {% set route_kind = 'direct' if rule.action in ['direct','direct4','direct6'] else ('warp' if rule.action in ['warp','warp4','warp6'] else 'block') %}
+          {% set optional_skipped = rule.missing and not rule.get('required', True) %}
+          {% set route_kind = 'skip' if optional_skipped else ('direct' if rule.action in ['direct','direct4','direct6'] else ('warp' if rule.action in ['warp','warp4','warp6'] else 'block')) %}
           <div class="{{ '' if rule.enabled else 'disabled' }}">
             <b>{{ '%02d' | format(loop.index * 10) }}</b>
-            <span><strong>{{ rule.title }}</strong><small>{% if rule.missing %}Не найдено: {{ rule.missing | join(', ') }}{% elif rule.selected_geosite %}geosite:{{ rule.selected_geosite }}{% elif rule.selected_geoip %}geoip:{{ rule.selected_geoip }}{% elif rule.get('implicit_default') %}Legacy SG-Gateway · IPv4 по умолчанию{% elif rule.xray_rule and rule.xray_rule.get('network') %}tcp,udp · финальное правило{% else %}Пользовательские значения{% endif %}</small></span>
-            <em class="route-{{ route_kind }}">{{ {'direct':'SG-Gateway · IPv4','direct4':'SG-Gateway · IPv4','direct6':'SG-Gateway · IPv6','warp':'WARP · IPv4','warp4':'WARP · IPv4','warp6':'WARP · IPv6','block':'Заблокировать'}.get(rule.action, rule.action) }}</em>
+            <span>
+              <strong>{{ rule.title }}</strong>
+              <small>
+                {% if optional_skipped %}Категория не найдена · правило пропущено
+                {% elif rule.missing %}Недоступно: {{ rule.missing | join(', ') }}
+                {% elif rule.selected_geosite %}geosite:{{ rule.selected_geosite }}
+                {% elif rule.selected_geoip %}geoip:{{ rule.selected_geoip }}
+                {% elif rule.get('implicit_default') %}Legacy SG-Gateway · IPv4 по умолчанию
+                {% elif rule.xray_rule and rule.xray_rule.get('network') %}tcp,udp · финальное правило
+                {% else %}Пользовательские значения{% endif %}
+              </small>
+            </span>
+            <em class="route-{{ route_kind }}">
+              {% if optional_skipped %}Пропущено
+              {% else %}{{ {'direct':'SG-Gateway · IPv4','direct4':'SG-Gateway · IPv4','direct6':'SG-Gateway · IPv6','warp':'WARP · IPv4','warp4':'WARP · IPv4','warp6':'WARP · IPv6','block':'Заблокировать'}.get(rule.action, rule.action) }}{% endif %}
+            </em>
           </div>
           {% endfor %}
         </div>

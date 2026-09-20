@@ -126,3 +126,56 @@ html[data-theme="light"] .ob49-danger { background:linear-gradient(180deg,#F3D7D
 
 /* 22.08 semantic rail ownership */
 [data-sg-ui-page="outbounds"] { --sg-ui-page-gap: 24px; }
+
+
+/* 23.01 external outbound editor */
+.ob49-external-form {
+  display:grid; grid-template-columns:repeat(6,minmax(120px,1fr)) auto; gap:10px;
+  align-items:end; padding:18px 22px; border-bottom:1px solid var(--ob-line);
+}
+.ob49-external-form label { display:grid; gap:6px; min-width:0; }
+.ob49-external-form label > span { color:var(--ob-muted); font-size:11px; font-weight:800; }
+.ob49-external-form input,
+.ob49-external-form select {
+  width:100%; min-height:42px; box-sizing:border-box; border:1px solid var(--ob-line-strong);
+  border-radius:10px; padding:9px 11px; background:var(--ob-bg-soft); color:var(--ob-text); font:inherit;
+}
+.ob49-external-list .ob49-system-row:last-child { border-bottom:0; }
+.ob49-external-list form { margin:0; }
+@media (max-width:1180px) {
+  .ob49-external-form { grid-template-columns:repeat(3,minmax(0,1fr)); }
+}
+@media (max-width:700px) {
+  .ob49-external-form { grid-template-columns:1fr; }
+}
+
+
+.ob49-group-form {
+  display:grid; grid-template-columns:minmax(180px,.8fr) minmax(160px,.6fr) minmax(320px,2fr) auto;
+  gap:12px; align-items:end; padding:18px 22px; border-bottom:1px solid var(--ob-line);
+}
+.ob49-group-form > label { display:grid; gap:6px; }
+.ob49-group-form > label > span,
+.ob49-group-form legend { color:var(--ob-muted); font-size:11px; font-weight:800; }
+.ob49-group-form input[type="text"],
+.ob49-group-form input:not([type]),
+.ob49-group-form select {
+  width:100%; min-height:42px; box-sizing:border-box; border:1px solid var(--ob-line-strong);
+  border-radius:10px; padding:9px 11px; background:var(--ob-bg-soft); color:var(--ob-text); font:inherit;
+}
+.ob49-group-form fieldset { min-width:0; margin:0; padding:0; border:0; }
+.ob49-group-form legend { margin-bottom:6px; }
+.ob49-member-grid { display:flex; flex-wrap:wrap; gap:7px; min-height:42px; align-items:center; }
+.ob49-member-grid label {
+  display:inline-flex; align-items:center; gap:6px; padding:7px 9px;
+  border:1px solid var(--ob-line-strong); border-radius:9px; background:var(--ob-bg-soft);
+  color:var(--ob-text); font-size:12px;
+}
+@media (max-width:1180px) {
+  .ob49-group-form { grid-template-columns:1fr 1fr; }
+  .ob49-group-form fieldset { grid-column:1 / -1; }
+}
+@media (max-width:700px) {
+  .ob49-group-form { grid-template-columns:1fr; }
+  .ob49-group-form fieldset { grid-column:auto; }
+}

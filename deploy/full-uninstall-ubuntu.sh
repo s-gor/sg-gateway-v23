@@ -100,7 +100,72 @@ run_stage(){
   printf '\r\033[K%s[OK]%s Этап %s/%s · %s (%s сек.)\n' "$GREEN" "$RESET" "$stage" "$TOTAL_STAGES" "$label" "$elapsed"
 }
 
+stop_known_sg_diagnostics(){
+  # Remove only the exact packet-capture diagnostic previously used by the
+  # SG-Gateway troubleshooting flow. Never kill arbitrary tcpdump sessions.
+  command -v python3 >/dev/null 2>&1 || return 0
+  python3 - <<'PYSGDIAG'
+from __future__ import annotations
+
+import os
+import signal
+from pathlib import Path
+
+required = (
+    "tcpdump",
+    "-ni",
+    "any",
+    "tcp port 443",
+    "tcp port 10443",
+    "tcp port 10444",
+)
+
+matched: list[int] = []
+for entry in Path("/proc").iterdir():
+    if not entry.name.isdigit():
+        continue
+    try:
+        raw = (entry / "cmdline").read_bytes()
+    except OSError:
+        continue
+    if not raw:
+        continue
+    command = raw.replace(b"\0", b" ").decode("utf-8", errors="replace").strip()
+    if all(token in command for token in required):
+        matched.append(int(entry.name))
+
+for pid in sorted(set(matched), reverse=True):
+    if pid in {os.getpid(), os.getppid()}:
+        continue
+    try:
+        os.kill(pid, signal.SIGTERM)
+        print(f"[SG-Gateway] Остановлена SG-диагностика tcpdump: PID {pid}")
+    except ProcessLookupError:
+        pass
+    except PermissionError as exc:
+        raise SystemExit(f"cannot stop SG diagnostic PID {pid}: {exc}")
+
+if matched:
+    import time
+    time.sleep(0.3)
+
+for pid in sorted(set(matched), reverse=True):
+    if pid in {os.getpid(), os.getppid()}:
+        continue
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        continue
+    try:
+        os.kill(pid, signal.SIGKILL)
+        print(f"[SG-Gateway] Принудительно остановлена SG-диагностика tcpdump: PID {pid}")
+    except ProcessLookupError:
+        pass
+PYSGDIAG
+}
+
 stop_runtime(){
+  stop_known_sg_diagnostics
   local service
   for service in \
     sg-gateway.service sg-hostd.service xray.service mihomo.service sg-gateway-naiveproxy.service \
@@ -335,6 +400,44 @@ remove_account_and_verify(){
   systemctl reset-failed >/dev/null 2>&1 || true
 
   local bad=0 path
+  if command -v python3 >/dev/null 2>&1; then
+    local diagnostic_left=""
+    diagnostic_left="$(python3 - <<'PYSGDIAGVERIFY'
+from pathlib import Path
+
+required = (
+    "tcpdump",
+    "-ni",
+    "any",
+    "tcp port 443",
+    "tcp port 10443",
+    "tcp port 10444",
+)
+
+for entry in Path("/proc").iterdir():
+    if not entry.name.isdigit():
+        continue
+    try:
+        raw = (entry / "cmdline").read_bytes()
+    except OSError:
+        continue
+    if not raw:
+        continue
+    command = raw.replace(b"\\0", b" ").decode("utf-8", errors="replace").strip()
+    argv0 = raw.split(b"\\0", 1)[0].decode("utf-8", errors="replace")
+    # Require the executable/argv0 itself to be sudo or tcpdump. This avoids
+    # matching shell/test command text that merely contains the diagnostic.
+    if not (argv0.endswith("/tcpdump") or argv0 == "tcpdump" or argv0.endswith("/sudo") or argv0 == "sudo"):
+        continue
+    if all(token in command for token in required):
+        print(f"{entry.name} {command}")
+PYSGDIAGVERIFY
+)"
+    if [[ -n "$diagnostic_left" ]]; then
+      echo "Остаток после удаления: SG tcpdump diagnostic: $diagnostic_left" >&2
+      bad=1
+    fi
+  fi
   if id sg-naiveproxy >/dev/null 2>&1; then
     echo "Остаток после удаления: пользователь sg-naiveproxy" >&2
     bad=1
@@ -369,8 +472,8 @@ remove_account_and_verify(){
       bad=1
     fi
   done
-  if command -v ss >/dev/null 2>&1 && [[ -n "$(ss -H -ltn "sport = :${NAIVEPROXY_PORT}" 2>/dev/null || true)" ]]; then
-    echo "Остаток после удаления: NaiveProxy listener ${NAIVEPROXY_PORT}/tcp" >&2
+  if command -v ss >/dev/null 2>&1 && [[ -n "$(ss -H -ltn "sport = :${NAIVEPROXY_PORT:-8447}" 2>/dev/null || true)" ]]; then
+    echo "Остаток после удаления: NaiveProxy listener ${NAIVEPROXY_PORT:-8447}/tcp" >&2
     bad=1
   fi
   if [[ -f /etc/nginx/nginx.conf ]] && grep -Eq '^\s*include\s+/etc/nginx/stream-conf\.d/sg-gateway-443\.conf;\s*$' /etc/nginx/nginx.conf; then
@@ -396,7 +499,7 @@ remove_account_and_verify(){
   (( bad == 0 )) || return 1
 }
 
-run_stage 1 "Остановка SG-служб и интерфейсов" stop_runtime
+run_stage 1 "Остановка SG-служб, интерфейсов и диагностики" stop_runtime
 run_stage 2 "Удаление systemd/Nginx конфигурации" remove_service_and_web_config
 run_stage 3 "Удаление сертификата SG-Gateway" remove_sg_certificate
 run_stage 4 "Удаление приложения, базы, backups и состояния" remove_application_and_state
@@ -409,4 +512,4 @@ printf '[SG-Gateway] EC2 готов к чистой установке SG-Gatewa
 printf '[SG-Gateway] Системные пакеты Ubuntu не удалялись.\n'
 printf '[SG-Gateway] Журнал: %s\n' "$UNINSTALL_LOG"
 printf '\n[SG-Gateway] Для повторной установки SG-Gateway выполните:\n'
-printf '%s\n' 'curl -4 -fsSL https://raw.githubusercontent.com/s-gor/sg-gateway-v23/dev-02301/deploy/install-from-github.sh | sudo env SG_GATEWAY_GITHUB_BRANCH=dev-02301 bash'
+printf '%s\n' 'curl -4 -fsSL https://raw.githubusercontent.com/s-gor/sg-gateway-v23/stable-02301/deploy/install-from-github.sh | sudo env SG_GATEWAY_GITHUB_BRANCH=stable-02301 bash'

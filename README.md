@@ -11,9 +11,9 @@
 ![Mihomo](https://img.shields.io/badge/Mihomo-supported-8B5CF6)
 ![sing-box](https://img.shields.io/badge/sing--box-supported-0EA5E9)
 ![HTTPS](https://img.shields.io/badge/HTTPS-Let%27s_Encrypt-003A70?logo=letsencrypt&logoColor=white)
-![Status](https://img.shields.io/badge/status-23.01--DEV-F59E0B)
+![Status](https://img.shields.io/badge/status-23.01--STABLE-22C55E)
 
-> **Текущая линия разработки — SG-Gateway 0.1.0-023.01.** Канал: `dev-02301`.
+> **Текущая стабильная линия — SG-Gateway 0.1.0-023.01.** Канал: `stable-02301`.
 
 SG-Gateway 23.01 начинается с проверенной рабочей runtime-базы предыдущей линии, но ведётся в отдельном репозитории и с отдельным CI-контрактом. Текущий активный AmneziaWG runtime — **AWG 3.1**. AWG 2.0 и AWG 3.0 не являются активными профилями новой линии; их данные могут сохраняться только там, где это необходимо для безопасной миграции или восстановления старых backup.
 
@@ -24,7 +24,7 @@ SG-Gateway 23.01 начинается с проверенной рабочей r
 ### Clean Install — только новый Ubuntu 24.04 сервер
 
 ```bash
-curl -4 -fsSL https://raw.githubusercontent.com/s-gor/sg-gateway-v23/dev-02301/deploy/install-from-github.sh | sudo env SG_GATEWAY_GITHUB_BRANCH=dev-02301 bash
+curl -4 -fsSL https://raw.githubusercontent.com/s-gor/sg-gateway-v23/stable-02301/deploy/install-from-github.sh | sudo env SG_GATEWAY_GITHUB_BRANCH=stable-02301 bash
 ```
 
 Clean Install блокируется, если SG-Gateway уже установлен. Для существующего сервера используйте отдельный Update.
@@ -32,13 +32,13 @@ Clean Install блокируется, если SG-Gateway уже установ�
 ### Update — существующий SG-Gateway 23.01
 
 ```bash
-curl -4 -fsSL https://raw.githubusercontent.com/s-gor/sg-gateway-v23/dev-02301/deploy/update-from-github.sh | sudo env SG_GATEWAY_GITHUB_BRANCH=dev-02301 bash
+curl -4 -fsSL https://raw.githubusercontent.com/s-gor/sg-gateway-v23/stable-02301/deploy/update-from-github.sh | sudo env SG_GATEWAY_GITHUB_BRANCH=stable-02301 bash
 ```
 
 ### Full Uninstall
 
 ```bash
-curl -4 -fsSL https://raw.githubusercontent.com/s-gor/sg-gateway-v23/dev-02301/deploy/uninstall-from-github.sh | sudo env SG_GATEWAY_GITHUB_BRANCH=dev-02301 bash
+curl -4 -fsSL https://raw.githubusercontent.com/s-gor/sg-gateway-v23/stable-02301/deploy/uninstall-from-github.sh | sudo env SG_GATEWAY_GITHUB_BRANCH=stable-02301 bash
 ```
 
 Подтверждение удаления: `DELETE SG-GATEWAY`.
@@ -47,7 +47,7 @@ curl -4 -fsSL https://raw.githubusercontent.com/s-gor/sg-gateway-v23/dev-02301/d
 
 ## Архитектурная линия 23.01
 
-Чистый baseline 23.01 фиксируется до начала следующего архитектурного этапа. Работа над Single Edge 443 ведётся отдельно в `feat/2301-single-edge-443`; она не должна попадать в `main` до собственных тестов и проверки на тестовом сервере.
+SG-Gateway 23.01 опубликован в стабильном канале `stable-02301`. Новые функции разрабатываются в отдельных feature-ветках и попадают в стабильный канал только после полного CI и проверки runtime-контракта.
 
 Целевое направление Single Edge: единая внешняя TCP-точка 443 с L4/SNI-маршрутизацией, passthrough для Reality и внутренними loopback listeners для совместимых TCP/TLS сервисов. UDP рассматривается отдельно: AWG 3.1 остаётся владельцем UDP 443, а Hysteria2 на первом этапе использует отдельный UDP-порт.
 

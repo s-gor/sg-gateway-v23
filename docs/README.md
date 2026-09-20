@@ -1,6 +1,6 @@
 # Документация SG-Gateway
 
-Документация относится к линии **SG-Gateway 021** и версии приложения **`0.1.0-021.7`**.
+Документация относится к стабильной линии **SG-Gateway 23.01** и версии приложения **`0.1.0-023.01`**.
 
 ## Две дороги
 
@@ -44,8 +44,8 @@
 System       ресурсы, службы и состояние
 Clients      клиенты, устройства, QR и subscriptions
 Connections  AmneziaWG, Xray и Mihomo
-Outbounds    Direct, WARP и Block
-Routing      правила и GeoFiles
+Outbounds    Direct/WARP/Block, внешние proxy и группы
+Routing      правила, GeoFiles, внешние выходы и Failover
 Maintenance  копии, журналы, обновления
 Security     доступ, HTTPS и защита
 Help         встроенная справка

@@ -32,7 +32,7 @@ def test_all_eight_vendor_files_are_required():
     installer = read("install.sh")
     for name in (
         "Xray-linux-64.zip",
-        "mihomo-linux-amd64-v1.19.29.gz",
+        "mihomo-linux-amd64-compatible-v1.19.29.gz",
         "sing-box-1.13.14-linux-amd64.tar.gz",
         "wgcf-cli-linux-64.tar.zstd",
         "amneziawg-tools-1.0.20260618-2.tar.gz",

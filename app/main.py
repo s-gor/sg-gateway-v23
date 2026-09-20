@@ -22,6 +22,7 @@ from app.clients.exports import (
 from app.clients.qr import ClientQrError, build_qr_svg
 from app.clients.awg31_stage2 import register_awg31
 from app.clients.runtime import ClientWorkflowError, apply_clients_runtime
+from app.clients.sg_subscription_store import build_sg_device_subscription_url
 from app.clients.repository import (
     count_clients,
     client_activity_counts,
@@ -84,7 +85,7 @@ from app.maintenance.full_backups import (
     stage_verified_full_backup_for_restore,
 )
 from app.maintenance.diagnostics import build_diagnostic_report, build_diagnostic_report_json
-from app.maintenance.health import cached_health_summary, collect_health_checks, health_summary
+from app.maintenance.health import cached_health_summary, collect_health_checks, health_summary, refresh_after_tls_change
 from app.maintenance.operations import list_operations, log_operation
 from app.maintenance.xray_updates import overview as xray_update_overview
 from app.maintenance.panel_updates import overview as panel_update_overview
@@ -107,6 +108,14 @@ from app.security.auth import (
     verify_password,
 )
 from app.routing.warp import overview as warp_overview
+from app.routing.external import (
+    ExternalOutboundError,
+    create_and_apply as create_external_outbound,
+    create_group_and_apply as create_outbound_group,
+    overview as external_outbounds_overview,
+    remove_and_apply as remove_external_outbound,
+    remove_group_and_apply as remove_outbound_group,
+)
 from app.routing.templates import (
     RoutingTemplateError,
     apply_candidate as apply_routing_template,
@@ -136,6 +145,7 @@ from app.mihomo.service import (
     test_candidate as test_mihomo_candidate,
 )
 from app.xray.profiles import (
+    FINGERPRINT_VALUES,
     XrayProfilesError,
     new_salamander_password,
     overview as xray_profiles_overview,
@@ -729,10 +739,9 @@ def create_app() -> Flask:
 
     @app.context_processor
     def inject_globals():
-        try:
-            panel_health = cached_health_summary()
-        except Exception:
-            panel_health = "warning"
+        # Ordinary page navigation must never run live runtime diagnostics.
+        # The cached summary is refreshed by the dedicated health/system paths.
+        panel_health = cached_health_summary()
         return {
             "app_version": get_version(),
             "static_asset": static_asset,
@@ -797,11 +806,13 @@ def create_app() -> Flask:
 
     @app.get("/outbounds")
     def outbounds():
+        external = external_outbounds_overview()
         return render_template(
             "outbounds.html",
             active_page="outbounds",
             warp=warp_overview(),
-            custom_outbounds=[],
+            custom_outbounds=external["outbounds"],
+            outbound_groups=external["groups"],
         )
 
     @app.get("/routing")
@@ -819,7 +830,57 @@ def create_app() -> Flask:
             warp=warp_overview(),
             mihomo=mihomo_overview(),
             client_total=count_clients(),
+            external_outbounds=external_outbounds_overview(),
         )
+
+    @app.post("/outbounds/external/create")
+    def outbounds_external_create():
+        try:
+            result = create_external_outbound(
+                name=request.form.get("name", ""),
+                protocol=request.form.get("protocol", ""),
+                host=request.form.get("host", ""),
+                port=request.form.get("port", ""),
+                username=request.form.get("username", ""),
+                password=request.form.get("password", ""),
+            )
+            tag = result["outbound"]["tag"]
+            flash(f"External outbound {tag} создан, Xray проверен и применён.", "success")
+        except (ExternalOutboundError, ValueError) as exc:
+            flash(f"External outbound не создан: {exc}", "error")
+        return redirect(url_for("outbounds") + "#external")
+
+    @app.post("/outbounds/external/<identifier>/remove")
+    def outbounds_external_remove(identifier: str):
+        try:
+            remove_external_outbound(identifier)
+            flash("External outbound удалён, Xray проверен и применён.", "success")
+        except ExternalOutboundError as exc:
+            flash(f"External outbound не удалён: {exc}", "error")
+        return redirect(url_for("outbounds") + "#external")
+
+    @app.post("/outbounds/groups/create")
+    def outbounds_group_create():
+        try:
+            result = create_outbound_group(
+                name=request.form.get("name", ""),
+                members=request.form.getlist("members"),
+                strategy=request.form.get("strategy", "roundRobin"),
+            )
+            tag = result["group"]["tag"]
+            flash(f"Группа {tag} создана, Xray проверен и применён.", "success")
+        except ExternalOutboundError as exc:
+            flash(f"Группа не создана: {exc}", "error")
+        return redirect(url_for("outbounds") + "#groups")
+
+    @app.post("/outbounds/groups/<identifier>/remove")
+    def outbounds_group_remove(identifier: str):
+        try:
+            remove_outbound_group(identifier)
+            flash("Группа удалена, Xray проверен и применён.", "success")
+        except ExternalOutboundError as exc:
+            flash(f"Группа не удалена: {exc}", "error")
+        return redirect(url_for("outbounds") + "#groups")
 
     def _warp_action(command: str, success_default: str):
         result = run_hostd_command(
@@ -1087,6 +1148,8 @@ def create_app() -> Flask:
             job = read_operation_job(job_id)
         except FileNotFoundError:
             abort(404)
+        if str(job.get("kind") or "") == "tls_issue" and str(job.get("status") or "") == "success":
+            refresh_after_tls_change()
         return jsonify(job)
 
     @app.post("/connections/xray/apply")
@@ -1113,6 +1176,7 @@ def create_app() -> Flask:
     def security_tls_renew():
         try:
             result = renew_certificate()
+            refresh_after_tls_change()
             flash(str(result.get("message", "Сертификат проверен.")), "success")
         except TlsError as exc:
             flash(f"Сертификат не обновлён: {exc}", "error")
@@ -1122,6 +1186,7 @@ def create_app() -> Flask:
     def security_tls_rollback():
         try:
             result = rollback_tls()
+            refresh_after_tls_change()
             flash(str(result.get("message", "HTTPS-конфигурация восстановлена.")), "success")
         except TlsError as exc:
             flash(f"Откат HTTPS не выполнен: {exc}", "error")
@@ -1146,8 +1211,11 @@ def create_app() -> Flask:
         import base64 as _subscription_base64
         from urllib.parse import quote as _subscription_quote
 
-        device_title = "Основное устройство" if device.is_primary else device.name
-        profile_title = f"SG-Gateway · {client.name} · {device_title}"
+        profile_title = (
+            f"SG-Gateway · {client.name}"
+            if device.is_primary
+            else f"SG-Gateway · {client.name} · {device.name}"
+        )
         encoded_title = _subscription_base64.b64encode(
             profile_title.encode("utf-8")
         ).decode("ascii")
@@ -1209,7 +1277,7 @@ def create_app() -> Flask:
             return redirect(url_for("clients"))
 
         try:
-            result = apply_clients_runtime()
+            result = apply_clients_runtime(stabilize=True)
             flash(
                 str(result.get("message") or "Клиент создан и применён."),
                 "success",
@@ -1246,6 +1314,7 @@ def create_app() -> Flask:
                 "device": device,
                 "access_cards": build_access_cards(client, device, xray_state=xray_state),
                 "protocol_tokens": deployment_access_tokens(deployments_by_device.get(device.id, [])),
+                "sg_subscription_universal_url": build_sg_device_subscription_url(client, device),
             }
             for device in devices
         ]
@@ -1648,6 +1717,29 @@ def create_app() -> Flask:
         flash("Настройки Xray сохранены." if updated else "Настройки Xray не применены. Проверьте адрес и порт.", "success" if updated else "error")
         return redirect(url_for("connections"))
 
+
+
+    @app.post("/connections/xray/fingerprint")
+    def update_xray_fingerprint():
+        current = get_connection_settings("xray")
+        config = dict(current.config)
+        fingerprint = str(request.form.get("fingerprint") or "").strip().lower()
+        if fingerprint not in FINGERPRINT_VALUES:
+            flash("Fingerprint не сохранён: выберите значение из списка.", "error")
+            return redirect(url_for("connections") + "#xray-profiles")
+
+        config["fingerprint"] = fingerprint
+        updated = update_connection_settings(
+            "xray",
+            current.host,
+            current.port,
+            config,
+        )
+        flash(
+            "Fingerprint сохранён." if updated else "Fingerprint не сохранён.",
+            "success" if updated else "error",
+        )
+        return redirect(url_for("connections") + "#xray-profiles")
 
 
     @app.post("/connections/xray/profiles")

@@ -10,7 +10,7 @@ from app.db import connect, init_db
 
 PROFILE_ID = "awg31"
 ENGINE_ID = "amneziawg31"
-ENDPOINT = "awg31.internal:587"
+ENDPOINT = "awg31.internal:443"
 TRANSPORT = "udp"
 INTERFACE = "awg31"
 NETWORK = "10.131.0.0/24"

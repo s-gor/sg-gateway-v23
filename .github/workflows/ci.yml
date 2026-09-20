@@ -2,9 +2,9 @@ name: SG-Gateway 23.01 CI
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, checkpoint/2301-ui-stable-aaa9493]
   push:
-    branches: [main]
+    branches: [main, recovery/2301-post-buttons-good]
   workflow_dispatch:
 
 permissions:
@@ -36,6 +36,9 @@ jobs:
 
       - name: Verify 23.01 repository identity
         run: python -m pytest -q tests/test_2301_repository_identity.py
+
+      - name: Verify all-protocol Single Edge contract
+        run: python -m pytest -q tests/test_2301_single_edge_all_protocol_443.py
 
       - name: Verify source integrity
         run: |
@@ -79,6 +82,9 @@ jobs:
 
       - name: Verify NaiveProxy Xray-state forwarding regression
         run: python -m pytest -q tests/test_naiveproxy_xray_state_forwarding_2301.py
+
+      - name: Verify AnyTLS and NaiveProxy subscription regression
+        run: python -m pytest -q tests/test_subscription_anytls_naive_regression.py
 
       - name: Run full 23.01 test suite
         run: python -m pytest -q tests

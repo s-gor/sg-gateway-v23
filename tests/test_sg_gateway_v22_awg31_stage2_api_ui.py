@@ -273,7 +273,7 @@ def test_awg31_config_and_uri_exports_are_profile_specific(isolated_stage2) -> N
     config = build_awg31_config(client, device)
     uri = build_awg31_uri(client, device)
     assert config.filename.endswith("-amneziawg31.conf")
-    assert "Endpoint = awg31.internal:587" in config.body
+    assert "Endpoint = awg31.internal:443" in config.body
     assert "DNS = 1.1.1.1" in config.body
     assert "# Transport: UDP" in config.body
     for name, value in VALID_PARAMETERS.items():
@@ -284,7 +284,7 @@ def test_awg31_config_and_uri_exports_are_profile_specific(isolated_stage2) -> N
 
     decoded = decode_awg31_uri(uri.body)
     assert decoded["profile"] == "awg31"
-    assert decoded["endpoint"] == "awg31.internal:587"
+    assert decoded["endpoint"] == "awg31.internal:443"
     assert decoded["transport"] == "udp"
     assert decoded["dns"] == "1.1.1.1"
     assert decoded["parameters"] == VALID_PARAMETERS
@@ -484,7 +484,7 @@ def test_awg31_uri_consumer_round_trips_complete_configuration(isolated_stage2) 
     decoded = decode_awg31_uri(uri.body)
 
     assert decoded["profile"] == "awg31"
-    assert decoded["endpoint"] == "awg31.internal:587"
+    assert decoded["endpoint"] == "awg31.internal:443"
     assert decoded["transport"] == "udp"
     assert decoded["dns"] == "1.1.1.1"
     assert decoded["private_key"] == _credential(device_id, "amneziawg31")["private_key"]

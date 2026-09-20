@@ -7,7 +7,7 @@ class ClientWorkflowError(RuntimeError):
     pass
 
 
-def apply_clients_runtime() -> dict:
+def _apply_clients_once() -> dict:
     result = run_hostd_command("clients.apply", timeout=300)
     payload = dict(result.payload)
     payload.setdefault("message", result.message)
@@ -17,3 +17,22 @@ def apply_clients_runtime() -> dict:
             result.message or "Не удалось применить клиентские конфигурации"
         )
     return payload
+
+
+def apply_clients_runtime(*, stabilize: bool = False) -> dict:
+    """Apply client runtime and optionally require a convergence pass.
+
+    A freshly created client immediately after clean install may race with the
+    runtime reload chain: the first full apply can return success before every
+    live backend has settled on the new credentials.  Client creation therefore
+    requires two consecutive successful full-catalogue applies.  Existing edit,
+    manual apply and rollback flows keep the established single-apply behavior.
+    """
+    first = _apply_clients_once()
+    if not stabilize:
+        return first
+
+    second = _apply_clients_once()
+    second["stabilized"] = True
+    second["initial_message"] = str(first.get("message") or "")
+    return second

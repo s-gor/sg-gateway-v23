@@ -2,7 +2,7 @@
 set -Eeuo pipefail
 
 REPOSITORY="s-gor/sg-gateway-v23"
-BRANCH="${SG_GATEWAY_GITHUB_BRANCH:-${SG_GATEWAY_UPDATE_BRANCH:-dev-02301}}"
+BRANCH="${SG_GATEWAY_GITHUB_BRANCH:-${SG_GATEWAY_UPDATE_BRANCH:-stable-02301}}"
 ARCHIVE_URL="https://github.com/${REPOSITORY}/archive/refs/heads/${BRANCH}.tar.gz"
 TEMP_DIR=""
 
@@ -11,7 +11,7 @@ fail() {
   exit 1
 }
 
-[[ "$BRANCH" == "dev-02301" ]] || fail "stable uninstaller is pinned to dev-02301; requested branch: $BRANCH"
+[[ "$BRANCH" == "stable-02301" ]] || fail "stable uninstaller is pinned to stable-02301; requested branch: $BRANCH"
 [[ "$(id -u)" -eq 0 ]] || fail "run this uninstaller through sudo"
 
 cleanup() {
@@ -26,7 +26,7 @@ for command in curl tar gzip; do
 done
 
 TEMP_DIR="$(mktemp -d /tmp/sg-gateway-github-uninstall.XXXXXX)"
-ARCHIVE="$TEMP_DIR/sg-gateway-dev-02301.tar.gz"
+ARCHIVE="$TEMP_DIR/sg-gateway-stable-02301.tar.gz"
 SOURCE_DIR="$TEMP_DIR/source"
 mkdir -p "$SOURCE_DIR"
 
@@ -40,20 +40,6 @@ tar -xzf "$ARCHIVE" -C "$SOURCE_DIR" --strip-components=1
 UNINSTALLER="$SOURCE_DIR/deploy/full-uninstall-ubuntu.sh"
 [[ -f "$UNINSTALLER" ]] || fail "deploy/full-uninstall-ubuntu.sh is missing from the GitHub archive"
 [[ -f "$SOURCE_DIR/VERSION" ]] || fail "VERSION is missing from the GitHub archive"
-
-# Keep the post-uninstall reinstall hint identical to the public verified Clean Install command.
-python3 - "$UNINSTALLER" <<'PY'
-from pathlib import Path
-import sys
-
-path = Path(sys.argv[1])
-body = path.read_text(encoding="utf-8")
-old = "curl -4 -fsSL https://raw.githubusercontent.com/s-gor/sg-gateway-v23/dev-02301/deploy/install-from-github.sh | sudo env SG_GATEWAY_GITHUB_BRANCH=dev-02301 bash"
-new = "curl -4 -fsSL https://raw.githubusercontent.com/s-gor/sg-gateway-v23/d87663737746b91237098342f9c6c1d37856c88c/deploy/install-from-github.sh | sudo env SG_GATEWAY_GITHUB_BRANCH=dev-02301 SG_GATEWAY_SOURCE_COMMIT=d87663737746b91237098342f9c6c1d37856c88c bash"
-if old not in body:
-    raise SystemExit("expected reinstall hint not found in full uninstaller")
-path.write_text(body.replace(old, new, 1), encoding="utf-8")
-PY
 
 printf '[SG-Gateway] GitHub source version: %s\n' "$(tr -d '\r\n' < "$SOURCE_DIR/VERSION")"
 printf '[SG-Gateway] Starting the official FULL uninstaller...\n'

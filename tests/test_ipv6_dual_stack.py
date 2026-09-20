@@ -284,7 +284,7 @@ def test_awg3_userspace_helper_splits_dual_stack_address_line() -> None:
 def test_all_uri_export_paths_use_ipv6_safe_authorities() -> None:
     text = Path("app/clients/exports.py").read_text(encoding="utf-8")
     assert "from app.net import format_host, format_host_port" in text
-    assert "endpoint = format_host_port(host, profile.port)" in text
+    assert "endpoint = format_host_port(host, public_profile_port)" in text
     assert "authority_host = format_host(host)" in text
-    assert 'endpoint = format_host_port(host, int(config.get("port", 9443)))' in text
-    assert 'endpoint = format_host_port(host, int(config.get("port", 10443)))' in text
+    assert "endpoint = format_host_port(host, PUBLIC_TCP_PORT)" in text
+    assert "endpoint = format_host_port(host, PUBLIC_UDP_PORT)" in text

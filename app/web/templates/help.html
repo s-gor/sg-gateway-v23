@@ -17,7 +17,7 @@
     <div>
       <div class="hlpv1-kicker"><span></span> SG-GATEWAY / HELP</div>
       <h1>Практическая справка SG-Gateway</h1>
-      <p>Полная практическая справка: установка, клиенты, протоколы, подписки, резервные копии и диагностика.</p>
+      <p>Полная практическая справка: установка, клиенты, протоколы, подписки, резервные копии и диагностика. Отдельные разделы подробно объясняют Outbounds, Routing, GeoFiles и Failover.</p>
     </div>
 
     <div class="hlpv1-heading-actions sg-ui-actions">
@@ -36,7 +36,7 @@
       <div>
         <div class="hlpv1-summary-label">Разделы справки</div>
         <div class="hlpv1-summary-value">{{ topic_count }}</div>
-        <div class="hlpv1-summary-note">Первый запуск, протоколы, подписки, Backup и диагностика</div>
+        <div class="hlpv1-summary-note">Первый запуск, Outbounds, Routing, Backup и диагностика</div>
       </div>
     </article>
 
@@ -95,7 +95,7 @@
       <input id="help-search"
              type="search"
              autocomplete="off"
-             placeholder="Например: клиент, резервная копия, пароль, Xray…">
+             placeholder="Например: клиент, Routing, Failover, GeoFiles, Xray…">
     </label>
     <button class="button hlpv1-clear-search" id="help-clear" type="button">Очистить</button>
   </section>
@@ -125,6 +125,8 @@
             <svg viewBox="0 0 24 24"><path d="M3 12h4l2-7 4 14 2-7h6"/></svg>
             {% elif item.slug == 'routing' %}
             <svg viewBox="0 0 24 24"><path d="M4 7h8M12 7l-3-3M12 7l-3 3M20 17h-8M12 17l3-3M12 17l3 3"/></svg>
+            {% elif item.slug == 'outbounds' %}
+            <svg viewBox="0 0 24 24"><path d="M4 12h12M13 7l5 5-5 5M4 6h5M4 18h5"/></svg>
             {% elif item.slug == 'maintenance' %}
             <svg viewBox="0 0 24 24"><path d="M5 6c0-1.1 3.1-2 7-2s7 .9 7 2-3.1 2-7 2-7-.9-7-2ZM5 6v12c0 1.1 3.1 2 7 2s7-.9 7-2V6"/></svg>
             {% else %}
@@ -160,6 +162,8 @@
             <svg viewBox="0 0 24 24"><path d="M3 12h4l2-7 4 14 2-7h6"/></svg>
             {% elif topic.slug == 'routing' %}
             <svg viewBox="0 0 24 24"><path d="M4 7h8M12 7l-3-3M12 7l-3 3M20 17h-8M12 17l3-3M12 17l3 3"/></svg>
+            {% elif topic.slug == 'outbounds' %}
+            <svg viewBox="0 0 24 24"><path d="M4 12h12M13 7l5 5-5 5M4 6h5M4 18h5"/></svg>
             {% elif topic.slug == 'maintenance' %}
             <svg viewBox="0 0 24 24"><path d="M5 6c0-1.1 3.1-2 7-2s7 .9 7 2-3.1 2-7 2-7-.9-7-2ZM5 6v12c0 1.1 3.1 2 7 2s7-.9 7-2V6"/></svg>
             {% else %}
@@ -214,9 +218,9 @@
 {% elif topic.slug in ['connections', 'awg', 'xray', 'mihomo'] %}
 <a href="{{ url_for('connections') }}"><strong>Connections</strong><small>Настройки и состояние протоколов</small><span>→</span></a>
 <a href="{{ url_for('clients') }}"><strong>Clients</strong><small>Выдать профиль устройству</small><span>→</span></a>
-{% elif topic.slug == 'routing' %}
-<a href="{{ url_for('routing') }}"><strong>Routing</strong><small>Правила, GeoFiles и WARP</small><span>→</span></a>
-<a href="{{ url_for('system') }}"><strong>System</strong><small>Проверить IPv4 и IPv6</small><span>→</span></a>
+{% elif topic.slug in ['routing', 'outbounds'] %}
+<a href="{{ url_for('routing') }}"><strong>Routing</strong><small>Правила, GeoFiles и назначение выходов</small><span>→</span></a>
+<a href="{{ url_for('outbounds') }}"><strong>Outbounds</strong><small>WARP, внешние proxy, группы и Failover</small><span>→</span></a>
 {% elif topic.slug in ['backups', 'updates'] %}
 <a href="{{ url_for('maintenance') }}"><strong>Maintenance</strong><small>Backup, Restore и операции</small><span>→</span></a>
 <a href="{{ url_for('recovery') }}"><strong>Recovery</strong><small>Аварийный обзор состояния</small><span>→</span></a>
@@ -264,7 +268,7 @@
           <span class="hlpv1-journey-number">03</span>
           <div>
             <strong>Проверить Routing</strong>
-            <p>Посмотрите, какие параметры попадут в клиентские профили и каким будет путь трафика.</p>
+            <p>Проверьте правила серверного трафика, выбранные outbounds и фактический порядок маршрутизации.</p>
           </div>
           <span class="hlpv1-journey-arrow">→</span>
         </a>

@@ -1,0 +1,68 @@
+/* SG-Gateway 23.01 — balanced Fingerprint / Reality SNI row */
+body.page-connections .xps2-primary-settings-row {
+  display: flex !important;
+  flex-flow: row nowrap !important;
+  align-items: stretch !important;
+  gap: 14px !important;
+}
+
+body.page-connections .xps2-primary-settings-row > .xps2-primary-setting {
+  flex: 1 1 0 !important;
+  min-width: 0 !important;
+  width: 50% !important;
+  display: grid !important;
+  grid-template-rows: auto auto !important;
+  gap: 8px !important;
+}
+
+body.page-connections .xps2-primary-setting > strong {
+  color: var(--sg-text);
+  font-size: 13px;
+}
+
+body.page-connections .xps2-primary-control {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) 150px !important;
+  align-items: stretch !important;
+  gap: 10px !important;
+  min-width: 0 !important;
+  width: 100% !important;
+}
+
+body.page-connections .xps2-primary-control > select,
+body.page-connections .xps2-primary-control > input {
+  min-width: 0 !important;
+  width: 100% !important;
+  min-height: 43px !important;
+  margin: 0 !important;
+}
+
+body.page-connections .xps2-primary-control > .button {
+  width: 150px !important;
+  min-width: 150px !important;
+  min-height: 43px !important;
+  margin: 0 !important;
+  justify-content: center !important;
+  white-space: nowrap !important;
+}
+
+@media (max-width: 900px) {
+  body.page-connections .xps2-primary-settings-row {
+    flex-direction: column !important;
+  }
+
+  body.page-connections .xps2-primary-settings-row > .xps2-primary-setting {
+    width: 100% !important;
+  }
+}
+
+@media (max-width: 560px) {
+  body.page-connections .xps2-primary-control {
+    grid-template-columns: 1fr !important;
+  }
+
+  body.page-connections .xps2-primary-control > .button {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+}

@@ -2,14 +2,16 @@
 set -Eeuo pipefail
 
 REPOSITORY="s-gor/sg-gateway-v23"
-BRANCH="${SG_GATEWAY_GITHUB_BRANCH:-${SG_GATEWAY_UPDATE_BRANCH:-dev-02301}}"
+BRANCH="${SG_GATEWAY_GITHUB_BRANCH:-${SG_GATEWAY_UPDATE_BRANCH:-stable-02301}}"
 SOURCE_COMMIT="${SG_GATEWAY_SOURCE_COMMIT:-}"
 ARCHIVE_REF="${SOURCE_COMMIT:-$BRANCH}"
 ARCHIVE_URL="https://github.com/${REPOSITORY}/archive/${ARCHIVE_REF}.tar.gz"
 TEMP_DIR=""
 ARCHIVE=""
 SOURCE_DIR=""
+BOOTSTRAP_TMP_ROOT="/opt/sg-gateway-bootstrap-tmp"
 MIN_FREE_MIB="${SG_GATEWAY_INSTALL_MIN_FREE_MIB:-1024}"
+FULL_OS_UPGRADE="${SG_GATEWAY_FULL_OS_UPGRADE:-0}"
 BOOTSTRAP_LOG="/var/log/sg-gateway-bootstrap-02301.log"
 CURRENT_BOOTSTRAP_LABEL="Подготовка"
 
@@ -33,11 +35,13 @@ fail() {
   exit 1
 }
 
-[[ "$BRANCH" == "dev-02301" ]] || fail "development installer is pinned to dev-02301; requested branch: $BRANCH"
 [[ -z "$SOURCE_COMMIT" || "$SOURCE_COMMIT" =~ ^[0-9a-f]{40}$ ]] || fail "SG_GATEWAY_SOURCE_COMMIT must be a lowercase 40-character commit SHA"
+if [[ "$BRANCH" != "stable-02301" && -z "$SOURCE_COMMIT" ]]; then
+  fail "non-default branch requires SG_GATEWAY_SOURCE_COMMIT"
+fi
 
 cleanup() {
-  rm -f /tmp/sg-gateway-bootstrap-output.* 2>/dev/null || true
+  rm -f "$BOOTSTRAP_TMP_ROOT"/sg-gateway-bootstrap-output.* 2>/dev/null || true
   if [[ -n "$TEMP_DIR" && -d "$TEMP_DIR" ]]; then
     rm -rf "$TEMP_DIR"
   fi
@@ -67,10 +71,11 @@ run_quiet() {
   local label="$1"
   shift
   local started=$SECONDS rc=0 pid=0 frame=0 raw_output="" elapsed=0
+  local bootstrap_output_root="${BOOTSTRAP_TMP_ROOT:-${TMPDIR:-/tmp}}"
   local frames=('|' '/' '-' "\\")
 
   CURRENT_BOOTSTRAP_LABEL="$label"
-  raw_output="$(mktemp /tmp/sg-gateway-bootstrap-output.XXXXXX)"
+  raw_output="$(mktemp "$bootstrap_output_root/sg-gateway-bootstrap-output.XXXXXX")"
   chmod 0600 "$raw_output"
 
   if [[ -t 1 ]]; then
@@ -102,6 +107,20 @@ run_quiet() {
   cat "$raw_output" >> "$BOOTSTRAP_LOG"
   elapsed=$((SECONDS - started))
 
+  if (( rc == 10 )); then
+  if [[ -t 1 ]]; then
+    printf "\r\033[K%s[SG-Gateway] [НУЖНА ПЕРЕЗАГРУЗКА]%s %s (%s сек.)\n" "$YELLOW" "$RESET" "$label" "$elapsed"
+  else
+    printf '%s[SG-Gateway] [НУЖНА ПЕРЕЗАГРУЗКА]%s %s (%s сек.)\n' "$YELLOW" "$RESET" "$label" "$elapsed"
+  fi
+  printf '[SG-Gateway] Ubuntu обновлена. Для продолжения установки требуется перезагрузка.\n'
+  printf '[SG-Gateway] Выполните: sudo reboot\n'
+  printf '[SG-Gateway] После перезагрузки снова войдите на сервер и запустите ту же команду установки.\n'
+  printf 'EXPECTED HANDOFF (rc=%s): %s\n' "$rc" "$label" >> "$BOOTSTRAP_LOG"
+  rm -f "$raw_output"
+  return "$rc"
+fi
+
   if (( rc != 0 )); then
     if [[ -t 1 ]]; then
       printf "\r\033[K%s[SG-Gateway] [ОШИБКА]%s %s (%s сек.)\n" "$RED" "$RESET" "$label" "$elapsed"
@@ -127,12 +146,11 @@ run_quiet() {
 }
 
 require_supported_ubuntu() {
-  [[ -r /etc/os-release ]] || fail "cannot detect the operating system; Ubuntu 24.04 is required"
+  [[ -r /etc/os-release ]] || fail "cannot detect the operating system; Ubuntu is required"
   # shellcheck disable=SC1091
   . /etc/os-release
-  [[ "${ID:-}" == "ubuntu" ]] || fail "Ubuntu 24.04 is required; detected ${PRETTY_NAME:-unknown system}"
-  [[ "${VERSION_ID:-}" == "24.04" ]] || fail "only Ubuntu 24.04 is supported; detected ${PRETTY_NAME:-Ubuntu ${VERSION_ID:-unknown}}"
-  printf '[SG-Gateway] Supported system: %s\n' "${PRETTY_NAME:-Ubuntu 24.04}"
+  [[ "${ID:-}" == "ubuntu" ]] || fail "Ubuntu is required; detected ${PRETTY_NAME:-unknown system}"
+  printf '[SG-Gateway] Supported system: %s\n' "${PRETTY_NAME:-Ubuntu}"
 }
 
 wait_for_cloud_init() {
@@ -180,30 +198,38 @@ require_free_space() {
 }
 
 preflight_disk_space() {
-  require_free_space /tmp "temporary storage"
-  require_free_space /opt "installation storage"
+  require_free_space /opt "installation and temporary storage"
 }
 
 prepare_clean_ubuntu() {
   command -v apt-get >/dev/null 2>&1 || fail "apt-get is required to prepare Ubuntu"
 
-  printf '[SG-Gateway] Updating clean Ubuntu before SG-Gateway installation...\n'
+  # Clean Install prepares the package index and installs only SG-Gateway
+  # dependencies. A full operating-system upgrade is deliberately opt-in:
+  # upgrading the whole cloud image can take several minutes, install a new
+  # kernel and force a reboot before SG-Gateway itself has even started.
+  printf '[SG-Gateway] Refreshing Ubuntu package index...\n'
   apt-get -o Dpkg::Use-Pty=0 update
-  env DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a \
-    apt-get -o Dpkg::Use-Pty=0 full-upgrade -y
-  env DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a \
-    apt-get -o Dpkg::Use-Pty=0 autoremove -y
 
-  if [[ -e /var/run/reboot-required ]]; then
-    printf '[SG-Gateway] Ubuntu update completed, but a reboot is required before SG-Gateway can be installed.\n'
-    printf '[SG-Gateway] Run: reboot\n'
-    printf '[SG-Gateway] After login, repeat the same SG-Gateway install command.\n'
-    exit 10
+  if [[ "$FULL_OS_UPGRADE" == "1" ]]; then
+    printf '[SG-Gateway] Full Ubuntu upgrade requested explicitly.\n'
+    env DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a \
+      apt-get -o Dpkg::Use-Pty=0 full-upgrade -y
+    env DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a \
+      apt-get -o Dpkg::Use-Pty=0 autoremove -y
+
+    if [[ -e /var/run/reboot-required ]]; then
+      printf '[SG-Gateway] Ubuntu update completed, but a reboot is required before SG-Gateway can be installed.\n'
+      printf '[SG-Gateway] Run: reboot\n'
+      printf '[SG-Gateway] After login, repeat the same SG-Gateway install command.\n'
+      exit 10
+    fi
+  else
+    printf '[SG-Gateway] Full Ubuntu upgrade skipped (set SG_GATEWAY_FULL_OS_UPGRADE=1 to request it).\n'
   fi
 
-  require_free_space /tmp "temporary storage after Ubuntu update"
-  require_free_space /opt "installation storage after Ubuntu update"
-  printf '[SG-Gateway] Ubuntu update: complete; reboot not required.\n'
+  require_free_space /opt "installation and temporary storage after package index refresh"
+  printf '[SG-Gateway] Ubuntu package index: ready.\n'
 }
 
 prepare_bootstrap_tools() {
@@ -248,27 +274,32 @@ download_gateway_source() {
 }
 
 prepare_bootstrap_log
+install -d -m 0711 "$BOOTSTRAP_TMP_ROOT"
 
 # A fresh cloud image can still be expanding its disk or applying first-boot
 # package changes when SSH becomes available. Wait for that work first, then
-# fully update Ubuntu before downloading or mutating any SG-Gateway state.
+# refresh the package index. Full OS upgrades are opt-in and are not part of
+# the normal SG-Gateway clean-install critical path.
 run_quiet "Подготовка 1/6 · Проверка Ubuntu" require_supported_ubuntu
 run_quiet "Подготовка 2/6 · Ожидание cloud-init" wait_for_cloud_init
 run_quiet "Подготовка 3/6 · Проверка диска" preflight_disk_space
-run_quiet "Подготовка 4/6 · Обновление Ubuntu" prepare_clean_ubuntu
+run_quiet "Подготовка 4/6 · Индекс пакетов Ubuntu" prepare_clean_ubuntu
 run_quiet "Подготовка 5/6 · Подготовка инструментов" prepare_bootstrap_tools
 
-TEMP_DIR="$(mktemp -d /tmp/sg-gateway-github-install.XXXXXX)"
-ARCHIVE="$TEMP_DIR/sg-gateway-dev-02301.tar.gz"
+TEMP_DIR="$(mktemp -d "$BOOTSTRAP_TMP_ROOT/sg-gateway-github-install.XXXXXX")"
+ARCHIVE="$TEMP_DIR/sg-gateway-source.tar.gz"
 SOURCE_DIR="$TEMP_DIR/source"
 mkdir -p "$SOURCE_DIR"
 run_quiet "Подготовка 6/6 · Загрузка SG-Gateway" download_gateway_source
 
 printf '[SG-Gateway] GitHub source version: %s\n' "$(tr -d '\r\n' < "$SOURCE_DIR/VERSION")"
-printf '[SG-Gateway] DEV channel: dev-02301\n'
+printf '[SG-Gateway] Stable channel: %s\n' "$BRANCH"
 printf '[SG-Gateway] Starting the native Ubuntu CLEAN installer...\n'
 SG_GATEWAY_SOURCE_DIR="$SOURCE_DIR" \
 SG_GATEWAY_SOURCE_COMMIT="$SOURCE_COMMIT" \
+SG_GATEWAY_INSTALL_TMPDIR="$BOOTSTRAP_TMP_ROOT" \
+SG_GATEWAY_APT_INDEX_READY=1 \
+TMPDIR="$BOOTSTRAP_TMP_ROOT" \
 bash "$SOURCE_DIR/install.sh"
 
 # SG_GATEWAY_FIX30_IPV6_BOOTSTRAP_V1

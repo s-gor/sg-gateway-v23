@@ -16,6 +16,7 @@ from app.maintenance.operations import log_operation
 from app.routing.geofiles import GeoFilesError, overview as geofiles_overview
 from app.routing.runtime import (
     RoutingRuntimeError,
+    allowed_routing_tags,
     atomic_write_json,
     build_full_config,
     build_managed_outbounds,
@@ -642,7 +643,9 @@ def root_rollback_latest() -> dict:
 # candidates and are treated by runtime as strict IPv4 aliases.
 SMART_PRESET_TITLES = {
     "direct": "Обычный доступ · SG-Gateway · IPv4",
-    "ads_block": "Блокировка рекламы и трекеров · SG-Gateway · IPv4",
+    "ads_block": "Блокировка рекламы · SG-Gateway · IPv4",
+    "privacy": "Privacy · реклама, трекеры и угрозы",
+    "strict": "Strict · усиленная фильтрация",
     "blocked_warp": "Ресурсы, заблокированные в РФ через WARP · IPv4",
     "all_warp": "Весь интернет через WARP · IPv4",
     "custom": "Пользовательская схема",
@@ -658,6 +661,11 @@ SMART_BLOCKED_CATEGORIES = (
     "blocked",
 )
 SMART_ADS_CATEGORIES = ("category-ads-all", "category-ads", "ads", "adguard")
+SMART_TRACKER_CATEGORIES = ("category-tracker", "category-trackers", "trackers", "tracking")
+SMART_MALWARE_CATEGORIES = ("category-malware", "malware", "category-malicious", "malicious")
+SMART_PHISHING_CATEGORIES = ("category-phishing", "phishing")
+SMART_TELEMETRY_CATEGORIES = ("win-spy", "category-telemetry", "telemetry")
+SMART_MINER_CATEGORIES = ("category-cryptominers", "category-crypto", "cryptominers", "miners")
 SMART_PRIVATE_IPS = (
     "10.0.0.0/8",
     "172.16.0.0/12",
@@ -739,7 +747,7 @@ def _smart_ip(value: str) -> str:
 
 def _smart_action(value: object, fallback: str = "direct") -> str:
     action = str(value or "").strip().lower()
-    return action if action in SMART_ACTIONS else fallback
+    return action if action in allowed_routing_tags() else fallback
 
 
 def _canonical_family_action(action: str) -> str:
@@ -763,7 +771,7 @@ def _smart_apply_preset(state: dict) -> dict:
         ads_action="direct4",
         default_action="direct4",
     )
-    if preset == "ads_block":
+    if preset in {"ads_block", "privacy", "strict"}:
         state["ads_action"] = "block"
     elif preset == "blocked_warp":
         state["blocked_action"] = "warp4"
@@ -805,10 +813,10 @@ def _smart_state_from_form(form) -> dict:
 
 
 def _smart_outbound(action: str) -> str:
-    return action if action in SMART_ACTIONS else "direct"
+    return action if action in allowed_routing_tags() else "direct"
 
 
-def _smart_rule(title: str, action: str, *, domains=None, ips=None, missing=None) -> dict:
+def _smart_rule(title: str, action: str, *, domains=None, ips=None, missing=None, required: bool = True) -> dict:
     domains = list(domains or [])
     ips = list(ips or [])
     missing = list(missing or [])
@@ -822,7 +830,7 @@ def _smart_rule(title: str, action: str, *, domains=None, ips=None, missing=None
         "title": title,
         "action": action,
         "enabled": enabled,
-        "required": True,
+        "required": required,
         "selected_geosite": next((v[8:] for v in domains if v.startswith("geosite:")), None),
         "selected_geoip": next((v[6:] for v in ips if v.startswith("geoip:")), None),
         "missing": missing,
@@ -858,6 +866,32 @@ def _smart_build(state: dict) -> dict:
             ips=local_ips,
         )
     )
+
+
+    protection_groups: list[tuple[str, tuple[str, ...]]] = []
+    if state["preset"] in {"privacy", "strict"}:
+        protection_groups.extend(
+            [
+                ("Трекеры", SMART_TRACKER_CATEGORIES),
+                ("Вредоносные домены", SMART_MALWARE_CATEGORIES),
+                ("Фишинг", SMART_PHISHING_CATEGORIES),
+                ("Телеметрия", SMART_TELEMETRY_CATEGORIES),
+            ]
+        )
+    if state["preset"] == "strict":
+        protection_groups.append(("Криптомайнеры", SMART_MINER_CATEGORIES))
+
+    for title, categories in protection_groups:
+        category = _choose(categories, geosite)
+        rules.append(
+            _smart_rule(
+                title,
+                "block",
+                domains=[f"geosite:{category}"] if category else [],
+                missing=[] if category else [f"geosite:{categories[0]}"],
+                required=False,
+            )
+        )
 
     scope = state["russia_scope"]
     if scope != "none":
@@ -896,6 +930,7 @@ def _smart_build(state: dict) -> dict:
                 state["blocked_action"],
                 domains=[f"geosite:{category}"] if category else [],
                 missing=[] if category else ["geosite:ru-blocked"],
+                required=state["preset"] == "blocked_warp",
             )
         )
 
@@ -907,6 +942,7 @@ def _smart_build(state: dict) -> dict:
                 state["ads_action"],
                 domains=[f"geosite:{category}"] if category else [],
                 missing=[] if category else ["geosite:category-ads"],
+                required=state["preset"] in {"ads_block", "privacy", "strict"},
             )
         )
 
@@ -961,21 +997,29 @@ def _smart_build(state: dict) -> dict:
             )
 
     missing = [item for item in rules if item["missing"]]
-    ready = not missing
+    required_missing = [item for item in missing if item.get("required", True)]
+    optional_missing = [item for item in missing if not item.get("required", True)]
+    ready = not required_missing
     enabled_rules = [
         item["xray_rule"]
         for item in rules
         if item["enabled"] and item["xray_rule"]
     ]
-    note = (
-        "Схема готова: семейство IP зафиксировано отдельно для каждого выбранного выхода"
-        if ready
-        else "Выбранный выход или категория сейчас недоступны"
-    )
+    if not ready:
+        note = "Обязательный выход или категория сейчас недоступны"
+    elif optional_missing:
+        note = (
+            "Схема готова: "
+            + str(len(optional_missing))
+            + " необязательное правило пропущено из-за отсутствующей категории"
+            + ("" if len(optional_missing) == 1 else " или выхода")
+        )
+    else:
+        note = "Схема готова: семейство IP зафиксировано отдельно для каждого выбранного выхода"
     return {
         "template_id": "smart-fix30-ip-family",
         "title": SMART_PRESET_TITLES[state["preset"]],
-        "summary": "Family-explicit Routing без автоматического fallback IPv4/IPv6",
+        "summary": "Family-explicit Routing с GeoSite-фильтрацией и без автоматического fallback IPv4/IPv6",
         "recommended_action": "direct4",
         "mode": "replace_managed",
         "checked_at": _utc_now(),

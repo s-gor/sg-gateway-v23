@@ -344,7 +344,7 @@ def health_status() -> dict:
     state = overview()
     if not state["domain"]:
         return {
-            "status": "warning",
+            "status": "ok",
             "message": "Домен и HTTPS ещё не настроены",
         }
     if state["https_ready"]:
