@@ -17,7 +17,7 @@ def test_clean_installer_checks_free_space_before_download_and_extraction():
     assert "not enough free disk space for clean install" in text
 
     first_preflight = text.index('run_quiet "Подготовка 3/6 · Проверка диска" preflight_disk_space')
-    package_bootstrap = text.index("missing_packages=()")
+    package_bootstrap = text.index('run_quiet "Подготовка 5/6 · Подготовка инструментов" prepare_bootstrap_tools')
     download = text.index("Downloading GitHub branch")
     extraction = text.index('tar -xzf "$ARCHIVE"')
 
