@@ -49,5 +49,5 @@ def test_every_static_url_for_target_exists() -> None:
 
 def test_routing_help_link_uses_real_endpoint() -> None:
     body = (ROOT / "app/web/templates/routing.html").read_text(encoding="utf-8")
-    assert "url_for('help_index')" in body
+    assert "url_for('help_topic', slug='routing')" in body
     assert "url_for('help')" not in body
