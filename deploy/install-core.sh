@@ -230,7 +230,7 @@ sys.stdout.write("".join(cleaned))
 sanitize_installer_log_file() {
   [[ -f "$INSTALL_LOG" ]] || return 0
   local sanitized=""
-  sanitized="$(mktemp /tmp/sg-gateway-installer-log.XXXXXX)"
+  sanitized="$(mktemp "$INSTALL_TMP_ROOT/sg-gateway-installer-log.XXXXXX")"
   chmod 0600 "$sanitized"
   sanitize_installer_stream < "$INSTALL_LOG" > "$sanitized"
   cat "$sanitized" > "$INSTALL_LOG"
@@ -407,7 +407,7 @@ restore_backup() {
 unexpected_error() {
   local rc=$?
   trap - ERR INT TERM
-  rm -f /tmp/sg-gateway-installer-output.* /tmp/sg-gateway-installer-log.* 2>/dev/null || true
+  rm -f "$INSTALL_TMP_ROOT"/sg-gateway-installer-output.* "$INSTALL_TMP_ROOT"/sg-gateway-installer-log.* 2>/dev/null || true
   if (( MUTATION_STARTED == 1 && INSTALL_SUCCESS == 0 )); then
     show_service_diagnostics
     restore_backup || true
@@ -420,7 +420,7 @@ unexpected_error() {
   exit "$rc"
 }
 trap unexpected_error ERR
-trap 'rm -f /tmp/sg-gateway-installer-output.* /tmp/sg-gateway-installer-log.* 2>/dev/null || true; exit 130' INT TERM
+trap 'rm -f "$INSTALL_TMP_ROOT"/sg-gateway-installer-output.* "$INSTALL_TMP_ROOT"/sg-gateway-installer-log.* 2>/dev/null || true; exit 130' INT TERM
 
 run_quiet() {
   local label="$1"
@@ -428,7 +428,7 @@ run_quiet() {
   CURRENT_LABEL="$label"
   local started=$SECONDS rc=0 pid frame=0 raw_output=""
   local frames=('|' '/' '-' "\\")
-  raw_output="$(mktemp /tmp/sg-gateway-installer-output.XXXXXX)"
+  raw_output="$(mktemp "$INSTALL_TMP_ROOT/sg-gateway-installer-output.XXXXXX")"
   chmod 0600 "$raw_output"
   printf "\r\033[K%s[SG-Gateway] [-]%s %s" "$GREEN" "$RESET" "$label"
   (
@@ -458,7 +458,7 @@ run_live() {
   shift
   CURRENT_LABEL="$label"
   local started=$SECONDS rc=0 raw_output=""
-  raw_output="$(mktemp /tmp/sg-gateway-installer-output.XXXXXX)"
+  raw_output="$(mktemp "$INSTALL_TMP_ROOT/sg-gateway-installer-output.XXXXXX")"
   chmod 0600 "$raw_output"
   printf "%s[SG-Gateway] [..]%s %s\n" "$GREEN" "$RESET" "$label"
   set +e
@@ -1554,7 +1554,7 @@ stage_python_and_source_check() {
   # isolated writable runtime owned by the real service account.
   (
     local import_test_root
-    import_test_root="$(mktemp -d $INSTALL_TMP_ROOT/sg-gateway-import-test.XXXXXX)"
+    import_test_root="$(mktemp -d "$INSTALL_TMP_ROOT/sg-gateway-import-test.XXXXXX")"
     trap 'rm -rf "$import_test_root"' EXIT
     chown "$PANEL_USER":"$PANEL_GROUP" "$import_test_root"
     install -d -o "$PANEL_USER" -g "$PANEL_GROUP" -m 0750 \
@@ -1713,7 +1713,7 @@ PYVLESSNORMALIZE
 
 validate_vless_pair_with_xray() {
   local encryption="$1" decryption="$2" temp_dir config uuid output
-  temp_dir="$(mktemp -d $INSTALL_TMP_ROOT/sg-gateway-vlessenc-test.XXXXXX)"
+  temp_dir="$(mktemp -d "$INSTALL_TMP_ROOT/sg-gateway-vlessenc-test.XXXXXX")"
   config="$temp_dir/config.json"
   if ! uuid="$(xray uuid 2>/dev/null | tail -n 1 | tr -d '\r\n')" || [[ -z "$uuid" ]]; then
     rm -rf "$temp_dir"
@@ -3114,7 +3114,7 @@ main() {
 
   INSTALL_SUCCESS=1
   sanitize_installer_log_file
-  rm -f /tmp/sg-gateway-installer-output.* /tmp/sg-gateway-installer-log.* 2>/dev/null || true
+  rm -f "$INSTALL_TMP_ROOT"/sg-gateway-installer-output.* "$INSTALL_TMP_ROOT"/sg-gateway-installer-log.* 2>/dev/null || true
   rm -f "$RESUME_FILE" \
     /root/sg-gateway-preview48-installer-resume.env \
     /root/sg-gateway-preview50-installer-resume.env \
