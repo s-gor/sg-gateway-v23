@@ -20,8 +20,9 @@ def test_clean_install_rejects_unsupported_ubuntu_before_mutation() -> None:
     for body in (wrapper, installer):
         assert "require_supported_ubuntu()" in body
         assert '${VERSION_ID:-}' in body
-        assert '"24.04"' in body
-        assert "Ubuntu 24.04" in body
+        assert '24|25|26' in body
+        assert "24.x" in body
+        assert "26.x" in body
     assert wrapper.index(
         'run_quiet "Подготовка 1/6 · Проверка Ubuntu" require_supported_ubuntu'
     ) < wrapper.index(
