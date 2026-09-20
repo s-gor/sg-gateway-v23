@@ -69,7 +69,7 @@ def test_external_overview_never_returns_password(external_state):
 
 
 def test_runtime_accepts_enabled_external_tag_and_injects_outbound(external_state, monkeypatch):
-    external.save_outbound(
+    item = external.save_outbound(
         name="France",
         protocol="socks",
         host="fr.example.net",
@@ -85,13 +85,13 @@ def test_runtime_accepts_enabled_external_tag_and_injects_outbound(external_stat
             "rules": [{
                 "type": "field",
                 "domain": ["domain:example.com"],
-                "outboundTag": "ext-france",
+                "outboundTag": item["tag"],
             }],
         }
     })
-    assert fragment["routing"]["rules"][0]["outboundTag"] == "ext-france"
+    assert fragment["routing"]["rules"][0]["outboundTag"] == item["tag"]
     outbounds = runtime.build_managed_outbounds([])
-    assert "ext-france" in {item["tag"] for item in outbounds}
+    assert item["tag"] in {outbound["tag"] for outbound in outbounds}
 
 
 def test_remove_external_is_blocked_while_active_routing_uses_it(external_state, monkeypatch):
