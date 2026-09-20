@@ -388,31 +388,34 @@ html[data-theme="dark"] body.page-connections #xray-xmux .xmux1-mode input:check
   color: #ffffff !important;
 }
 
-
 /* 23.01 fingerprint save control */
 body.page-connections .xps2-fingerprint-controls {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 12px;
-  align-items: stretch;
+  display: flex !important;
+  flex-flow: row nowrap !important;
+  gap: 12px !important;
+  align-items: stretch !important;
+  width: 100% !important;
 }
 
 body.page-connections .xps2-fingerprint-controls > select {
-  min-width: 0;
-  width: 100%;
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  width: auto !important;
 }
 
 body.page-connections .xps2-fingerprint-controls > .button {
-  min-width: 132px;
-  white-space: nowrap;
+  flex: 0 0 auto !important;
+  width: auto !important;
+  min-width: 132px !important;
+  white-space: nowrap !important;
 }
 
 @media (max-width: 760px) {
   body.page-connections .xps2-fingerprint-controls {
-    grid-template-columns: 1fr;
+    flex-wrap: wrap !important;
   }
 
   body.page-connections .xps2-fingerprint-controls > .button {
-    width: 100%;
+    width: 100% !important;
   }
 }
