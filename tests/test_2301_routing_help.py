@@ -83,3 +83,11 @@ def test_help_template_has_outbounds_navigation():
     assert "topic.slug in ['routing', 'outbounds']" in template
     assert "url_for('outbounds')" in template
     assert "WARP, внешние proxy, группы и Failover" in template
+
+
+def test_routing_and_outbounds_pages_open_their_specific_help_topics():
+    routing = (ROOT / "app" / "web" / "templates" / "routing.html").read_text(encoding="utf-8")
+    outbounds = (ROOT / "app" / "web" / "templates" / "outbounds.html").read_text(encoding="utf-8")
+
+    assert "url_for('help_topic', slug='routing')" in routing
+    assert "url_for('help_topic', slug='outbounds')" in outbounds
