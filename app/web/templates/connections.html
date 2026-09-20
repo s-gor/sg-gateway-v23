@@ -131,8 +131,7 @@
                 </div>
                 <label class="xps2-field-mode">
                   <span>Fingerprint</span>
-                  <div class="xps2-fingerprint-controls">
-                    <select name="fingerprint" required>
+                  <select name="fingerprint" required>
                     <optgroup label="Браузеры">
                       <option value="chrome" {% if xray_profiles.fingerprint == 'chrome' %}selected{% endif %}>Google Chrome</option>
                       <option value="brave" {% if xray_profiles.fingerprint == 'brave' %}selected{% endif %}>Brave (технически Chrome)</option>
@@ -156,9 +155,7 @@
                       <option value="{{ xray_profiles.fingerprint }}" selected>Другое текущее значение: {{ xray_profiles.fingerprint }}</option>
                       {% endif %}
                     </optgroup>
-                    </select>
-                    <button class="button primary sg-ljd-key-action" type="button" data-fingerprint-apply>Сохранить</button>
-                  </div>
+                  </select>
                   <small>Тот же набор, что в SG-Panel. По умолчанию Mozilla Firefox. Brave, Opera и Vivaldi используют совместимый технический профиль Chrome.</small>
                 </label>
               </article>
@@ -344,7 +341,6 @@
   const empty = form.querySelector('[data-xps2-empty]');
   const applyButton = document.getElementById('xps2-apply-button');
   const topApplyButton = form.querySelector('[data-xps2-top-apply]');
-  const fingerprintApplyButton = form.querySelector('[data-fingerprint-apply]');
   const salamander = form.querySelector('[data-salamander-panel]');
   const passwordInput = document.getElementById('hysteria2-obfs-password');
   const rotateInput = form.querySelector('[data-salamander-rotate]');
@@ -452,10 +448,6 @@
   });
   modes.forEach(item => item.addEventListener('change', syncSalamander));
   topApplyButton?.addEventListener('click', () => {
-    syncConfirmation();
-    applyButton?.click();
-  });
-  fingerprintApplyButton?.addEventListener('click', () => {
     syncConfirmation();
     applyButton?.click();
   });
