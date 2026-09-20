@@ -79,3 +79,15 @@ def test_clean_install_uses_dedicated_bootstrap_temp_root() -> None:
     assert 'SG_GATEWAY_INSTALL_TMPDIR="$BOOTSTRAP_TMP_ROOT"' in source
     assert 'TMPDIR="$BOOTSTRAP_TMP_ROOT"' in source
     assert 'require_free_space /tmp' not in source
+
+
+def test_native_installers_use_dedicated_temp_root() -> None:
+    native = (ROOT / "install.sh").read_text(encoding="utf-8")
+    core = (ROOT / "deploy" / "install-core.sh").read_text(encoding="utf-8")
+
+    for source in (native, core):
+        assert 'INSTALL_TMP_ROOT="${SG_GATEWAY_INSTALL_TMPDIR:-/opt/sg-gateway-bootstrap-tmp}"' in source
+        assert 'install -d -m 0700 "$INSTALL_TMP_ROOT"' in source
+        assert 'export TMPDIR="$INSTALL_TMP_ROOT"' in source
+        assert "/tmp/sg-gateway-" not in source
+        assert "VERSION_ID" not in source
