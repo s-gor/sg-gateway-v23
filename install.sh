@@ -654,38 +654,25 @@ read_tty() {
   printf -v "$target" '%s' "$value"
 }
 
-read_password_secret() {
-  local prompt="$1"
-  local target="$2"
-  local value=""
-  require_interactive_tty
-  if ! value="$(SG_GATEWAY_PASSWORD_PROMPT="$prompt" python3 - <<'PYGETPASS'
-import getpass
-import os
-import sys
-
-prompt = os.environ.get("SG_GATEWAY_PASSWORD_PROMPT", "Пароль: ")
-try:
-    value = getpass.getpass(prompt)
-except (EOFError, KeyboardInterrupt):
-    raise SystemExit(1)
-sys.stdout.write(value)
-PYGETPASS
-)"; then
-    printf '\n' > /dev/tty
-    fail "не удалось прочитать пароль из интерактивного терминала"
-  fi
-  printf -v "$target" '%s' "$value"
-}
-
 read_password() {
   local first="" second=""
+  local timeout_seconds=300
   require_interactive_tty
   printf '\n[SG-Gateway] Требуется задать пароль администратора панели.\n'
   printf '[SG-Gateway] Ввод выполняется в текущем терминале; символы пароля не отображаются.\n' > /dev/tty
   while true; do
-    read_password_secret "[SG-Gateway] Пароль администратора (не менее 8 символов): " first
-    read_password_secret "[SG-Gateway] Повторите пароль: " second
+    printf '[SG-Gateway] Пароль администратора (не менее 8 символов): ' > /dev/tty
+    if ! IFS= read -r -s -t "$timeout_seconds" first < /dev/tty; then
+      printf '\n' > /dev/tty
+      fail "пароль не получен из интерактивного терминала за ${timeout_seconds} секунд"
+    fi
+    printf "\n" > /dev/tty
+    printf '[SG-Gateway] Повторите пароль: ' > /dev/tty
+    if ! IFS= read -r -s -t "$timeout_seconds" second < /dev/tty; then
+      printf '\n' > /dev/tty
+      fail "повтор пароля не получен из интерактивного терминала за ${timeout_seconds} секунд"
+    fi
+    printf "\n" > /dev/tty
     if (( ${#first} < 8 )); then
       printf "%sПароль слишком короткий.%s\n" "$YELLOW" "$RESET" > /dev/tty
       continue
