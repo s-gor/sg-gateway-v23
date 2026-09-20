@@ -3042,7 +3042,7 @@ main() {
   # Public wrapper performs the same check. Keep this guard here as well for
   # direct/archive launches and fail before log creation or package changes.
   require_supported_ubuntu
-  install -d -m 0700 "$INSTALL_TMP_ROOT"
+  install -d -m 0711 "$INSTALL_TMP_ROOT"
   export TMPDIR="$INSTALL_TMP_ROOT"
   # Start from a known-safe installation mask. Secret files below are still
   # created with explicit 0600/0640 modes or inside a scoped umask 077 block.
