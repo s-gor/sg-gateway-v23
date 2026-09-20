@@ -4,6 +4,7 @@ set -Eeuo pipefail
 VERSION="0.1.0-022.06"
 INSTALLER_BUILD="02206-full-clean-dual-stack"
 SOURCE_DIR="${SG_GATEWAY_SOURCE_DIR:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)}"
+INSTALL_TMP_ROOT="${SG_GATEWAY_INSTALL_TMPDIR:-${TMPDIR:-/tmp}}"
 PREFIX="/opt/sg-gateway"
 CONFIG_DIR="/etc/sg-gateway"
 DATA_DIR="/var/lib/sg-gateway"
@@ -145,20 +146,16 @@ require_root() {
 
 require_supported_ubuntu() {
   if [[ ! -r /etc/os-release ]]; then
-    echo "Не удалось определить операционную систему. Требуется Ubuntu 24.04." >&2
+    echo "Не удалось определить операционную систему. Требуется Ubuntu." >&2
     exit 1
   fi
   # shellcheck disable=SC1091
   . /etc/os-release
   if [[ "${ID:-}" != "ubuntu" ]]; then
-    printf 'Требуется Ubuntu 24.04. Обнаружено: %s\n' "${PRETTY_NAME:-неизвестная система}" >&2
+    printf 'Требуется Ubuntu. Обнаружено: %s\n' "${PRETTY_NAME:-неизвестная система}" >&2
     exit 1
   fi
-  if [[ "${VERSION_ID:-}" != "24.04" ]]; then
-    printf 'Поддерживается только Ubuntu 24.04. Обнаружено: %s\n' "${PRETTY_NAME:-Ubuntu ${VERSION_ID:-неизвестно}}" >&2
-    exit 1
-  fi
-  printf '[SG-Gateway] Поддерживаемая система: %s\n' "${PRETTY_NAME:-Ubuntu 24.04}"
+  printf '[SG-Gateway] Поддерживаемая система: %s\n' "${PRETTY_NAME:-Ubuntu}"
 }
 
 prepare_log() {
@@ -1557,7 +1554,7 @@ stage_python_and_source_check() {
   # isolated writable runtime owned by the real service account.
   (
     local import_test_root
-    import_test_root="$(mktemp -d /tmp/sg-gateway-import-test.XXXXXX)"
+    import_test_root="$(mktemp -d $INSTALL_TMP_ROOT/sg-gateway-import-test.XXXXXX)"
     trap 'rm -rf "$import_test_root"' EXIT
     chown "$PANEL_USER":"$PANEL_GROUP" "$import_test_root"
     install -d -o "$PANEL_USER" -g "$PANEL_GROUP" -m 0750 \
@@ -1716,7 +1713,7 @@ PYVLESSNORMALIZE
 
 validate_vless_pair_with_xray() {
   local encryption="$1" decryption="$2" temp_dir config uuid output
-  temp_dir="$(mktemp -d /tmp/sg-gateway-vlessenc-test.XXXXXX)"
+  temp_dir="$(mktemp -d $INSTALL_TMP_ROOT/sg-gateway-vlessenc-test.XXXXXX)"
   config="$temp_dir/config.json"
   if ! uuid="$(xray uuid 2>/dev/null | tail -n 1 | tr -d '\r\n')" || [[ -z "$uuid" ]]; then
     rm -rf "$temp_dir"
