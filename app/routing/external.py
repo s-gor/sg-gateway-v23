@@ -121,9 +121,24 @@ def list_groups() -> list[dict]:
 
 
 def routing_tags() -> set[str]:
-    return {
+    value = _read()
+    tags = {
         outbound_tag(str(item.get("id") or ""))
-        for item in _read()["outbounds"]
+        for item in value["outbounds"]
+        if isinstance(item, dict) and item.get("enabled", True)
+    }
+    tags.update(
+        group_tag(str(item.get("id") or ""))
+        for item in value["groups"]
+        if isinstance(item, dict) and item.get("enabled", True)
+    )
+    return tags
+
+
+def group_routing_tags() -> set[str]:
+    return {
+        group_tag(str(item.get("id") or ""))
+        for item in _read()["groups"]
         if isinstance(item, dict) and item.get("enabled", True)
     }
 
@@ -134,13 +149,7 @@ def save_outbound(*, name: str, protocol: str, host: str, port: object, username
     normalized_protocol = _normalize_protocol(protocol)
     normalized_host = _normalize_host(host)
     normalized_port = _normalize_port(port)
-    identifier = _slug(normalized_name)
-    existing_ids = {str(item.get("id") or "") for item in value["outbounds"] if isinstance(item, dict)}
-    base = identifier
-    counter = 2
-    while identifier in existing_ids:
-        identifier = f"{base}-{counter}"
-        counter += 1
+    identifier = f"{_slug(normalized_name)}-{uuid.uuid4().hex[:8]}"
     item = {
         "id": identifier,
         "name": normalized_name,
@@ -169,9 +178,12 @@ def remove_outbound(identifier: str) -> None:
     ]
     if len(value["outbounds"]) == before:
         raise ExternalOutboundError("External outbound не найден")
-    for group in value["groups"]:
-        if isinstance(group, dict):
-            group["members"] = [member for member in group.get("members", []) if member != outbound_tag(identifier)]
+    tag = outbound_tag(identifier)
+    if any(
+        isinstance(group, dict) and tag in list(group.get("members") or [])
+        for group in value["groups"]
+    ):
+        raise ExternalOutboundError("Outbound входит в группу. Сначала измените или удалите группу.")
     _write(value)
 
 
@@ -197,6 +209,102 @@ def build_xray_outbounds() -> list[dict]:
     return result
 
 
+
+def save_group(*, name: str, members: list[str], strategy: str = "roundRobin") -> dict:
+    value = _read()
+    normalized_name = _normalize_name(name)
+    strategy = str(strategy or "roundRobin").strip()
+    if strategy not in {"roundRobin", "random", "failover"}:
+        raise ExternalOutboundError("Группа поддерживает roundRobin, random или failover")
+    available = {
+        outbound_tag(str(item.get("id") or ""))
+        for item in value["outbounds"]
+        if isinstance(item, dict) and item.get("enabled", True)
+    }
+    selected: list[str] = []
+    for member in members:
+        tag = str(member or "").strip()
+        if tag in available and tag not in selected:
+            selected.append(tag)
+    if strategy == "failover" and len(selected) != 2:
+        raise ExternalOutboundError("Failover-группа требует ровно два выхода: основной и резервный")
+    if strategy != "failover" and len(selected) < 2:
+        raise ExternalOutboundError("Группа требует минимум два выхода")
+    identifier = f"{_slug(normalized_name)}-{uuid.uuid4().hex[:8]}"
+    item = {
+        "id": identifier,
+        "name": normalized_name,
+        "members": selected,
+        "strategy": strategy,
+        "enabled": True,
+    }
+    value["groups"].append(item)
+    _write(value)
+    public = dict(item)
+    public["tag"] = group_tag(identifier)
+    return public
+
+
+def remove_group(identifier: str) -> None:
+    value = _read()
+    identifier = str(identifier or "").strip()
+    before = len(value["groups"])
+    value["groups"] = [
+        item for item in value["groups"]
+        if not isinstance(item, dict) or str(item.get("id") or "") != identifier
+    ]
+    if len(value["groups"]) == before:
+        raise ExternalOutboundError("Группа не найдена")
+    _write(value)
+
+
+def build_xray_balancers() -> list[dict]:
+    result: list[dict] = []
+    for raw in _read()["groups"]:
+        if not isinstance(raw, dict) or not raw.get("enabled", True):
+            continue
+        members = [str(item) for item in raw.get("members", []) if str(item)]
+        strategy = str(raw.get("strategy") or "roundRobin")
+        tag = group_tag(str(raw.get("id") or ""))
+        if strategy == "failover":
+            if len(members) != 2:
+                raise ExternalOutboundError("Failover-группа повреждена: требуется два выхода")
+            result.append({
+                "tag": tag,
+                "selector": [members[0]],
+                "fallbackTag": members[1],
+                "strategy": {"type": "random"},
+            })
+        else:
+            if len(members) < 2:
+                raise ExternalOutboundError("Группа повреждена: требуется минимум два выхода")
+            result.append({
+                "tag": tag,
+                "selector": members,
+                "strategy": {"type": strategy},
+            })
+    return result
+
+
+def build_xray_observatory() -> dict | None:
+    selectors: list[str] = []
+    for raw in _read()["groups"]:
+        if not isinstance(raw, dict) or not raw.get("enabled", True):
+            continue
+        if str(raw.get("strategy") or "") != "failover":
+            continue
+        members = [str(item) for item in raw.get("members", []) if str(item)]
+        if members and members[0] not in selectors:
+            selectors.append(members[0])
+    if not selectors:
+        return None
+    return {
+        "subjectSelector": selectors,
+        "probeUrl": "https://connectivitycheck.gstatic.com/generate_204",
+        "probeInterval": "30s",
+        "enableConcurrency": True,
+    }
+
 def overview() -> dict:
     outbounds = list_outbounds()
     groups = list_groups()
@@ -205,7 +313,7 @@ def overview() -> dict:
         "groups": groups,
         "count": len(outbounds),
         "group_count": len(groups),
-        "routing_tags": sorted(item["tag"] for item in outbounds if item.get("enabled", True)),
+        "routing_tags": sorted(routing_tags()),
     }
 
 
@@ -268,6 +376,31 @@ def create_and_apply(**kwargs) -> dict:
         _restore_state(snapshot)
         raise
     return {"outbound": item, "runtime": runtime}
+
+
+def create_group_and_apply(**kwargs) -> dict:
+    snapshot = _read()
+    item = save_group(**kwargs)
+    try:
+        runtime = apply_runtime()
+    except Exception:
+        _restore_state(snapshot)
+        raise
+    return {"group": item, "runtime": runtime}
+
+
+def remove_group_and_apply(identifier: str) -> dict:
+    tag = group_tag(identifier)
+    if _tag_in_active_routing(tag):
+        raise ExternalOutboundError("Эта группа используется активным Routing. Сначала замените правила.")
+    snapshot = _read()
+    remove_group(identifier)
+    try:
+        runtime = apply_runtime()
+    except Exception:
+        _restore_state(snapshot)
+        raise
+    return {"ok": True, "runtime": runtime}
 
 
 def remove_and_apply(identifier: str) -> dict:
