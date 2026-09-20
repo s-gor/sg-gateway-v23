@@ -263,7 +263,7 @@ download_gateway_source() {
 }
 
 prepare_bootstrap_log
-install -d -m 0700 "$BOOTSTRAP_TMP_ROOT"
+install -d -m 0711 "$BOOTSTRAP_TMP_ROOT"
 
 # A fresh cloud image can still be expanding its disk or applying first-boot
 # package changes when SSH becomes available. Wait for that work first, then
