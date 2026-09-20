@@ -4,7 +4,7 @@ set -Eeuo pipefail
 VERSION="0.1.0-022.06"
 INSTALLER_BUILD="02206-full-clean-dual-stack"
 SOURCE_DIR="${SG_GATEWAY_SOURCE_DIR:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)}"
-INSTALL_TMP_ROOT="${SG_GATEWAY_INSTALL_TMPDIR:-${TMPDIR:-/tmp}}"
+INSTALL_TMP_ROOT="${SG_GATEWAY_INSTALL_TMPDIR:-/opt/sg-gateway-bootstrap-tmp}"
 PREFIX="/opt/sg-gateway"
 CONFIG_DIR="/etc/sg-gateway"
 DATA_DIR="/var/lib/sg-gateway"
@@ -3042,6 +3042,8 @@ main() {
   # Public wrapper performs the same check. Keep this guard here as well for
   # direct/archive launches and fail before log creation or package changes.
   require_supported_ubuntu
+  install -d -m 0700 "$INSTALL_TMP_ROOT"
+  export TMPDIR="$INSTALL_TMP_ROOT"
   # Start from a known-safe installation mask. Secret files below are still
   # created with explicit 0600/0640 modes or inside a scoped umask 077 block.
   # This prevents any restrictive umask inherited through sudo/SSH from
