@@ -387,35 +387,3 @@ html[data-theme="dark"] body.page-connections #xray-xmux .xmux1-mode input:check
     linear-gradient(180deg, #28527a 0%, #1d3f61 100%) !important;
   color: #ffffff !important;
 }
-
-/* 23.01 fingerprint save control */
-body.page-connections .xps2-fingerprint-controls {
-  display: flex !important;
-  flex-flow: row nowrap !important;
-  gap: 12px !important;
-  align-items: stretch !important;
-  width: 100% !important;
-}
-
-body.page-connections .xps2-fingerprint-controls > select {
-  flex: 1 1 auto !important;
-  min-width: 0 !important;
-  width: auto !important;
-}
-
-body.page-connections .xps2-fingerprint-controls > .button {
-  flex: 0 0 auto !important;
-  width: auto !important;
-  min-width: 132px !important;
-  white-space: nowrap !important;
-}
-
-@media (max-width: 760px) {
-  body.page-connections .xps2-fingerprint-controls {
-    flex-wrap: wrap !important;
-  }
-
-  body.page-connections .xps2-fingerprint-controls > .button {
-    width: 100% !important;
-  }
-}
