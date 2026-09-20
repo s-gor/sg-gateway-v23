@@ -65,7 +65,7 @@ def test_02208_full_uninstall_stops_removes_and_verifies_naiveproxy():
 def test_02208_full_uninstall_requires_naiveproxy_listener_to_be_gone():
     source = (ROOT / "deploy/full-uninstall-ubuntu.sh").read_text()
 
-    assert 'ss -H -ltn "sport = :${NAIVEPROXY_PORT}"' in source
+    assert 'ss -H -ltn "sport = :${NAIVEPROXY_PORT:-8447}"' in source
     assert "NaiveProxy listener" in source
     assert "Остаток после удаления" in source
 
