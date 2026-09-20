@@ -33,6 +33,14 @@ def external_routing_tags() -> set[str]:
         return set()
 
 
+def external_group_routing_tags() -> set[str]:
+    try:
+        from app.routing.external import group_routing_tags
+        return set(group_routing_tags())
+    except Exception:
+        return set()
+
+
 def allowed_routing_tags() -> set[str]:
     return set(ALLOWED_ROUTING_TAGS) | external_routing_tags()
 
@@ -215,7 +223,7 @@ def sanitize_managed_fragment(fragment: dict | None) -> dict:
     for index, raw in enumerate(rules, start=1):
         if not isinstance(raw, dict):
             raise RoutingRuntimeError(f"Routing rule {index} имеет неверный формат")
-        tag = str(raw.get("outboundTag") or "").strip().lower()
+        tag = str(raw.get("outboundTag") or raw.get("balancerTag") or "").strip().lower()
         if tag not in allowed_routing_tags():
             raise RoutingRuntimeError(
                 f"Routing rule {index}: выбран неизвестный или выключенный outbound {tag}"
@@ -226,7 +234,12 @@ def sanitize_managed_fragment(fragment: dict | None) -> dict:
             raise RoutingRuntimeError(f"Routing rule {index}: {exc}") from exc
         item = dict(raw)
         item["type"] = "field"
-        item["outboundTag"] = tag
+        if tag in external_group_routing_tags():
+            item.pop("outboundTag", None)
+            item["balancerTag"] = tag
+        else:
+            item.pop("balancerTag", None)
+            item["outboundTag"] = tag
         cleaned.append(item)
 
     result = {
@@ -405,6 +418,22 @@ def build_full_config(
         routing_fragment if routing_fragment is not None else load_managed_fragment()
     )
     config["routing"] = fragment["routing"]
+    try:
+        from app.routing.external import build_xray_balancers, build_xray_observatory
+        balancers = build_xray_balancers()
+        if balancers:
+            config["routing"]["balancers"] = balancers
+        observatory = build_xray_observatory()
+        if observatory is not None:
+            config["observatory"] = observatory
+        else:
+            existing_observatory = config.get("observatory")
+            if isinstance(existing_observatory, dict) and str(existing_observatory.get("probeUrl") or "") == "https://connectivitycheck.gstatic.com/generate_204":
+                config.pop("observatory", None)
+    except ImportError:
+        pass
+    except Exception as exc:
+        raise RoutingRuntimeError(str(exc)) from exc
     return config
 
 
