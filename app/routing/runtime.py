@@ -354,6 +354,7 @@ def build_managed_outbounds(existing_outbounds: list | None = None) -> list[dict
         if isinstance(item, dict)
         and str(item.get("tag") or "") not in MANAGED_OUTBOUND_TAGS
         and str(item.get("tag") or "") not in external_tags
+        and not str(item.get("tag") or "").startswith("ext-")
     ]
 
     # Keep legacy aliases first for backward compatibility with an old managed
