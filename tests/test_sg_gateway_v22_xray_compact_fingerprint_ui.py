@@ -48,3 +48,15 @@ def test_xray_reality_public_key_is_a_single_line_control() -> None:
     assert 'textarea[name="public_key"]' in css
     assert "min-height: 42px" in css
     assert "resize: none" in css
+
+
+def test_xray_fingerprint_has_inline_save_action() -> None:
+    template = (ROOT / "app/web/templates/connections.html").read_text(encoding="utf-8")
+    css = (ROOT / "app/web/static/sg-xray-profiles-v2.css").read_text(encoding="utf-8")
+
+    assert 'data-xps2-fingerprint-apply' in template
+    assert '>Сохранить</button>' in template
+    assert "fingerprintApplyButton?.addEventListener('click'" in template
+    assert ".xps2-fingerprint-control" in css
+    assert "grid-template-columns: minmax(0, 1fr) auto" in css
+    assert ".xps2-fingerprint-save" in css

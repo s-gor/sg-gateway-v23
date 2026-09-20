@@ -308,6 +308,34 @@
 .xps2-parameter-row select { width: 100%; min-height: 2.55rem; border-radius: .7rem; }
 .xps2-parameter-row label small { display: block; margin-top: .35rem; color: var(--sg-muted, #68746f); }
 
+.xps2-fingerprint-control {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: stretch;
+  gap: 10px;
+}
+
+.xps2-fingerprint-control select {
+  min-width: 0;
+}
+
+.xps2-fingerprint-save {
+  min-width: 118px;
+  min-height: 2.55rem;
+  justify-content: center;
+  white-space: nowrap;
+}
+
+@media (max-width: 650px) {
+  .xps2-fingerprint-control {
+    grid-template-columns: 1fr;
+  }
+
+  .xps2-fingerprint-save {
+    width: 100%;
+  }
+}
+
 /* SG-Gateway 016 — Hysteria2 Salamander FinalMask. */
 .xps2-salamander {
   grid-column: 1 / -1;
