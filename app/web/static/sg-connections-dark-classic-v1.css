@@ -387,3 +387,32 @@ html[data-theme="dark"] body.page-connections #xray-xmux .xmux1-mode input:check
     linear-gradient(180deg, #28527a 0%, #1d3f61 100%) !important;
   color: #ffffff !important;
 }
+
+
+/* 23.01 fingerprint save control */
+body.page-connections .xps2-fingerprint-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: stretch;
+}
+
+body.page-connections .xps2-fingerprint-controls > select {
+  min-width: 0;
+  width: 100%;
+}
+
+body.page-connections .xps2-fingerprint-controls > .button {
+  min-width: 132px;
+  white-space: nowrap;
+}
+
+@media (max-width: 760px) {
+  body.page-connections .xps2-fingerprint-controls {
+    grid-template-columns: 1fr;
+  }
+
+  body.page-connections .xps2-fingerprint-controls > .button {
+    width: 100%;
+  }
+}
