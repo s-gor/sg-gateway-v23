@@ -204,20 +204,20 @@ require_root() {
 
 require_supported_ubuntu() {
   if [[ ! -r /etc/os-release ]]; then
-    echo "Не удалось определить операционную систему. Требуется Ubuntu 24.04." >&2
+    echo "Не удалось определить операционную систему. Требуется Ubuntu 24.04 или 26.04." >&2
     exit 1
   fi
   # shellcheck disable=SC1091
   . /etc/os-release
   if [[ "${ID:-}" != "ubuntu" ]]; then
-    printf 'Требуется Ubuntu 24.04. Обнаружено: %s\n' "${PRETTY_NAME:-неизвестная система}" >&2
+    printf 'Требуется Ubuntu 24.04 или 26.04. Обнаружено: %s\n' "${PRETTY_NAME:-неизвестная система}" >&2
     exit 1
   fi
-  if [[ "${VERSION_ID:-}" != "24.04" ]]; then
-    printf 'Поддерживается только Ubuntu 24.04. Обнаружено: %s\n' "${PRETTY_NAME:-Ubuntu ${VERSION_ID:-неизвестно}}" >&2
+  if [[ "${VERSION_ID:-}" != "24.04" && "${VERSION_ID:-}" != "26.04" ]]; then
+    printf 'Поддерживаются Ubuntu 24.04 и 26.04. Обнаружено: %s\n' "${PRETTY_NAME:-Ubuntu ${VERSION_ID:-неизвестно}}" >&2
     exit 1
   fi
-  printf '[SG-Gateway] Поддерживаемая система: %s\n' "${PRETTY_NAME:-Ubuntu 24.04}"
+  printf '[SG-Gateway] Поддерживаемая система: %s\n' "${PRETTY_NAME:-Ubuntu ${VERSION_ID:-неизвестно}}"
 }
 
 prepare_log() {
