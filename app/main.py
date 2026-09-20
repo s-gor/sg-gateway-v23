@@ -1604,6 +1604,22 @@ def create_app() -> Flask:
             return Response(str(exc), status=409, mimetype="text/plain")
         return Response(svg, mimetype="image/svg+xml")
 
+    @app.get("/sg-labs")
+    def sg_labs():
+        return render_template(
+            "sg_labs.html",
+            active_page="sg_labs",
+            sgnet_backend_ready=False,
+        )
+
+    @app.get("/sg-labs/sg-net")
+    def sg_labs_sg_net():
+        return render_template(
+            "sg_labs_sg_net.html",
+            active_page="sg_labs",
+            sgnet_backend_ready=False,
+        )
+
     @app.get("/connections")
     def connections():
         settings_map = list_connection_settings(("xray", "mihomo", "amneziawg31"))
