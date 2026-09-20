@@ -252,9 +252,11 @@ def _config() -> tuple[Any, dict[str, Any], dict[str, Any]]:
 
 def _values(config: dict[str, Any], legacy_port: int) -> dict[str, Any]:
     try:
-        obfs_mode = normalise_mode(config.get("hysteria2_obfs_mode"))
+        obfs_mode = normalise_mode(
+            config.get("hysteria2_obfs_mode", GECKO_MODE)
+        )
     except SalamanderError:
-        obfs_mode = SALAMANDER_MODE_NONE
+        obfs_mode = GECKO_MODE
     finalmask = config.get("hysteria2_finalmask")
     if not isinstance(finalmask, dict):
         finalmask = {}
@@ -374,7 +376,7 @@ def _prepare(form: Any) -> PreparedXraySettings:
             form.get("hysteria2_obfs_mode", current["hysteria2_obfs_mode"])
         )
         if values["hysteria2_enabled"] and requested_obfs == SALAMANDER_MODE_NONE:
-            requested_obfs = SALAMANDER_MODE
+            requested_obfs = GECKO_MODE
         base_finalmask = ensure_base_has_no_salamander(current["hysteria2_finalmask"])
     except SalamanderError as exc:
         raise XrayProfilesError(str(exc)) from exc
