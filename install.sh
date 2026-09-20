@@ -4,7 +4,7 @@ set -Eeuo pipefail
 VERSION="0.1.0-023.01"
 INSTALLER_BUILD="02301-full-clean-dual-stack"
 SOURCE_DIR="${SG_GATEWAY_SOURCE_DIR:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)}"
-INSTALL_TMP_ROOT="${SG_GATEWAY_INSTALL_TMPDIR:-${TMPDIR:-/tmp}}"
+INSTALL_TMP_ROOT="${SG_GATEWAY_INSTALL_TMPDIR:-/opt/sg-gateway-bootstrap-tmp}"
 PREFIX="/opt/sg-gateway"
 CONFIG_DIR="/etc/sg-gateway"
 DATA_DIR="/var/lib/sg-gateway"
