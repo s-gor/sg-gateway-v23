@@ -70,10 +70,11 @@ run_quiet() {
   local label="$1"
   shift
   local started=$SECONDS rc=0 pid=0 frame=0 raw_output="" elapsed=0
+  local bootstrap_output_root="${BOOTSTRAP_TMP_ROOT:-${TMPDIR:-/tmp}}"
   local frames=('|' '/' '-' "\\")
 
   CURRENT_BOOTSTRAP_LABEL="$label"
-  raw_output="$(mktemp "$BOOTSTRAP_TMP_ROOT/sg-gateway-bootstrap-output.XXXXXX")"
+  raw_output="$(mktemp "$bootstrap_output_root/sg-gateway-bootstrap-output.XXXXXX")"
   chmod 0600 "$raw_output"
 
   if [[ -t 1 ]]; then
