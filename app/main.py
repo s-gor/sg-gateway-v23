@@ -137,6 +137,7 @@ from app.mihomo.service import (
     test_candidate as test_mihomo_candidate,
 )
 from app.xray.profiles import (
+    FINGERPRINT_VALUES,
     XrayProfilesError,
     new_salamander_password,
     overview as xray_profiles_overview,
@@ -1657,6 +1658,29 @@ def create_app() -> Flask:
         flash("Настройки Xray сохранены." if updated else "Настройки Xray не применены. Проверьте адрес и порт.", "success" if updated else "error")
         return redirect(url_for("connections"))
 
+
+
+    @app.post("/connections/xray/fingerprint")
+    def update_xray_fingerprint():
+        current = get_connection_settings("xray")
+        config = dict(current.config)
+        fingerprint = str(request.form.get("fingerprint") or "").strip().lower()
+        if fingerprint not in FINGERPRINT_VALUES:
+            flash("Fingerprint не сохранён: выберите значение из списка.", "error")
+            return redirect(url_for("connections") + "#xray-profiles")
+
+        config["fingerprint"] = fingerprint
+        updated = update_connection_settings(
+            "xray",
+            current.host,
+            current.port,
+            config,
+        )
+        flash(
+            "Fingerprint сохранён." if updated else "Fingerprint не сохранён.",
+            "success" if updated else "error",
+        )
+        return redirect(url_for("connections") + "#xray-profiles")
 
 
     @app.post("/connections/xray/profiles")
