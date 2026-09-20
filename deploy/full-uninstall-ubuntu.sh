@@ -400,9 +400,39 @@ remove_account_and_verify(){
   systemctl reset-failed >/dev/null 2>&1 || true
 
   local bad=0 path
-  if command -v pgrep >/dev/null 2>&1; then
+  if command -v python3 >/dev/null 2>&1; then
     local diagnostic_left=""
-    diagnostic_left="$(pgrep -af 'tcpdump -ni any.*tcp port 443.*tcp port 10443.*tcp port 10444' 2>/dev/null || true)"
+    diagnostic_left="$(python3 - <<'PYSGDIAGVERIFY'
+from pathlib import Path
+
+required = (
+    "tcpdump",
+    "-ni",
+    "any",
+    "tcp port 443",
+    "tcp port 10443",
+    "tcp port 10444",
+)
+
+for entry in Path("/proc").iterdir():
+    if not entry.name.isdigit():
+        continue
+    try:
+        raw = (entry / "cmdline").read_bytes()
+    except OSError:
+        continue
+    if not raw:
+        continue
+    command = raw.replace(b"\\0", b" ").decode("utf-8", errors="replace").strip()
+    argv0 = raw.split(b"\\0", 1)[0].decode("utf-8", errors="replace")
+    # Require the executable/argv0 itself to be sudo or tcpdump. This avoids
+    # matching shell/test command text that merely contains the diagnostic.
+    if not (argv0.endswith("/tcpdump") or argv0 == "tcpdump" or argv0.endswith("/sudo") or argv0 == "sudo"):
+        continue
+    if all(token in command for token in required):
+        print(f"{entry.name} {command}")
+PYSGDIAGVERIFY
+)"
     if [[ -n "$diagnostic_left" ]]; then
       echo "Остаток после удаления: SG tcpdump diagnostic: $diagnostic_left" >&2
       bad=1
@@ -442,8 +472,8 @@ remove_account_and_verify(){
       bad=1
     fi
   done
-  if command -v ss >/dev/null 2>&1 && [[ -n "$(ss -H -ltn "sport = :${NAIVEPROXY_PORT}" 2>/dev/null || true)" ]]; then
-    echo "Остаток после удаления: NaiveProxy listener ${NAIVEPROXY_PORT}/tcp" >&2
+  if command -v ss >/dev/null 2>&1 && [[ -n "$(ss -H -ltn "sport = :${NAIVEPROXY_PORT:-8447}" 2>/dev/null || true)" ]]; then
+    echo "Остаток после удаления: NaiveProxy listener ${NAIVEPROXY_PORT:-8447}/tcp" >&2
     bad=1
   fi
   if [[ -f /etc/nginx/nginx.conf ]] && grep -Eq '^\s*include\s+/etc/nginx/stream-conf\.d/sg-gateway-443\.conf;\s*$' /etc/nginx/nginx.conf; then
