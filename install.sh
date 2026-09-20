@@ -615,8 +615,12 @@ apt_get() {
 
 bootstrap_packages() {
   export DEBIAN_FRONTEND=noninteractive
-  echo "[Ubuntu 1/2] Обновляю список пакетов"
-  apt_get update
+  if [[ "${SG_GATEWAY_APT_INDEX_READY:-0}" == "1" ]]; then
+    echo "[Ubuntu 1/2] Индекс пакетов уже обновлён bootstrap-обёрткой"
+  else
+    echo "[Ubuntu 1/2] Обновляю список пакетов"
+    apt_get update
+  fi
   echo "[Ubuntu 2/2] Устанавливаю базовые инструменты"
   apt_get install -y ca-certificates curl tar gzip unzip zstd jq openssl python3 python3-venv python3-pip
 }
@@ -1201,7 +1205,7 @@ stage_system_packages() {
   apt_get install -y \
     software-properties-common git sqlite3 nftables iproute2 procps ufw \
     nginx certbot python3-certbot-nginx libnginx-mod-stream \
-    build-essential dkms pkg-config zstd unzip "linux-headers-$(uname -r)"
+    build-essential dkms pkg-config zstd unzip xz-utils "linux-headers-$(uname -r)"
 
   # Old 021.10 rollback could leave the nginx package installed while deleting
   # /etc/nginx/nginx.conf.  Heal that exact state automatically before any SG
@@ -3198,8 +3202,6 @@ restore_backup() {
 }
 
 stage_prepare_install_context() {
-  verify_vendor_core_set
-
   if detect_existing_install; then
     printf '[SG-Gateway] Обнаружена установленная полная панель %s. Выполняется безопасное обновление.\n' \
       "${EXISTING_VERSION:-неизвестной версии}"
@@ -3255,7 +3257,6 @@ stage_backup_and_prepare() {
 
 stage_system_packages_02208() {
   stage_system_packages
-  apt_get install -y xz-utils
 }
 
 stage_awg2_runtime() {
@@ -3269,7 +3270,6 @@ stage_awg3_runtime() {
 }
 
 stage_xray_runtime() {
-  verify_vendor_core_set
   local installed_xray=""
   if [[ -x /usr/local/bin/xray ]]; then
     installed_xray="$(xray_installed_version)"
@@ -3285,12 +3285,10 @@ stage_xray_runtime() {
 }
 
 stage_mihomo_runtime() {
-  verify_vendor_core_set
   install_mihomo_from_vendor
 }
 
 stage_singbox_and_warp_runtime() {
-  verify_vendor_core_set
   install_sing_box_from_vendor
   install_wgcf_from_vendor
 }
