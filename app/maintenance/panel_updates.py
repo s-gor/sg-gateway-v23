@@ -15,7 +15,7 @@ from app.version import ROOT as APP_ROOT, get_version
 
 
 GITHUB_REPO = os.getenv("SG_GATEWAY_UPDATE_REPO", "s-gor/sg-gateway-v23").strip() or "s-gor/sg-gateway-v23"
-GITHUB_BRANCH = os.getenv("SG_GATEWAY_UPDATE_BRANCH", "dev-02301").strip() or "dev-02301"
+GITHUB_BRANCH = os.getenv("SG_GATEWAY_UPDATE_BRANCH", "stable-02301").strip() or "stable-02301"
 GITHUB_API = f"https://api.github.com/repos/{GITHUB_REPO}"
 STATE_FILE = Path(os.getenv("SG_GATEWAY_PANEL_UPDATE_STATE", "/var/lib/sg-gateway/updates/panel-state.json"))
 CACHE_TTL_SECONDS = 300
