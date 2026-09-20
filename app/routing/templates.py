@@ -16,6 +16,7 @@ from app.maintenance.operations import log_operation
 from app.routing.geofiles import GeoFilesError, overview as geofiles_overview
 from app.routing.runtime import (
     RoutingRuntimeError,
+    allowed_routing_tags,
     atomic_write_json,
     build_full_config,
     build_managed_outbounds,
@@ -746,7 +747,7 @@ def _smart_ip(value: str) -> str:
 
 def _smart_action(value: object, fallback: str = "direct") -> str:
     action = str(value or "").strip().lower()
-    return action if action in SMART_ACTIONS else fallback
+    return action if action in allowed_routing_tags() else fallback
 
 
 def _canonical_family_action(action: str) -> str:
@@ -812,7 +813,7 @@ def _smart_state_from_form(form) -> dict:
 
 
 def _smart_outbound(action: str) -> str:
-    return action if action in SMART_ACTIONS else "direct"
+    return action if action in allowed_routing_tags() else "direct"
 
 
 def _smart_rule(title: str, action: str, *, domains=None, ips=None, missing=None, required: bool = True) -> dict:
