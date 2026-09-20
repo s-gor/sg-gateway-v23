@@ -25,6 +25,18 @@ ALLOWED_ROUTING_TAGS = PUBLIC_ROUTING_TAGS | LEGACY_ROUTING_TAGS
 MANAGED_OUTBOUND_TAGS = ALLOWED_ROUTING_TAGS | {"warp-core"}
 
 
+def external_routing_tags() -> set[str]:
+    try:
+        from app.routing.external import routing_tags
+        return set(routing_tags())
+    except Exception:
+        return set()
+
+
+def allowed_routing_tags() -> set[str]:
+    return set(ALLOWED_ROUTING_TAGS) | external_routing_tags()
+
+
 def xray_config_path() -> Path:
     return Path(os.getenv("SG_GATEWAY_XRAY_CONFIG", "/usr/local/etc/xray/config.json"))
 
@@ -163,9 +175,9 @@ def routing_capabilities() -> dict[str, bool]:
 
 def validate_outbound_tag(tag: str) -> None:
     tag = str(tag or "").strip().lower()
-    if tag not in ALLOWED_ROUTING_TAGS:
+    if tag not in allowed_routing_tags():
         raise RoutingRuntimeError(
-            "Разрешены только SG-Gateway IPv4/IPv6, WARP IPv4/IPv6 и Block"
+            "Выбран неизвестный или выключенный outbound"
         )
     caps = routing_capabilities()
     if tag == "direct6" and not caps["direct6"]:
@@ -204,9 +216,9 @@ def sanitize_managed_fragment(fragment: dict | None) -> dict:
         if not isinstance(raw, dict):
             raise RoutingRuntimeError(f"Routing rule {index} имеет неверный формат")
         tag = str(raw.get("outboundTag") or "").strip().lower()
-        if tag not in ALLOWED_ROUTING_TAGS:
+        if tag not in allowed_routing_tags():
             raise RoutingRuntimeError(
-                f"Routing rule {index}: разрешены только direct4, direct6, warp4, warp6 и block"
+                f"Routing rule {index}: выбран неизвестный или выключенный outbound {tag}"
             )
         try:
             validate_outbound_tag(tag)
@@ -310,11 +322,25 @@ def build_managed_outbounds(existing_outbounds: list | None = None) -> list[dict
         ),
         {"tag": "block", "protocol": "blackhole"},
     )
+    external_bundle: list[dict] = []
+    try:
+        from app.routing.external import build_xray_outbounds
+        external_bundle = build_xray_outbounds()
+    except ImportError:
+        external_bundle = []
+    except Exception as exc:
+        raise RoutingRuntimeError(str(exc)) from exc
+    external_tags = {
+        str(item.get("tag") or "")
+        for item in external_bundle
+        if isinstance(item, dict)
+    }
     rest = [
         dict(item)
         for item in source
         if isinstance(item, dict)
         and str(item.get("tag") or "") not in MANAGED_OUTBOUND_TAGS
+        and str(item.get("tag") or "") not in external_tags
     ]
 
     # Keep legacy aliases first for backward compatibility with an old managed
@@ -352,6 +378,7 @@ def build_managed_outbounds(existing_outbounds: list | None = None) -> list[dict
     managed.append(block)
     managed.extend((direct4, direct6))
     managed.extend(warp_bundle)
+    managed.extend(external_bundle)
     managed.extend(rest)
     return managed
 
