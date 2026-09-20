@@ -2,7 +2,7 @@ name: SG-Gateway 23.01 CI
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, checkpoint/2301-ui-stable-aaa9493]
   push:
     branches: [main, recovery/2301-post-buttons-good]
   workflow_dispatch:
