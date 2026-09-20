@@ -124,18 +124,53 @@
     </div>
   </section>
 
-  <section class="ob49-custom-card sg-ui-section" data-sg-section="outbounds-custom">
+  <section class="ob49-custom-card sg-ui-section" id="external" data-sg-section="outbounds-custom">
     <header class="sg-ui-section-head">
       <div>
-        <div class="ob49-kicker"><span></span> ВЫХОДЫ</div>
-        <h2>Custom outbounds</h2>
-        <p>Пользовательские выходы в этой версии не создаются. Панель показывает только реально поддерживаемые маршруты.</p>
+        <div class="ob49-kicker"><span></span> ВНЕШНИЕ ВЫХОДЫ</div>
+        <h2>External outbounds</h2>
+        <p>Добавьте SOCKS5 или HTTP CONNECT. Перед применением SG-Gateway собирает полный Xray candidate и запускает проверку конфигурации.</p>
       </div>
     </header>
+
+    <form class="ob49-external-form" method="post" action="{{ url_for('outbounds_external_create') }}">
+      <label><span>Название</span><input name="name" required maxlength="80" placeholder="France"></label>
+      <label><span>Тип</span><select name="protocol"><option value="socks">SOCKS5</option><option value="http">HTTP CONNECT</option></select></label>
+      <label><span>Host</span><input name="host" required placeholder="proxy.example.net"></label>
+      <label><span>Порт</span><input name="port" required inputmode="numeric" placeholder="1080"></label>
+      <label><span>Логин</span><input name="username" autocomplete="username"></label>
+      <label><span>Пароль</span><input name="password" type="password" autocomplete="new-password"></label>
+      <button class="ob49-primary" type="submit">Добавить выход</button>
+    </form>
+
+    {% if custom_outbounds %}
+    <div class="ob49-external-list">
+      {% for item in custom_outbounds %}
+      <div class="ob49-system-row">
+        <span class="ob49-route-icon" aria-hidden="true">↦</span>
+        <div class="ob49-route-copy">
+          <div><strong>{{ item.name }}</strong><span>{{ item.tag }}</span></div>
+          <p>{{ item.host }}:{{ item.port }}{% if item.username %} · {{ item.username }}{% endif %}</p>
+        </div>
+        <div class="ob49-route-meta">
+          <code>{{ item.protocol }}</code>
+          <span>{{ 'Авторизация' if item.has_password or item.username else 'Без авторизации' }}</span>
+          <form method="post" action="{{ url_for('outbounds_external_remove', identifier=item.id) }}"
+                data-sg-confirm="Удалить этот внешний выход? Активный Routing сначала должен перестать его использовать."
+                data-sg-confirm-title="Удалить outbound"
+                data-sg-confirm-button="Удалить">
+            <button class="ob49-danger" type="submit">Удалить</button>
+          </form>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
     <div class="ob49-empty-row">
       <span aria-hidden="true">↳</span>
-      <div><strong>Пользовательские выходы ещё не созданы</strong><p>Сейчас доступны системные direct, blocked и необязательный WARP.</p></div>
+      <div><strong>Внешних выходов пока нет</strong><p>Созданный выход появится в Routing и будет добавлен в рабочий Xray config.</p></div>
     </div>
+    {% endif %}
   </section>
 </section>
 {% endblock %}
