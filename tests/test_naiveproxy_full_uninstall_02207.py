@@ -70,3 +70,24 @@ def test_02208_full_uninstall_requires_naiveproxy_listener_to_be_gone():
     assert "Остаток после удаления" in source
 
 
+
+
+def test_2301_full_uninstall_stops_only_known_sg_tcpdump_diagnostic():
+    source = (ROOT / "deploy/full-uninstall-ubuntu.sh").read_text()
+
+    assert "stop_known_sg_diagnostics()" in source
+    assert '"tcpdump"' in source
+    assert '"-ni"' in source
+    assert '"any"' in source
+    assert '"tcp port 443"' in source
+    assert '"tcp port 10443"' in source
+    assert '"tcp port 10444"' in source
+    assert "Never kill arbitrary tcpdump sessions" in source
+    assert "stop_known_sg_diagnostics" in source[source.index("stop_runtime(){"):]
+
+
+def test_2301_full_uninstall_verifies_sg_tcpdump_diagnostic_is_gone():
+    source = (ROOT / "deploy/full-uninstall-ubuntu.sh").read_text()
+
+    assert "SG tcpdump diagnostic" in source
+    assert "pgrep -af 'tcpdump -ni any.*tcp port 443.*tcp port 10443.*tcp port 10444'" in source
