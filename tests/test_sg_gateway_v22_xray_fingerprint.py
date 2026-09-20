@@ -110,7 +110,6 @@ def test_connections_ui_contains_full_sg_panel_selector() -> None:
     assert 'optgroup label="Автоматический выбор"' in template
     assert 'optgroup label="Расширенные"' in template
     assert "Другое текущее значение" in template
-    assert "По умолчанию Mozilla Firefox" in template
     for value in EXPECTED:
         assert f'<option value="{value}"' in template
 

@@ -731,10 +731,9 @@ def create_app() -> Flask:
 
     @app.context_processor
     def inject_globals():
-        try:
-            panel_health = health_summary()
-        except Exception:
-            panel_health = cached_health_summary()
+        # Ordinary page navigation must never run live runtime diagnostics.
+        # The cached summary is refreshed by the dedicated health/system paths.
+        panel_health = cached_health_summary()
         return {
             "app_version": get_version(),
             "static_asset": static_asset,

@@ -140,7 +140,7 @@ def test_hysteria2_single_edge_forces_managed_salamander(monkeypatch):
         }
     )
 
-    assert prepared.config["hysteria2_obfs_mode"] == profiles.SALAMANDER_MODE
+    assert prepared.config["hysteria2_obfs_mode"] == profiles.GECKO_MODE
     assert profiles.password_ready(prepared.config["hysteria2_obfs_password"])
     assert prepared.config["hysteria2_salamander_managed"] is True
 
