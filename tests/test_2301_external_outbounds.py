@@ -121,3 +121,61 @@ def test_outbounds_and_routing_ui_expose_external_controls():
     assert "external_outbounds.outbounds" in routing
     assert '@app.post("/outbounds/external/create")' in main
     assert '@app.post("/outbounds/external/<identifier>/remove")' in main
+
+
+def test_failover_group_compiles_primary_fallback_and_observatory(external_state):
+    primary = external.save_outbound(
+        name="Primary",
+        protocol="socks",
+        host="primary.example.net",
+        port=1080,
+    )
+    backup = external.save_outbound(
+        name="Backup",
+        protocol="http",
+        host="backup.example.net",
+        port=3128,
+    )
+    group = external.save_group(
+        name="EU Failover",
+        members=[primary["tag"], backup["tag"]],
+        strategy="failover",
+    )
+    balancer = external.build_xray_balancers()[0]
+    assert balancer["tag"] == group["tag"]
+    assert balancer["selector"] == [primary["tag"]]
+    assert balancer["fallbackTag"] == backup["tag"]
+    assert balancer["strategy"] == {"type": "random"}
+    observatory = external.build_xray_observatory()
+    assert observatory is not None
+    assert observatory["subjectSelector"] == [primary["tag"]]
+    assert observatory["probeInterval"] == "30s"
+
+
+def test_group_action_is_sanitized_to_balancer_tag(external_state, monkeypatch):
+    one = external.save_outbound(name="One", protocol="socks", host="one.example.net", port=1080)
+    two = external.save_outbound(name="Two", protocol="socks", host="two.example.net", port=1080)
+    group = external.save_group(name="Pool", members=[one["tag"], two["tag"]], strategy="roundRobin")
+    monkeypatch.setattr(runtime, "routing_capabilities", lambda: {
+        "direct4": True, "direct6": False, "warp4": False,
+        "warp6": False, "block": True, "warp_enabled": False,
+    })
+    fragment = runtime.sanitize_managed_fragment({
+        "routing": {
+            "domainStrategy": "IPIfNonMatch",
+            "rules": [{
+                "type": "field",
+                "domain": ["domain:example.com"],
+                "outboundTag": group["tag"],
+            }],
+        }
+    })
+    rule = fragment["routing"]["rules"][0]
+    assert rule["balancerTag"] == group["tag"]
+    assert "outboundTag" not in rule
+
+
+def test_failover_group_requires_exactly_two_members(external_state):
+    one = external.save_outbound(name="One", protocol="socks", host="one.example.net", port=1080)
+    with pytest.raises(external.ExternalOutboundError, match="ровно два"):
+        external.save_group(name="Bad", members=[one["tag"]], strategy="failover")
