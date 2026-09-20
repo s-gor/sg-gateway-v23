@@ -90,4 +90,6 @@ def test_2301_full_uninstall_verifies_sg_tcpdump_diagnostic_is_gone():
     source = (ROOT / "deploy/full-uninstall-ubuntu.sh").read_text()
 
     assert "SG tcpdump diagnostic" in source
-    assert "pgrep -af 'tcpdump -ni any.*tcp port 443.*tcp port 10443.*tcp port 10444'" in source
+    assert 'argv0.endswith("/tcpdump")' in source
+    assert 'argv0.endswith("/sudo")' in source
+    assert 'all(token in command for token in required)' in source
