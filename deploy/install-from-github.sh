@@ -2,7 +2,7 @@
 set -Eeuo pipefail
 
 REPOSITORY="s-gor/sg-gateway-v23"
-BRANCH="${SG_GATEWAY_GITHUB_BRANCH:-${SG_GATEWAY_UPDATE_BRANCH:-dev-02301}}"
+BRANCH="${SG_GATEWAY_GITHUB_BRANCH:-${SG_GATEWAY_UPDATE_BRANCH:-stable-02301}}"
 SOURCE_COMMIT="${SG_GATEWAY_SOURCE_COMMIT:-}"
 ARCHIVE_REF="${SOURCE_COMMIT:-$BRANCH}"
 ARCHIVE_URL="https://github.com/${REPOSITORY}/archive/${ARCHIVE_REF}.tar.gz"
@@ -36,8 +36,8 @@ fail() {
 }
 
 [[ -z "$SOURCE_COMMIT" || "$SOURCE_COMMIT" =~ ^[0-9a-f]{40}$ ]] || fail "SG_GATEWAY_SOURCE_COMMIT must be a lowercase 40-character commit SHA"
-if [[ "$BRANCH" != "dev-02301" && -z "$SOURCE_COMMIT" ]]; then
-  fail "non-default development branch requires SG_GATEWAY_SOURCE_COMMIT"
+if [[ "$BRANCH" != "stable-02301" && -z "$SOURCE_COMMIT" ]]; then
+  fail "non-default branch requires SG_GATEWAY_SOURCE_COMMIT"
 fi
 
 cleanup() {
@@ -293,7 +293,7 @@ mkdir -p "$SOURCE_DIR"
 run_quiet "Подготовка 6/6 · Загрузка SG-Gateway" download_gateway_source
 
 printf '[SG-Gateway] GitHub source version: %s\n' "$(tr -d '\r\n' < "$SOURCE_DIR/VERSION")"
-printf '[SG-Gateway] DEV channel: %s\n' "$BRANCH"
+printf '[SG-Gateway] Stable channel: %s\n' "$BRANCH"
 printf '[SG-Gateway] Starting the native Ubuntu CLEAN installer...\n'
 SG_GATEWAY_SOURCE_DIR="$SOURCE_DIR" \
 SG_GATEWAY_SOURCE_COMMIT="$SOURCE_COMMIT" \
