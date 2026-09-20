@@ -7,6 +7,7 @@ SOURCE_COMMIT="${SG_GATEWAY_SOURCE_COMMIT:-}"
 ARCHIVE_REF="${SOURCE_COMMIT:-$BRANCH}"
 ARCHIVE_URL="https://github.com/${REPOSITORY}/archive/${ARCHIVE_REF}.tar.gz"
 TEMP_DIR=""
+BOOTSTRAP_TEMP_ROOT=""
 ARCHIVE=""
 SOURCE_DIR=""
 MIN_FREE_MIB="${SG_GATEWAY_INSTALL_MIN_FREE_MIB:-1024}"
@@ -195,9 +196,30 @@ require_free_space() {
   printf '[SG-Gateway] Disk preflight %s: %s MiB free (minimum %s MiB).\n' "$label" "$available_mib" "$MIN_FREE_MIB"
 }
 
+has_required_free_space() {
+  local path="$1" available_kib required_kib
+  available_kib="$(df -Pk "$path" 2>/dev/null | awk 'NR == 2 {print $4}')"
+  [[ "$available_kib" =~ ^[0-9]+$ ]] || return 1
+  required_kib=$(( MIN_FREE_MIB * 1024 ))
+  (( available_kib >= required_kib ))
+}
+
+select_bootstrap_temp_root() {
+  local candidate=""
+  for candidate in /var/tmp /opt; do
+    if [[ -d "$candidate" ]] && has_required_free_space "$candidate"; then
+      BOOTSTRAP_TEMP_ROOT="$candidate"
+      printf '[SG-Gateway] Bootstrap temporary storage: %s\n' "$BOOTSTRAP_TEMP_ROOT"
+      return 0
+    fi
+  done
+  fail "not enough free disk space for clean install temporary storage: need at least ${MIN_FREE_MIB} MiB on /var/tmp or /opt"
+}
+
 preflight_disk_space() {
-  require_free_space /tmp "temporary storage"
   require_free_space /opt "installation storage"
+  select_bootstrap_temp_root
+  require_free_space "$BOOTSTRAP_TEMP_ROOT" "temporary storage"
 }
 
 prepare_clean_ubuntu() {
@@ -217,8 +239,9 @@ prepare_clean_ubuntu() {
     exit 10
   fi
 
-  require_free_space /tmp "temporary storage after Ubuntu update"
   require_free_space /opt "installation storage after Ubuntu update"
+  select_bootstrap_temp_root
+  require_free_space "$BOOTSTRAP_TEMP_ROOT" "temporary storage after Ubuntu update"
   printf '[SG-Gateway] Ubuntu update: complete; reboot not required.\n'
 }
 
@@ -274,7 +297,7 @@ run_quiet "Подготовка 3/6 · Проверка диска" preflight_di
 run_quiet "Подготовка 4/6 · Обновление Ubuntu" prepare_clean_ubuntu
 run_quiet "Подготовка 5/6 · Подготовка инструментов" prepare_bootstrap_tools
 
-TEMP_DIR="$(mktemp -d /tmp/sg-gateway-github-install.XXXXXX)"
+TEMP_DIR="$(mktemp -d "$BOOTSTRAP_TEMP_ROOT/sg-gateway-github-install.XXXXXX")"
 ARCHIVE="$TEMP_DIR/sg-gateway-source.tar.gz"
 SOURCE_DIR="$TEMP_DIR/source"
 mkdir -p "$SOURCE_DIR"
