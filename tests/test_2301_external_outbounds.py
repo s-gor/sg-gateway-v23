@@ -179,3 +179,26 @@ def test_failover_group_requires_exactly_two_members(external_state):
     one = external.save_outbound(name="One", protocol="socks", host="one.example.net", port=1080)
     with pytest.raises(external.ExternalOutboundError, match="ровно два"):
         external.save_group(name="Bad", members=[one["tag"]], strategy="failover")
+
+
+def test_group_remove_is_blocked_while_active_routing_uses_balancer(external_state, monkeypatch):
+    one = external.save_outbound(name="One", protocol="socks", host="one.example.net", port=1080)
+    two = external.save_outbound(name="Two", protocol="socks", host="two.example.net", port=1080)
+    group = external.save_group(name="Pool", members=[one["tag"], two["tag"]], strategy="roundRobin")
+    monkeypatch.setattr(
+        runtime,
+        "load_managed_fragment",
+        lambda: {"routing": {"rules": [{"balancerTag": group["tag"]}]}},
+    )
+    with pytest.raises(external.ExternalOutboundError, match="используется активным Routing"):
+        external.remove_group_and_apply(group["id"])
+
+
+def test_runtime_drops_stale_external_outbound_from_existing_config(external_state):
+    existing = [
+        {"tag": "ext-deleted-deadbeef", "protocol": "socks", "settings": {"servers": []}},
+        {"tag": "user-preserved", "protocol": "freedom"},
+    ]
+    tags = {item["tag"] for item in runtime.build_managed_outbounds(existing)}
+    assert "ext-deleted-deadbeef" not in tags
+    assert "user-preserved" in tags
