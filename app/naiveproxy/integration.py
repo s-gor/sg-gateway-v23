@@ -121,7 +121,9 @@ def _patch_client_runtime() -> None:
         previous = None
         try:
             previous = _prepare_runtime_settings()
-            return original(stabilize=stabilize)
+            if stabilize:
+                return original(stabilize=True)
+            return original()
         except Exception as exc:
             rollback_note = ""
             if previous is not None:
