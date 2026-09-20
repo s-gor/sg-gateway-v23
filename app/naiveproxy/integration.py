@@ -117,11 +117,11 @@ def _patch_client_runtime() -> None:
     if getattr(original, "_naiveproxy_transaction_wrapper", False):
         return
 
-    def apply_clients_runtime() -> dict:
+    def apply_clients_runtime(*, stabilize: bool = False) -> dict:
         previous = None
         try:
             previous = _prepare_runtime_settings()
-            return original()
+            return original(stabilize=stabilize)
         except Exception as exc:
             rollback_note = ""
             if previous is not None:
