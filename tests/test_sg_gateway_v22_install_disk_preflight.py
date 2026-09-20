@@ -18,9 +18,8 @@ def test_clean_installer_checks_free_space_before_download_and_extraction():
 
     first_preflight = text.index('run_quiet "Подготовка 3/6 · Проверка диска" preflight_disk_space')
     package_bootstrap = text.index('run_quiet "Подготовка 5/6 · Подготовка инструментов" prepare_bootstrap_tools')
-    download = text.index("Downloading GitHub branch")
-    extraction = text.index('tar -xzf "$ARCHIVE"')
+    download_stage = text.index('run_quiet "Подготовка 6/6 · Загрузка SG-Gateway" download_gateway_source')
 
-    assert first_preflight < package_bootstrap
-    assert first_preflight < download
-    assert first_preflight < extraction
+    assert first_preflight < package_bootstrap < download_stage
+    assert "Downloading GitHub branch" in text
+    assert 'tar -xzf "$ARCHIVE"' in text
