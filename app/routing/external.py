@@ -328,7 +328,8 @@ def _tag_in_active_routing(tag: str) -> bool:
     except Exception:
         return False
     return any(
-        isinstance(rule, dict) and str(rule.get("outboundTag") or "") == tag
+        isinstance(rule, dict)
+        and str(rule.get("outboundTag") or rule.get("balancerTag") or "") == tag
         for rule in rules
     )
 
