@@ -3573,7 +3573,7 @@ run_interactive_stage() {
 main() {
   require_root
   require_supported_ubuntu
-  install -d -m 0700 "$INSTALL_TMP_ROOT"
+  install -d -m 0711 "$INSTALL_TMP_ROOT"
   export TMPDIR="$INSTALL_TMP_ROOT"
   umask 022
   prepare_log
