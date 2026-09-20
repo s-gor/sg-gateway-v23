@@ -1,6 +1,10 @@
 from __future__ import annotations
 
 import json
+import os
+import shutil
+import subprocess
+import zipfile
 from pathlib import Path
 
 import pytest
@@ -202,3 +206,63 @@ def test_runtime_drops_stale_external_outbound_from_existing_config(external_sta
     tags = {item["tag"] for item in runtime.build_managed_outbounds(existing)}
     assert "ext-deleted-deadbeef" not in tags
     assert "user-preserved" in tags
+
+
+def test_bundled_xray_accepts_external_group_and_failover_schema(external_state, monkeypatch, tmp_path):
+    primary = external.save_outbound(
+        name="Primary",
+        protocol="socks",
+        host="127.0.0.1",
+        port=18081,
+    )
+    backup = external.save_outbound(
+        name="Backup",
+        protocol="http",
+        host="127.0.0.1",
+        port=18082,
+    )
+    group = external.save_group(
+        name="Failover",
+        members=[primary["tag"], backup["tag"]],
+        strategy="failover",
+    )
+    monkeypatch.setattr(runtime, "routing_capabilities", lambda: {
+        "direct4": True, "direct6": False, "warp4": False,
+        "warp6": False, "block": True, "warp_enabled": False,
+    })
+    payload = runtime.build_full_config(
+        {
+            "routing": {
+                "domainStrategy": "AsIs",
+                "rules": [{
+                    "type": "field",
+                    "network": "tcp",
+                    "balancerTag": group["tag"],
+                }],
+            }
+        },
+        base_config={"log": {"loglevel": "warning"}, "inbounds": [], "outbounds": []},
+    )
+
+    archive = Path(__file__).resolve().parents[1] / "vendor/cores/Xray-linux-64.zip"
+    assert archive.is_file()
+    with zipfile.ZipFile(archive) as bundle:
+        member = next(
+            name for name in bundle.namelist()
+            if Path(name).name == "xray" and not name.endswith("/")
+        )
+        binary = tmp_path / "xray"
+        with bundle.open(member) as source, binary.open("wb") as target:
+            shutil.copyfileobj(source, target)
+    binary.chmod(0o755)
+    config = tmp_path / "config.json"
+    config.write_text(json.dumps(payload), encoding="utf-8")
+    result = subprocess.run(
+        [str(binary), "run", "-test", "-config", str(config)],
+        capture_output=True,
+        text=True,
+        timeout=30,
+        env=dict(os.environ),
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr or result.stdout
