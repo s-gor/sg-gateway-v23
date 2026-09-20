@@ -111,8 +111,10 @@ from app.routing.warp import overview as warp_overview
 from app.routing.external import (
     ExternalOutboundError,
     create_and_apply as create_external_outbound,
+    create_group_and_apply as create_outbound_group,
     overview as external_outbounds_overview,
     remove_and_apply as remove_external_outbound,
+    remove_group_and_apply as remove_outbound_group,
 )
 from app.routing.templates import (
     RoutingTemplateError,
@@ -856,6 +858,29 @@ def create_app() -> Flask:
         except ExternalOutboundError as exc:
             flash(f"External outbound не удалён: {exc}", "error")
         return redirect(url_for("outbounds") + "#external")
+
+    @app.post("/outbounds/groups/create")
+    def outbounds_group_create():
+        try:
+            result = create_outbound_group(
+                name=request.form.get("name", ""),
+                members=request.form.getlist("members"),
+                strategy=request.form.get("strategy", "roundRobin"),
+            )
+            tag = result["group"]["tag"]
+            flash(f"Группа {tag} создана, Xray проверен и применён.", "success")
+        except ExternalOutboundError as exc:
+            flash(f"Группа не создана: {exc}", "error")
+        return redirect(url_for("outbounds") + "#groups")
+
+    @app.post("/outbounds/groups/<identifier>/remove")
+    def outbounds_group_remove(identifier: str):
+        try:
+            remove_outbound_group(identifier)
+            flash("Группа удалена, Xray проверен и применён.", "success")
+        except ExternalOutboundError as exc:
+            flash(f"Группа не удалена: {exc}", "error")
+        return redirect(url_for("outbounds") + "#groups")
 
     def _warp_action(command: str, success_default: str):
         result = run_hostd_command(
