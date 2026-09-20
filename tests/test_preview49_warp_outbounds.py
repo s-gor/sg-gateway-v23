@@ -123,7 +123,7 @@ def test_warp_management_is_on_outbounds_and_routing_only_assigns_it():
     create_form = outbounds_source.split("outbounds_warp_create", 1)[1].split("</form>", 1)[0]
     assert "data-sg-confirm" not in create_form
     assert "data-sg-confirm" in outbounds_source  # destructive actions only
-    assert "Custom outbounds" in outbounds_source
+    assert "External outbounds" in outbounds_source\n    assert "Outbound groups" in outbounds_source
     assert "fake" not in outbounds_source.lower()
 
     assert "url_for('outbounds')" in base_source
