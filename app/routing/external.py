@@ -207,3 +207,80 @@ def overview() -> dict:
         "group_count": len(groups),
         "routing_tags": sorted(item["tag"] for item in outbounds if item.get("enabled", True)),
     }
+
+
+def _restore_state(snapshot: dict) -> None:
+    _write(snapshot)
+
+
+def _tag_in_active_routing(tag: str) -> bool:
+    try:
+        from app.routing.runtime import load_managed_fragment
+        rules = load_managed_fragment().get("routing", {}).get("rules", [])
+    except Exception:
+        return False
+    return any(
+        isinstance(rule, dict) and str(rule.get("outboundTag") or "") == tag
+        for rule in rules
+    )
+
+
+def apply_runtime() -> dict:
+    from app.routing.runtime import (
+        RoutingRuntimeError,
+        atomic_write_json,
+        build_full_config,
+        restart_xray,
+        service_is_active,
+        xray_config_path,
+        xray_test_config,
+    )
+
+    path = xray_config_path()
+    previous = None
+    if path.is_file():
+        try:
+            previous = json.loads(path.read_text(encoding="utf-8"))
+        except Exception:
+            previous = None
+    candidate = build_full_config(base_config=previous if isinstance(previous, dict) else None)
+    status, message = xray_test_config(candidate)
+    if status == "error":
+        raise ExternalOutboundError(message)
+    was_active = service_is_active()
+    atomic_write_json(path, candidate, 0o600)
+    if was_active:
+        restart_status, restart_message = restart_xray(required=True)
+        if restart_status == "error":
+            if isinstance(previous, dict):
+                atomic_write_json(path, previous, 0o600)
+                restart_xray(required=False)
+            raise ExternalOutboundError(restart_message)
+    return {"ok": True, "message": message}
+
+
+def create_and_apply(**kwargs) -> dict:
+    snapshot = _read()
+    item = save_outbound(**kwargs)
+    try:
+        runtime = apply_runtime()
+    except Exception:
+        _restore_state(snapshot)
+        raise
+    return {"outbound": item, "runtime": runtime}
+
+
+def remove_and_apply(identifier: str) -> dict:
+    tag = outbound_tag(identifier)
+    if _tag_in_active_routing(tag):
+        raise ExternalOutboundError(
+            "Этот outbound используется активным Routing. Сначала замените правила."
+        )
+    snapshot = _read()
+    remove_outbound(identifier)
+    try:
+        runtime = apply_runtime()
+    except Exception:
+        _restore_state(snapshot)
+        raise
+    return {"ok": True, "runtime": runtime}
