@@ -115,6 +115,11 @@
           <label class="{% if not caps.get('warp4') %}disabled{% endif %}" {% if not caps.get('warp4') %}title="WARP IPv4 не готов или выключен"{% endif %}><input type="radio" name="{{ name }}" value="warp4" {% if current == 'warp4' %}checked{% endif %} {% if not caps.get('warp4') %}disabled{% endif %}><span>WARP · IPv4</span></label>
           <label class="{% if not caps.get('warp6') %}disabled{% endif %}" {% if not caps.get('warp6') %}title="WARP IPv6 не готов или выключен"{% endif %}><input type="radio" name="{{ name }}" value="warp6" {% if current == 'warp6' %}checked{% endif %} {% if not caps.get('warp6') %}disabled{% endif %}><span>WARP · IPv6</span></label>
           {% endif %}
+          {% if allow_warp and external_outbounds and external_outbounds.outbounds %}
+          {% for outbound in external_outbounds.outbounds %}
+          <label><input type="radio" name="{{ name }}" value="{{ outbound.tag }}" {% if current == outbound.tag %}checked{% endif %}><span>{{ outbound.name }} · {{ outbound.protocol|upper }}</span></label>
+          {% endfor %}
+          {% endif %}
           {% if allow_block %}<label><input type="radio" name="{{ name }}" value="block" {% if current == 'block' %}checked{% endif %}><span>Заблокировать</span></label>{% endif %}
         </div>
         {% endmacro %}
