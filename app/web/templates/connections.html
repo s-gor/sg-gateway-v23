@@ -123,15 +123,13 @@
               </div>
             </header>
 
+            <form id="xray-sni-form" method="post" action="{{ url_for('update_xray') }}"></form>
             <div class="xps2-parameter-list">
-              <article class="xps2-parameter-row is-visible" data-fingerprint-panel>
-                <div class="xps2-parameter-title">
+              <article class="xps2-parameter-row xps2-primary-settings-row is-visible" data-fingerprint-panel>
+                <section class="xps2-primary-setting">
                   <strong>Client Fingerprint</strong>
-                  <span>Общий TLS/uTLS fingerprint для Xray-ссылок, QR и subscription</span>
-                </div>
-                <label class="xps2-field-mode">
-                  <span>Fingerprint</span>
-                  <select name="fingerprint" required>
+                  <div class="xps2-primary-control">
+                    <select name="fingerprint" required>
                     <optgroup label="Браузеры">
                       <option value="chrome" {% if xray_profiles.fingerprint == 'chrome' %}selected{% endif %}>Google Chrome</option>
                       <option value="brave" {% if xray_profiles.fingerprint == 'brave' %}selected{% endif %}>Brave (технически Chrome)</option>
@@ -155,9 +153,27 @@
                       <option value="{{ xray_profiles.fingerprint }}" selected>Другое текущее значение: {{ xray_profiles.fingerprint }}</option>
                       {% endif %}
                     </optgroup>
-                  </select>
-                  <small>Тот же набор, что в SG-Panel. По умолчанию Mozilla Firefox. Brave, Opera и Vivaldi используют совместимый технический профиль Chrome.</small>
-                </label>
+                    </select>
+                    <button class="button primary sg-ljd-key-action"
+                            type="submit"
+                            formaction="{{ url_for('update_xray_fingerprint') }}"
+                            formmethod="post"
+                            formnovalidate>Сохранить</button>
+                  </div>
+                </section>
+                <section class="xps2-primary-setting">
+                  <strong>Reality SNI</strong>
+                  <div class="xps2-primary-control">
+                    <input type="text"
+                           name="server_name"
+                           value="{{ xray_settings.config.get('server_name', 'www.bing.com') }}"
+                           form="xray-sni-form"
+                           autocomplete="off">
+                    <button class="button primary sg-ljd-key-action"
+                            type="submit"
+                            form="xray-sni-form">Сохранить</button>
+                  </div>
+                </section>
               </article>
 
               {% for profile in xray_profiles.profiles %}
