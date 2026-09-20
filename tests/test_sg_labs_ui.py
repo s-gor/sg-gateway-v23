@@ -25,7 +25,6 @@ def test_sg_labs_pages_keep_backend_state_honest():
 
 def test_sg_labs_uses_canonical_2301_theme_tokens():
     css = (ROOT / "app/web/static/sg-labs-v1.css").read_text(encoding="utf-8")
-    assert "var(--sg-bg)" not in css or True
     assert "var(--sg-text)" in css
     assert "var(--sg-muted)" in css
     assert "var(--sg-blue)" in css
