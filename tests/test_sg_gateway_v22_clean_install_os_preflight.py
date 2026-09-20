@@ -61,14 +61,16 @@ def test_clean_install_bootstrap_hides_raw_output_but_keeps_failure_log() -> Non
     assert 'Полный технический журнал: %s\\n' in source
     assert '"$BOOTSTRAP_LOG"' in source
 
-def test_clean_install_supports_ubuntu_2404_and_2604_only() -> None:
+def test_clean_install_supports_all_ubuntu_24x_through_26x() -> None:
     bootstrap = _installer_source()
     core = (ROOT / "deploy" / "install-core.sh").read_text(encoding="utf-8")
+    native = (ROOT / "install.sh").read_text(encoding="utf-8")
 
-    assert '[[ "${VERSION_ID:-}" == "24.04" || "${VERSION_ID:-}" == "26.04" ]]' in bootstrap
-    assert 'only Ubuntu 24.04 and 26.04 are supported' in bootstrap
-    assert '[[ "${VERSION_ID:-}" != "24.04" && "${VERSION_ID:-}" != "26.04" ]]' in core
-    assert 'Поддерживаются Ubuntu 24.04 и 26.04' in core
+    assert '[[ "${VERSION_ID:-}" =~ ^(24|25|26)\\. ]]' in bootstrap
+    assert 'only Ubuntu 24.x through 26.x are supported' in bootstrap
+    for source in (core, native):
+        assert 'if [[ ! "${VERSION_ID:-}" =~ ^(24|25|26)\\. ]]; then' in source
+        assert 'Поддерживаются Ubuntu 24.x–26.x' in source
 
 def test_clean_install_does_not_require_large_tmp_on_azure_style_images() -> None:
     source = _installer_source()
