@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}SG-Net · SG Labs{% endblock %}
+{% block content %}
+<div class="sg-ui-page sgl-page">
+  <header class="sg-ui-page-head sgl-project-page-head">
+    <div><div class="sgl-eyebrow"><a href="{{ url_for('sg_labs') }}">SG Labs</a> / SG-Net</div><h1>SG-Net</h1><p>Single Edge · Device Auth · Subscription Export</p></div>
+    <span class="sgl-badge {{ 'is-active' if sgnet_backend_ready else '' }}">{{ 'Активен' if sgnet_backend_ready else 'UI подготовлен' }}</span>
+  </header>
+
+  {% if not sgnet_backend_ready %}
+  <section class="sgl-backend-note sg-ui-card"><strong>Backend SG-Net ещё не подключён к этой линии 23.01.</strong><span>Интерфейс готов и не показывает фиктивный runtime-статус. После объединения backend-интеграции эти контролы можно подключить без изменения структуры страницы.</span></section>
+  {% endif %}
+
+  <div class="sgl-project-layout">
+    <main class="sgl-settings">
+      <section class="sgl-panel sg-ui-card"><header><div><span class="sgl-eyebrow">ОБЩИЕ НАСТРОЙКИ</span><h2>Single Edge</h2></div></header>
+        <div class="sg-ui-form-row">
+          <label class="sg-ui-field"><span>Режим</span><select disabled><option>Single Edge</option></select></label>
+          <label class="sg-ui-field"><span>Домен</span><input value="—" disabled></label>
+          <label class="sg-ui-field"><span>Порт</span><input value="443" disabled></label>
+          <label class="sg-ui-field"><span>Транспорт</span><select disabled><option>TCP / TLS</option></select></label>
+          <label class="sg-ui-field"><span>MTU</span><input value="1280" disabled></label>
+          <label class="sg-ui-field"><span>Приоритет</span><select disabled><option>Нормальный</option></select></label>
+        </div>
+      </section>
+
+      <section class="sgl-panel sg-ui-card"><header><div><span class="sgl-eyebrow">ИДЕНТИФИКАЦИЯ</span><h2>Устройство</h2></div></header>
+        <div class="sg-ui-form-row">
+          <label class="sg-ui-field"><span>Device ID</span><input value="Будет получен из SG-Net backend" disabled></label>
+          <label class="sg-ui-field"><span>Access Token</span><input value="••••••••••••••••" disabled></label>
+          <label class="sg-ui-field"><span>Имя узла</span><input value="sg-gateway" disabled></label>
+        </div>
+        <div class="sg-ui-actions"><button class="button" disabled>Обновить токен</button><button class="button" disabled>Скопировать</button></div>
+      </section>
+
+      <section class="sgl-panel sg-ui-card"><header><div><span class="sgl-eyebrow">МАРШРУТИЗАЦИЯ</span><h2>Политика трафика</h2></div></header>
+        <div class="sgl-segments"><button class="is-selected" disabled>Smart</button><button disabled>Strict</button><button disabled>Bypass local</button></div>
+        <label class="sgl-switch-row"><span><strong>Kill Switch</strong><small>Блокировать трафик при разрыве соединения</small></span><input type="checkbox" checked disabled></label>
+      </section>
+
+      <section class="sgl-panel sg-ui-card"><header><div><span class="sgl-eyebrow">ПОДПИСКА И ЭКСПОРТ</span><h2>Клиентские данные</h2></div></header>
+        <div class="sgl-actions"><button class="button primary" disabled>Открыть SG Subscription</button><button class="button" disabled>Экспорт URI</button><button class="button" disabled>Проверить подключение</button></div>
+      </section>
+
+      <div class="sgl-footer-actions"><button class="button primary" disabled>Сохранить</button><button class="button" disabled>Перезапустить сервис</button><button class="button" disabled>Откатить</button></div>
+    </main>
+
+    <aside class="sgl-status sg-ui-card">
+      <div class="sgl-eyebrow">СТАТУС SG-NET</div><h2>Runtime</h2>
+      <dl><div><dt>Состояние</dt><dd>Backend не подключён</dd></div><div><dt>Последняя проверка</dt><dd>—</dd></div><div><dt>Клиентских профилей</dt><dd>—</dd></div><div><dt>Нод доступно</dt><dd>—</dd></div><div><dt>Версия runtime</dt><dd>—</dd></div></dl>
+      <div class="sgl-status-note">Страница подготовлена для безопасного подключения реального SG-Net runtime.</div>
+    </aside>
+  </div>
+</div>
+{% endblock %}
