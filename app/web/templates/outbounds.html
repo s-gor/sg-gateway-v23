@@ -172,5 +172,52 @@
     </div>
     {% endif %}
   </section>
+
+  <section class="ob49-custom-card sg-ui-section" id="groups" data-sg-section="outbounds-groups">
+    <header class="sg-ui-section-head">
+      <div>
+        <div class="ob49-kicker"><span></span> ГРУППЫ</div>
+        <h2>Outbound groups</h2>
+        <p>Группа становится отдельным действием в Routing. Failover использует первый выход как основной, второй как резервный и наблюдает доступность основного через Xray Observatory.</p>
+      </div>
+    </header>
+
+    {% if custom_outbounds|length >= 2 %}
+    <form class="ob49-group-form" method="post" action="{{ url_for('outbounds_group_create') }}">
+      <label><span>Название</span><input name="name" required maxlength="80" placeholder="EU Backup"></label>
+      <label><span>Режим</span><select name="strategy"><option value="failover">Failover</option><option value="roundRobin">Round Robin</option><option value="random">Random</option></select></label>
+      <fieldset>
+        <legend>Выходы</legend>
+        <div class="ob49-member-grid">
+          {% for item in custom_outbounds %}
+          <label><input type="checkbox" name="members" value="{{ item.tag }}"><span>{{ item.name }} · {{ item.tag }}</span></label>
+          {% endfor %}
+        </div>
+      </fieldset>
+      <button class="ob49-primary" type="submit">Создать группу</button>
+    </form>
+    {% else %}
+    <div class="ob49-empty-row"><span aria-hidden="true">↳</span><div><strong>Для группы нужны минимум два внешних выхода</strong><p>Сначала добавьте два SOCKS5/HTTP CONNECT выхода выше.</p></div></div>
+    {% endif %}
+
+    {% if outbound_groups %}
+    <div class="ob49-external-list">
+      {% for group in outbound_groups %}
+      <div class="ob49-system-row">
+        <span class="ob49-route-icon" aria-hidden="true">⇄</span>
+        <div class="ob49-route-copy">
+          <div><strong>{{ group.name }}</strong><span>{{ group.tag }}</span></div>
+          <p>{{ group.strategy }} · {{ group.members|join(' → ' if group.strategy == 'failover' else ', ') }}</p>
+        </div>
+        <div class="ob49-route-meta">
+          <form method="post" action="{{ url_for('outbounds_group_remove', identifier=group.id) }}" data-sg-confirm="Удалить группу? Активный Routing сначала должен перестать её использовать." data-sg-confirm-title="Удалить группу" data-sg-confirm-button="Удалить">
+            <button class="ob49-danger" type="submit">Удалить</button>
+          </form>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </section>
 </section>
 {% endblock %}
