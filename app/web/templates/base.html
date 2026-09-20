@@ -50,6 +50,7 @@
   <link rel="stylesheet" href="{{ static_asset('sg-ui-foundation-v22-08.css') }}">
   <link rel="stylesheet" href="{{ static_asset('sg-ui-layout-v22-08.css') }}">
   <link rel="stylesheet" href="{{ static_asset('sg-ui-components-v22-08.css') }}">
+  <link rel="stylesheet" href="{{ static_asset('sg-labs-v1.css') }}">
   {% block page_styles %}{% endblock %}
   {% if active_page|default('') == 'maintenance' %}
   <script src="{{ url_for('static', filename='sg-maintenance-recovery-v1.js') }}?v={{ app_version }}-maintenance-recovery-v2" defer></script>
@@ -87,6 +88,13 @@
             <svg viewBox="0 0 24 24"><path d="M7 7h10v4H7zM5 17h14v3H5zM9 11v6M15 11v6M12 3v4"/></svg>
           </span>
           <span class="sg-nav-copy"><strong>Connections</strong><small>AWG3.1 · Xray · Mihomo</small></span>
+        </a>
+
+        <a class="sg-nav-item {{ 'active' if active_page == 'sg_labs' else '' }}" href="{{ url_for('sg_labs') }}">
+          <span class="sg-nav-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M9 3h6M10 3v5l-5.5 9.2A2.5 2.5 0 0 0 6.6 21h10.8a2.5 2.5 0 0 0 2.1-3.8L14 8V3M8 15h8"/></svg>
+          </span>
+          <span class="sg-nav-copy"><strong>SG Labs</strong><small>Разработки SG</small></span>
         </a>
 
         <a class="sg-nav-item {{ 'active' if active_page == 'outbounds' else '' }}" href="{{ url_for('outbounds') }}">
