@@ -193,18 +193,19 @@ def build_xray_outbounds() -> list[dict]:
         if not isinstance(raw, dict) or not raw.get("enabled", True):
             continue
         protocol = _normalize_protocol(raw.get("protocol"))
-        server: dict = {
+        settings: dict = {
             "address": _normalize_host(raw.get("host")),
             "port": _normalize_port(raw.get("port")),
         }
         username = str(raw.get("username") or "").strip()
         password = str(raw.get("password") or "")
         if username or password:
-            server["users"] = [{"user": username, "pass": password}]
+            settings["user"] = username
+            settings["pass"] = password
         result.append({
             "tag": outbound_tag(str(raw.get("id") or "")),
             "protocol": protocol,
-            "settings": {"servers": [server]},
+            "settings": settings,
         })
     return result
 
