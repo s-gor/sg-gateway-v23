@@ -144,11 +144,11 @@ fi
 }
 
 require_supported_ubuntu() {
-  [[ -r /etc/os-release ]] || fail "cannot detect the operating system; Ubuntu 24.04 or 26.04 is required"
+  [[ -r /etc/os-release ]] || fail "cannot detect the operating system; Ubuntu 24.x-26.x is required"
   # shellcheck disable=SC1091
   . /etc/os-release
-  [[ "${ID:-}" == "ubuntu" ]] || fail "Ubuntu 24.04 or 26.04 is required; detected ${PRETTY_NAME:-unknown system}"
-  [[ "${VERSION_ID:-}" == "24.04" || "${VERSION_ID:-}" == "26.04" ]] || fail "only Ubuntu 24.04 and 26.04 are supported; detected ${PRETTY_NAME:-Ubuntu ${VERSION_ID:-unknown}}"
+  [[ "${ID:-}" == "ubuntu" ]] || fail "Ubuntu 24.x-26.x is required; detected ${PRETTY_NAME:-unknown system}"
+  [[ "${VERSION_ID:-}" =~ ^(24|25|26)\. ]] || fail "only Ubuntu 24.x through 26.x are supported; detected ${PRETTY_NAME:-Ubuntu ${VERSION_ID:-unknown}}"
   printf '[SG-Gateway] Supported system: %s\n' "${PRETTY_NAME:-Ubuntu ${VERSION_ID:-unknown}}"
 }
 
