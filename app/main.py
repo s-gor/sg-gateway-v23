@@ -108,6 +108,12 @@ from app.security.auth import (
     verify_password,
 )
 from app.routing.warp import overview as warp_overview
+from app.routing.external import (
+    ExternalOutboundError,
+    create_and_apply as create_external_outbound,
+    overview as external_outbounds_overview,
+    remove_and_apply as remove_external_outbound,
+)
 from app.routing.templates import (
     RoutingTemplateError,
     apply_candidate as apply_routing_template,
@@ -798,11 +804,13 @@ def create_app() -> Flask:
 
     @app.get("/outbounds")
     def outbounds():
+        external = external_outbounds_overview()
         return render_template(
             "outbounds.html",
             active_page="outbounds",
             warp=warp_overview(),
-            custom_outbounds=[],
+            custom_outbounds=external["outbounds"],
+            outbound_groups=external["groups"],
         )
 
     @app.get("/routing")
@@ -820,7 +828,34 @@ def create_app() -> Flask:
             warp=warp_overview(),
             mihomo=mihomo_overview(),
             client_total=count_clients(),
+            external_outbounds=external_outbounds_overview(),
         )
+
+    @app.post("/outbounds/external/create")
+    def outbounds_external_create():
+        try:
+            result = create_external_outbound(
+                name=request.form.get("name", ""),
+                protocol=request.form.get("protocol", ""),
+                host=request.form.get("host", ""),
+                port=request.form.get("port", ""),
+                username=request.form.get("username", ""),
+                password=request.form.get("password", ""),
+            )
+            tag = result["outbound"]["tag"]
+            flash(f"External outbound {tag} создан, Xray проверен и применён.", "success")
+        except (ExternalOutboundError, ValueError) as exc:
+            flash(f"External outbound не создан: {exc}", "error")
+        return redirect(url_for("outbounds") + "#external")
+
+    @app.post("/outbounds/external/<identifier>/remove")
+    def outbounds_external_remove(identifier: str):
+        try:
+            remove_external_outbound(identifier)
+            flash("External outbound удалён, Xray проверен и применён.", "success")
+        except ExternalOutboundError as exc:
+            flash(f"External outbound не удалён: {exc}", "error")
+        return redirect(url_for("outbounds") + "#external")
 
     def _warp_action(command: str, success_default: str):
         result = run_hostd_command(
