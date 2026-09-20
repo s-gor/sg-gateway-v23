@@ -112,6 +112,68 @@
         </div>
       </header>
 
+      {% set device_subscription_universal = view.sg_subscription_universal_url if client.enabled and device.enabled else '' %}
+      {% set device_subscription_native = (device_subscription_universal ~ '?format=sg') if device_subscription_universal else '' %}
+      <section class="dv16-subscription sg-subscription-dual {{ 'state-applied' if device_subscription_universal and device_subscription_native else 'state-missing' }}" data-sg-device-subscription-v1>
+        <div class="dv16-subscription-summary sg-subscription-dual-summary">
+          <strong>Подписки устройства</strong>
+          {% if device_subscription_universal and device_subscription_native %}
+          <span>{{ display_name }} · два формата отдельной подписки.</span>
+          <small>Содержит только профили этого устройства. Имя устройства сохраняется в профилях подписки.</small>
+          {% else %}
+          <span>Подписка устройства недоступна.</span>
+          {% endif %}
+        </div>
+        {% if device_subscription_universal and device_subscription_native %}
+        <div class="sg-subscription-format-grid" aria-label="Форматы подписки устройства {{ display_name }}">
+          <article class="sg-subscription-format" data-sg-device-subscription-format="universal">
+            <div class="sg-subscription-format-copy">
+              <strong>Универсальная подписка</strong>
+              <small>Совместимый Base64 feed только для {{ display_name }}.</small>
+            </div>
+            <div class="dv16-subscription-actions sg-subscription-format-actions">
+              <button class="button primary dv16-copy" type="button" data-copy-value="{{ device_subscription_universal|e }}">Скопировать</button>
+              <details class="dv16-qr">
+                <summary class="button">QR</summary>
+                <div class="dv16-qr-popover">
+                  <button type="button" aria-label="Закрыть QR" onclick="this.closest('details').removeAttribute('open')">×</button>
+                  <div class="sg-smart-qr-meta">
+                    <strong>{{ display_name }} · универсальная</strong>
+                    <small>Сканируйте в приложении</small>
+                  </div>
+                  <img src="/clients/{{ client.id }}/devices/{{ device.id }}/sg-subscription-v1/qr/universal" alt="QR универсальной подписки {{ display_name }}">
+                </div>
+              </details>
+            </div>
+          </article>
+          <article class="sg-subscription-format" data-sg-device-subscription-format="native">
+            <div class="sg-subscription-format-copy">
+              <strong>SG Client / SG Mobile</strong>
+              <small>SG Subscription v1 только для {{ display_name }}.</small>
+            </div>
+            <div class="dv16-subscription-actions sg-subscription-format-actions">
+              <button class="button dv16-copy" type="button" data-copy-value="{{ device_subscription_native|e }}">Скопировать</button>
+              <details class="dv16-qr">
+                <summary class="button">QR</summary>
+                <div class="dv16-qr-popover">
+                  <button type="button" aria-label="Закрыть QR" onclick="this.closest('details').removeAttribute('open')">×</button>
+                  <div class="sg-smart-qr-meta">
+                    <strong>{{ display_name }} · SG подписка</strong>
+                    <small>Сканируйте в приложении</small>
+                  </div>
+                  <img src="/clients/{{ client.id }}/devices/{{ device.id }}/sg-subscription-v1/qr" alt="QR SG Subscription {{ display_name }}">
+                </div>
+              </details>
+            </div>
+          </article>
+        </div>
+        {% else %}
+        <div class="dv16-subscription-actions">
+          <span class="dv16-not-ready">Недоступно</span>
+        </div>
+        {% endif %}
+      </section>
+
       <section class="dv16-subscription state-{{ subscription.status if subscription else 'missing' }}">
         <div class="dv16-subscription-summary">
           <strong>OpenWrt · HomeProxy SUB</strong>
@@ -130,6 +192,10 @@
             <summary class="button">QR</summary>
             <div class="dv16-qr-popover">
               <button type="button" aria-label="Закрыть QR" onclick="this.closest('details').removeAttribute('open')">×</button>
+              <div class="sg-smart-qr-meta">
+                <strong>QR · OpenWrt / HomeProxy</strong>
+                <small>{{ display_name }} · подписка устройства</small>
+              </div>
               <img src="{{ subscription.qr_url }}" alt="QR подписки {{ display_name }}">
             </div>
           </details>
@@ -198,6 +264,10 @@
                 <summary class="button">{{ 'QR · Mieru' if card.kind == 'mihomo' else 'QR' }}</summary>
                 <div class="dv16-qr-popover">
                   <button type="button" aria-label="Закрыть QR" onclick="this.closest('details').removeAttribute('open')">×</button>
+                  <div class="sg-smart-qr-meta">
+                    <strong>{{ card.title }}</strong>
+                    <small>{{ display_name }} · сканируйте в приложении</small>
+                  </div>
                   <img src="{{ card.qr_url }}" alt="QR {{ card.title }}">
                 </div>
               </details>
@@ -210,6 +280,10 @@
                 <summary class="button">QR · iPhone</summary>
                 <div class="dv16-qr-popover">
                   <button type="button" aria-label="Закрыть QR · iPhone" onclick="this.closest('details').removeAttribute('open')">×</button>
+                  <div class="sg-smart-qr-meta">
+                    <strong>Mieru JSON · iPhone</strong>
+                    <small>{{ display_name }} · сканируйте в приложении</small>
+                  </div>
                   <img src="{{ card.secondary_qr_url }}" alt="QR Mieru JSON · iPhone">
                 </div>
               </details>

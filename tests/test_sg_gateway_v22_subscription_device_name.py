@@ -136,3 +136,50 @@ def test_sg_subscription_keeps_awg20_awg30_and_awg31_distinct(monkeypatch):
     ]
     assert document["summary"]["profiles_assigned"] == 3
     assert document["summary"]["profiles_ready"] == 3
+
+def test_native_subscription_profile_names_distinguish_added_devices(monkeypatch):
+    module = _load_module(monkeypatch)
+    primary = SimpleNamespace(
+        id=7,
+        name="Основное устройство",
+        is_primary=True,
+        enabled=True,
+        expires_at=None,
+    )
+    tablet = SimpleNamespace(
+        id=8,
+        name="Планшет",
+        is_primary=False,
+        enabled=True,
+        expires_at=None,
+    )
+    module.list_devices = lambda _client_id: [primary, tablet]
+    module.device_access_tokens = lambda _device_id: ["xray_reality_tcp"]
+    module.protocol_ready = lambda *_args, **_kwargs: True
+    module.build_protocol_export = lambda _client, _kind, device: SimpleNamespace(
+        body=(
+            "vless://primary@example.test:443?security=reality"
+            if device.is_primary
+            else "vless://tablet@example.test:443?security=reality"
+        ),
+        media_type="text/plain; charset=utf-8",
+    )
+
+    client = SimpleNamespace(id=1, name="Test9", enabled=True, expires_at=None)
+    document = module.build_sg_subscription_document(client)
+
+    assert document["devices"][0]["profiles"][0]["name"] == "VLESS Reality TCP"
+    assert document["devices"][1]["profiles"][0]["name"] == "Планшет · VLESS Reality TCP"
+
+    decoded = base64.b64decode(module.build_compatible_subscription_body(client)).decode("utf-8")
+    labels = [
+        unquote(urlsplit(line).fragment)
+        for line in decoded.splitlines()
+        if line.startswith("vless://")
+    ]
+    assert labels == [
+        "Test9 · VLESS Reality TCP",
+        "Test9 · Планшет · VLESS Reality TCP",
+    ]
+    assert "Планшет · Планшет" not in decoded
+

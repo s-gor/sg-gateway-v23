@@ -29,8 +29,9 @@ def test_mihomo_panel_removes_only_fixed_metadata_and_keeps_approved_controls() 
     ):
         assert port_value not in source
 
+    assert 'name="mieru_transport"' not in source
+
     for control in (
-        'name="mieru_transport"',
         'name="mieru_multiplexing"',
         'name="mieru_handshake"',
         'name="mieru_user_hint_mandatory"',

@@ -68,4 +68,4 @@ def test_real_renewal_hook_is_in_transactional_backup() -> None:
 
 def test_final_output_keeps_https_address() -> None:
     assert "final_https_domain" in INSTALLER
-    assert "https://%s:%s" in INSTALLER
+    assert "https://%s/" in INSTALLER

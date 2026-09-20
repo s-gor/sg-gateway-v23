@@ -22,6 +22,7 @@ PUBLIC_ENDPOINTS = {
         "router_openwrt_subscription_v1",
         "router_keenetic_subscription_v1",
     "sg_subscription_v1",
+    "sg_device_subscription_v1",
 }
 
 

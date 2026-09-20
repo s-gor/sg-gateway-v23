@@ -5,7 +5,7 @@ import json
 from datetime import UTC, datetime
 from urllib.parse import parse_qsl, quote, urlencode, urlsplit, urlunsplit
 
-from app.clients.exports import build_protocol_export, protocol_ready
+from app.clients import exports as client_exports
 from app.clients.repository import Client, device_access_tokens, list_devices
 
 SG_SUBSCRIPTION_FORMAT = "sg-subscription"
@@ -48,6 +48,21 @@ def compatible_profile_ids() -> tuple[str, ...]:
     return _COMPATIBLE_PROFILE_IDS
 
 
+def protocol_ready(client: Client, kind: str, device=None, *, xray_state=None) -> bool:
+    """Preserve the public subscription hook while resolving live export registration."""
+    return client_exports.protocol_ready(
+        client,
+        kind,
+        device,
+        xray_state=xray_state,
+    )
+
+
+def build_protocol_export(client: Client, kind: str, device=None):
+    """Preserve the public subscription hook while resolving live export registration."""
+    return client_exports.build_protocol_export(client, kind, device)
+
+
 def _canonical_uri(profile_id: str, value: str) -> str:
     clean = str(value or "").strip()
     if not clean or profile_id not in {"anytls", "tuic"}:
@@ -58,7 +73,7 @@ def _canonical_uri(profile_id: str, value: str) -> str:
         if key not in first:
             first[key] = item
     allowed = (
-        ("sni", "insecure")
+        ("security", "sni", "alpn", "fp", "type", "insecure")
         if profile_id == "anytls"
         else ("congestion_control", "udp_relay_mode", "alpn", "sni")
     )
@@ -74,9 +89,12 @@ def _subscription_device_name(device: dict) -> str:
 
 def _profile_entry(client: Client, device, spec: tuple[str, ...]) -> dict:
     profile_id, _, export_kind, name, protocol, payload_kind = spec
+    is_primary = bool(getattr(device, "is_primary", True))
+    device_name = "" if is_primary else str(getattr(device, "name", "") or "").strip()
+    display_name = f"{device_name} · {name}" if device_name else name
     entry = {
         "id": profile_id,
-        "name": name,
+        "name": display_name,
         "protocol": protocol,
         "format": payload_kind,
         "ready": False,
@@ -139,6 +157,27 @@ def build_sg_subscription_document(client: Client) -> dict:
         },
         "devices": devices,
     }
+
+
+def build_sg_device_subscription_document(client: Client, device_id: int) -> dict | None:
+    document = build_sg_subscription_document(client)
+    device = next(
+        (item for item in document["devices"] if int(item.get("id") or 0) == int(device_id)),
+        None,
+    )
+    if device is None or not device.get("enabled"):
+        return None
+    profiles = list(device.get("profiles", []))
+    ready = sum(1 for item in profiles if item.get("ready"))
+    result = dict(document)
+    result["scope"] = "device"
+    result["devices"] = [device]
+    result["summary"] = {
+        "devices": 1,
+        "profiles_assigned": len(profiles),
+        "profiles_ready": ready,
+    }
+    return result
 
 
 def build_router_subscription_document(client: Client, device_id: int) -> dict | None:
@@ -204,6 +243,16 @@ def build_keenetic_subscription_body(client: Client, device_id: int) -> str:
     return "\n".join(links) + ("\n" if links else "")
 
 
+def _base_profile_name(profile: dict, device: dict) -> str:
+    profile_id = str(profile.get("id") or "")
+    name = str(profile.get("name") or profile_id or "Профиль")
+    device_name = _subscription_device_name(device)
+    prefix = f"{device_name} · " if device_name else ""
+    if prefix and name.startswith(prefix):
+        return name[len(prefix):]
+    return name
+
+
 def _subscription_label(client_name: str, device: dict, profile_name: str) -> str:
     parts = [client_name]
     device_name = _subscription_device_name(device)
@@ -258,16 +307,26 @@ def _ready_uri_lines(document: dict) -> list[str]:
             label = _subscription_label(
                 client_name,
                 device,
-                str(profile.get("name") or profile.get("id") or "Профиль"),
+                _base_profile_name(profile, device),
             )
             lines.append(_with_fragment(str(profile["uri"]), label))
     return lines
 
 
-
 def build_compatible_subscription_body(client: Client) -> str:
     """Return the URI-only compatible Base64 subscription transport."""
     document = build_sg_subscription_document(client)
+    lines = _ready_uri_lines(document)
+    decoded = "\n".join(lines)
+    if decoded:
+        decoded += "\n"
+    return base64.b64encode(decoded.encode("utf-8")).decode("ascii")
+
+
+def build_compatible_device_subscription_body(client: Client, device_id: int) -> str:
+    document = build_sg_device_subscription_document(client, device_id)
+    if document is None:
+        return ""
     lines = _ready_uri_lines(document)
     decoded = "\n".join(lines)
     if decoded:
@@ -309,10 +368,52 @@ def build_sg_subscription_text(client: Client) -> str:
                 label = _subscription_label(
                     client.name,
                     device,
-                    str(profile.get("name") or profile.get("id") or "Профиль"),
+                    _base_profile_name(profile, device),
                 )
                 lines.append(_with_fragment(str(profile["uri"]), label))
             elif profile.get("format") == "config" and profile.get("config"):
                 lines.append(_config_marker(profile, device, client.name))
 
+    return "\n".join(lines) + "\n"
+
+
+def build_sg_device_subscription_text(client: Client, device_id: int) -> str:
+    document = build_sg_device_subscription_document(client, device_id)
+    if document is None:
+        return ""
+    summary = document["summary"]
+    lines = [
+        "# SG-SUBSCRIPTION/1",
+        "# scope=device",
+        f"# client-name={client.name}",
+        f"# devices={summary['devices']}",
+        f"# profiles-assigned={summary['profiles_assigned']}",
+        f"# profiles-ready={summary['profiles_ready']}",
+    ]
+    for device in document["devices"]:
+        lines.append(
+            "# SG-DEVICE "
+            + json.dumps(
+                {
+                    "id": device.get("id"),
+                    "name": _subscription_device_name(device),
+                    "primary": bool(device.get("primary")),
+                    "enabled": bool(device.get("enabled")),
+                },
+                ensure_ascii=False,
+                separators=(",", ":"),
+            )
+        )
+        for profile in device.get("profiles", []):
+            if not profile.get("ready"):
+                continue
+            if profile.get("format") == "uri" and profile.get("uri"):
+                label = _subscription_label(
+                    client.name,
+                    device,
+                    _base_profile_name(profile, device),
+                )
+                lines.append(_with_fragment(str(profile["uri"]), label))
+            elif profile.get("format") == "config" and profile.get("config"):
+                lines.append(_config_marker(profile, device, client.name))
     return "\n".join(lines) + "\n"

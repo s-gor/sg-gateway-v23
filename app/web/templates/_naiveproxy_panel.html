@@ -6,23 +6,36 @@
       <span class="cnv1-compact-protocol-icon">NP</span>
       <div>
         <h3>NaiveProxy</h3>
-        <p>HTTPS proxy · TLS · порт <span data-naive-summary-port>8447</span></p>
+        <p>HTTPS proxy · TLS</p>
       </div>
     </div>
     <span class="cnv1-engine-status warning" data-naive-state><span></span><b>Проверка…</b></span>
   </header>
 
-  <div class="cnv1-compact-protocol-endpoint">
-    <span>HTTPS-домен</span>
-    <strong data-naive-host>—</strong>
-    <small data-naive-endpoint>Порт 8447 · требуется HTTPS в Security</small>
-  </div>
-
-  <div class="cnv1-compact-protocol-actions">
-    <span class="xps2-naiveproxy-message" data-naive-message aria-live="polite"></span>
+  <div class="cnv1-compact-protocol-endpoint naiveproxy-endpoint-row">
+    <div class="naiveproxy-endpoint-copy">
+      <strong data-naive-host>—</strong>
+      <span class="xps2-naiveproxy-message" data-naive-message aria-live="polite"></span>
+    </div>
     <button class="button primary" type="button" data-naive-submit>Проверить и применить</button>
   </div>
-  <span class="cnv1-compact-protocol-port" data-naive-port>8447/TCP</span>
+
+  <style>
+  #sg-naiveproxy-settings .naiveproxy-endpoint-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+  }
+  #sg-naiveproxy-settings .naiveproxy-endpoint-copy {
+    display: grid;
+    gap: 3px;
+    min-width: 0;
+  }
+  #sg-naiveproxy-settings [data-naive-submit] {
+    flex: 0 0 auto;
+  }
+  </style>
 </article>
 
 <script>
@@ -31,9 +44,6 @@
   if (!root) return;
 
   const host = root.querySelector('[data-naive-host]');
-  const endpoint = root.querySelector('[data-naive-endpoint]');
-  const portChip = root.querySelector('[data-naive-port]');
-  const summaryPort = root.querySelector('[data-naive-summary-port]');
   const state = root.querySelector('[data-naive-state]');
   const stateText = state?.querySelector('b');
   const message = root.querySelector('[data-naive-message]');
@@ -63,11 +73,6 @@
     activePort = Number(payload.port || payload.default_port || 8447);
     const domain = payload.host || '';
     if (host) host.textContent = domain || 'HTTPS не настроен';
-    if (endpoint) endpoint.textContent = domain
-      ? `${domain}:${activePort}`
-      : `Порт ${activePort} · требуется HTTPS в Security`;
-    if (portChip) portChip.textContent = `${activePort}/TCP`;
-    if (summaryPort) summaryPort.textContent = String(activePort);
     const healthy = response.ok && payload.status === 'ok' && runtime.ok === true;
     paintState(healthy, healthy ? 'Работает' : 'Не настроен');
     return payload;

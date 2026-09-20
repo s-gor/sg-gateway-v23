@@ -7,6 +7,14 @@ from typing import Any
 
 from app.connections.settings import get_connection_settings, update_connection_settings
 from app.security.tls import overview as tls_overview
+from app.single_edge import (
+    HYSTERIA2_DEFAULT_PORT,
+    REALITY_TCP_INTERNAL_PORT,
+    XHTTP_REALITY_DEFAULT_SNI,
+    XHTTP_REALITY_DEFAULT_TARGET,
+    XHTTP_REALITY_INTERNAL_PORT,
+    XHTTP_TLS_INTERNAL_PORT,
+)
 from app.xray.encryption import client_value_ready
 from app.xray.salamander import (
     GECKO_MINIMUM_VERSION,
@@ -256,19 +264,21 @@ def _values(config: dict[str, Any], legacy_port: int) -> dict[str, Any]:
     return {
         "fingerprint": _fingerprint(config.get("fingerprint")),
         "reality_tcp_enabled": _bool(config.get("reality_tcp_enabled"), True),
-        "reality_tcp_port": _port(config.get("reality_tcp_port"), legacy_port or 443),
+        "reality_tcp_port": REALITY_TCP_INTERNAL_PORT,
         "xhttp_reality_enabled": _bool(config.get("xhttp_reality_enabled"), True),
-        "xhttp_reality_port": _port(config.get("xhttp_reality_port"), 8444),
+        "xhttp_reality_port": XHTTP_REALITY_INTERNAL_PORT,
         "xhttp_reality_path": _path(config.get("xhttp_reality_path"), "/sg-xhttp-reality"),
         "xhttp_reality_mode": _mode(config.get("xhttp_reality_mode"), "stream-one"),
         "xhttp_reality_xmux_enabled": True,
-        "xhttp_tls_enabled": _bool(config.get("xhttp_tls_enabled"), False),
-        "xhttp_tls_port": _port(config.get("xhttp_tls_port"), 8445),
+        "xhttp_reality_server_name": str(config.get("xhttp_reality_server_name") or XHTTP_REALITY_DEFAULT_SNI).strip().lower(),
+        "xhttp_reality_target": str(config.get("xhttp_reality_target") or XHTTP_REALITY_DEFAULT_TARGET).strip(),
+                "xhttp_tls_enabled": _bool(config.get("xhttp_tls_enabled"), False),
+        "xhttp_tls_port": XHTTP_TLS_INTERNAL_PORT,
         "xhttp_tls_path": _path(config.get("xhttp_tls_path"), "/sg-xhttp-tls"),
         "xhttp_tls_mode": _mode(config.get("xhttp_tls_mode"), "auto"),
         "xhttp_tls_xmux_enabled": True,
         "hysteria2_enabled": _bool(config.get("hysteria2_enabled"), False),
-        "hysteria2_port": _port(config.get("hysteria2_port"), 8446),
+        "hysteria2_port": _port(config.get("hysteria2_port"), HYSTERIA2_DEFAULT_PORT),
         "hysteria2_obfs_mode": obfs_mode,
         "hysteria2_obfs_password": str(config.get("hysteria2_obfs_password") or ""),
         "hysteria2_finalmask": finalmask,
@@ -308,7 +318,9 @@ def _prepare(form: Any) -> PreparedXraySettings:
             form.get("xhttp_reality_mode"), str(current["xhttp_reality_mode"])
         ),
         "xhttp_reality_xmux_enabled": True,
-        "xhttp_tls_enabled": (
+        "xhttp_reality_server_name": str(config.get("xhttp_reality_server_name") or XHTTP_REALITY_DEFAULT_SNI).strip().lower(),
+        "xhttp_reality_target": str(config.get("xhttp_reality_target") or XHTTP_REALITY_DEFAULT_TARGET).strip(),
+                "xhttp_tls_enabled": (
             bool(form.get("xhttp_tls_enabled"))
             if tls_ready else bool(current["xhttp_tls_enabled"])
         ),
@@ -361,6 +373,8 @@ def _prepare(form: Any) -> PreparedXraySettings:
         requested_obfs = normalise_mode(
             form.get("hysteria2_obfs_mode", current["hysteria2_obfs_mode"])
         )
+        if values["hysteria2_enabled"] and requested_obfs == SALAMANDER_MODE_NONE:
+            requested_obfs = SALAMANDER_MODE
         base_finalmask = ensure_base_has_no_salamander(current["hysteria2_finalmask"])
     except SalamanderError as exc:
         raise XrayProfilesError(str(exc)) from exc
@@ -567,7 +581,7 @@ def overview() -> dict[str, Any]:
             "hysteria2", "Hysteria 2", "QUIC / UDP", "TLS",
             "hysteria2_port", "hysteria2_enabled",
             tls_required=True,
-            note="Hysteria 2 с выбором Off / Salamander / Gecko на отдельном UDP-порту.",
+            note="Hysteria 2 с выбором Off / Salamander / Gecko.",
         ),
     ]
     return {

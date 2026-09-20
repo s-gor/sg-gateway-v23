@@ -15,13 +15,6 @@
 
   <div class="mhv2-inner-rail sg-ui-rail">
   <div class="mhv2-compact-meta">
-    {% if mihomo.has_pending_changes %}
-    <section class="mhv2-pending sg-ljd-warning">
-      <strong>Есть неприменённые изменения</strong>
-      <span>Рабочие listener и клиентские ссылки изменятся только после кнопки «Применить».</span>
-    </section>
-    {% endif %}
-
     {% if not mihomo.settings.tls_ready %}
     <section class="mhv2-tls-warning mhv2-tls-warning-compact sg-ljd-warning">
       <div>
@@ -54,15 +47,6 @@
             </span>
           </label>
         </header>
-        <div class="mhv2-basic-fields one">
-          <label>
-            <span>Transport</span>
-            <select name="mieru_transport">
-              <option value="TCP" {% if mihomo.settings.mieru_transport == 'TCP' %}selected{% endif %}>TCP</option>
-              <option value="UDP" {% if mihomo.settings.mieru_transport == 'UDP' %}selected{% endif %}>UDP</option>
-            </select>
-          </label>
-        </div>
         <details class="mhv2-advanced">
           <summary>Дополнительно</summary>
           <div class="mhv2-advanced-body">
@@ -185,11 +169,6 @@
     </div>
   </form>
 
-  <p class="mhv2-runtime-note">
-    Mieru обслуживается Mihomo. AnyTLS и TUIC v5 обслуживаются отдельным
-    sing-box. Ошибка дополнительного движка не блокирует клиентов, Xray или
-    установку панели.
-  </p>
   </div>
 </section>
 
@@ -212,6 +191,16 @@
   font-size: 10px;
   white-space: nowrap;
 }
+#mihomo .mhv2-check input[type="checkbox"] {
+  width: 16px !important;
+  height: 16px !important;
+  min-width: 16px !important;
+  min-height: 16px !important;
+  flex: 0 0 16px !important;
+}
+#mihomo .sg-runtime-copy small {
+  display: none !important;
+}
 </style>
 
 <script id="sg-mihomo-runtime-switches-v1">
@@ -228,7 +217,7 @@
     input.addEventListener('change', () => {
       control.classList.remove('state-active', 'state-off', 'state-error');
       control.classList.add('state-pending');
-      label.textContent = 'Не применено';
+      label.textContent = input.checked ? 'Подключите клиента' : 'Выключено';
       note.textContent = input.checked
         ? (onNote || 'после применения будет включён')
         : 'после применения будет выключен';

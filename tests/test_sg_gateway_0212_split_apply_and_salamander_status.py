@@ -84,8 +84,8 @@ def test_singbox_render_uses_applied_server_ports_and_alpn(monkeypatch):
     )
     payload = json.loads(body)
     by_type = {item["type"]: item for item in payload["inbounds"]}
-    assert by_type["anytls"]["listen_port"] == 9443
-    assert by_type["tuic"]["listen_port"] == 10443
+    assert by_type["anytls"]["listen_port"] == 10449
+    assert by_type["tuic"]["listen_port"] == 10453
     assert by_type["tuic"]["congestion_control"] == "cubic"
     assert by_type["tuic"]["tls"]["alpn"] == ["h3"]
 
