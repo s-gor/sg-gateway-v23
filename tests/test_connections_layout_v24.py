@@ -103,4 +103,32 @@ def test_awg_and_mihomo_keep_equal_height_contract():
     assert ".cnv1-engine-awg .cnv1-engine-form-compact { flex: 1 1 auto; }" in css
     assert ".cnv1-engine-awg .cnv1-form-actions { margin-top: auto; }" in css
 
+def test_xray_fingerprint_selector_uses_only_documented_public_presets():
+    profiles = (ROOT / "app/xray/profiles.py").read_text(encoding="utf-8")
+    template = (ROOT / "app/web/templates/connections.html").read_text(encoding="utf-8")
+
+    expected = (
+        "chrome", "firefox", "safari", "ios", "android",
+        "edge", "360", "qq", "random", "randomized",
+    )
+    start = profiles.index("FINGERPRINT_VALUES = (")
+    end = profiles.index(")\nFINGERPRINT_DEFAULT", start)
+    block = profiles[start:end]
+    for value in expected:
+        assert f'"{value}"' in block
+        assert f'value="{value}"' in template
+    for removed in ("brave", "opera", "vivaldi", "unsafe"):
+        assert f'"{removed}"' not in block
+        assert f'value="{removed}"' not in template
+
+    assert 'FINGERPRINT_DEFAULT = "chrome"' in profiles
+    assert "<optgroup" not in template[template.index('name="fingerprint"'):template.index("</select>", template.index('name="fingerprint"'))]
+
+
+def test_xray_fingerprint_dropdown_keeps_dark_native_popup():
+    css = (ROOT / "app/web/static/sg-xray-primary-settings-v1.css").read_text(encoding="utf-8")
+    assert 'html[data-theme="dark"] body.page-connections .xps2-primary-control > select {' in css
+    assert "color-scheme: dark !important;" in css
+    assert "background-color: var(--sg-panel-deep) !important;" in css
+    assert 'html[data-theme="dark"] body.page-connections .xps2-primary-control > select > option {' in css
 
