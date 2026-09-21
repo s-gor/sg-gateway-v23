@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+from pathlib import Path
+
+from werkzeug.datastructures import MultiDict
+
 import app.main as main
 
 
@@ -32,12 +36,12 @@ def test_client_create_requires_stabilized_runtime(tmp_path, monkeypatch):
 
     response = http.post(
         "/clients",
-        data=[
+        data=MultiDict([
             ("name", "Regression"),
             ("protocols", "xray_xhttp_reality"),
             ("protocols", "mihomo"),
             ("protocols", "naiveproxy"),
-        ],
+        ]),
         follow_redirects=False,
     )
 
@@ -65,12 +69,12 @@ def test_unexpected_runtime_error_is_rolled_back_without_flask_500(tmp_path, mon
 
     response = http.post(
         "/clients",
-        data=[
+        data=MultiDict([
             ("name", "Regression"),
             ("protocols", "xray_xhttp_reality"),
             ("protocols", "mihomo"),
             ("protocols", "naiveproxy"),
-        ],
+        ]),
         follow_redirects=False,
     )
 
@@ -82,7 +86,7 @@ def test_unexpected_runtime_error_is_rolled_back_without_flask_500(tmp_path, mon
 
 def test_naiveproxy_wrapper_still_forwards_stabilize_keyword():
     source = (
-        __import__('pathlib').Path(__file__).resolve().parents[1]
+        Path(__file__).resolve().parents[1]
         / "app"
         / "naiveproxy"
         / "integration.py"
