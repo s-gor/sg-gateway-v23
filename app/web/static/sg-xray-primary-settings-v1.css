@@ -66,3 +66,22 @@ body.page-connections .xps2-primary-control > .button {
     min-width: 0 !important;
   }
 }
+
+/* Keep the native fingerprint popup on the same palette as Connections.
+   Chromium/Windows uses color-scheme for the popup surface; option rules
+   provide the same fallback for engines that allow option styling. */
+html[data-theme="dark"] body.page-connections .xps2-primary-control > select {
+  color-scheme: dark !important;
+  background-color: var(--sg-panel-deep) !important;
+  color: var(--sg-text) !important;
+}
+
+html[data-theme="dark"] body.page-connections .xps2-primary-control > select > option {
+  background-color: var(--sg-panel-deep) !important;
+  color: var(--sg-text) !important;
+}
+
+html[data-theme="light"] body.page-connections .xps2-primary-control > select {
+  color-scheme: light !important;
+}
+
