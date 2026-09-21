@@ -19,6 +19,10 @@ SG-Gateway 23.01 начинается с проверенной рабочей r
 
 Поддерживаемая база включает Xray Reality TCP, XHTTP Reality, XHTTP TLS, Hysteria2 с Salamander/Gecko, NaiveProxy, Mihomo/Mieru, Clients и subscriptions, Routing, Backup/Restore, Maintenance, диагностику и безопасный Update/rollback.
 
+> [!IMPORTANT]
+> **Прямое обновление SG-Gateway 22.08 → 23.01 временно не поддерживается для публичных установок.**
+> В 23.01 изменена транспортная архитектура: публичный трафик сводится к Single Edge на порту 443, а внутренние listeners и часть server runtime перенесены за этот edge. Кроме того, ранние установки 22.08 могли получить другой вариант Mihomo runtime. Поэтому для перехода с 22.08 используйте перенос клиентов/ключей/HTTPS через backup и чистую установку 23.01. Обычный Update ниже предназначен только для уже установленной линии 23.01.
+
 ## Быстрые команды
 
 ### Clean Install — только новый Ubuntu 24.04 сервер
@@ -27,9 +31,9 @@ SG-Gateway 23.01 начинается с проверенной рабочей r
 curl -4 -fsSL https://raw.githubusercontent.com/s-gor/sg-gateway-v23/stable-02301/deploy/install-from-github.sh | sudo env SG_GATEWAY_GITHUB_BRANCH=stable-02301 bash
 ```
 
-Clean Install блокируется, если SG-Gateway уже установлен. Для существующего сервера используйте отдельный Update.
+Clean Install блокируется, если SG-Gateway уже установлен. Для перехода с 22.08 не используйте Update: сначала сохраните переносимый backup клиентов/ключей/HTTPS, затем удалите 22.08 и установите 23.01 начисто.
 
-### Update — существующий SG-Gateway 23.01
+### Update — только существующий SG-Gateway 23.01
 
 ```bash
 curl -4 -fsSL https://raw.githubusercontent.com/s-gor/sg-gateway-v23/stable-02301/deploy/update-from-github.sh | sudo env SG_GATEWAY_GITHUB_BRANCH=stable-02301 bash
@@ -45,11 +49,26 @@ curl -4 -fsSL https://raw.githubusercontent.com/s-gor/sg-gateway-v23/stable-0230
 
 Полный набор команд: **[deploy/GITHUB-COMMANDS.md](deploy/GITHUB-COMMANDS.md)**.
 
+
+## Переход с 22.08 на 23.01
+
+Для 22.08 используется только чистая миграция:
+
+1. В старой панели откройте **Maintenance → Backups**.
+2. В блоке **Clients, Keys & HTTPS** нажмите **«Создать Clients, Keys & HTTPS»**.
+3. Скачайте полученный файл `SG-Gateway-CLIENTS-*.sgbackup` на свой компьютер. Эта копия переносит клиентов, устройства, ключи, UUID, пароли, персональные subscriptions и активную HTTPS-идентичность: домен, сертификат и private key.
+4. Удалите 22.08 штатной командой Full Uninstall.
+5. Установите 23.01 командой Clean Install.
+6. В новой панели снова откройте **Maintenance → Backups**, выберите сохранённый `.sgbackup`, нажмите **«Проверить backup»**, затем **«Восстановить»**.
+7. После Restore вручную включите нужные протоколы в **Connections** и проверьте клиентские подключения.
+
+Важно: профиль **Clients, Keys & HTTPS** не переносит Routing, WARP, настройки протоколов, старые listener/ports и server runtime. Это намеренно: 23.01 строит новый Single Edge runtime заново, а клиентские credentials и HTTPS возвращаются из переносимого backup.
+
 ## Архитектурная линия 23.01
 
 SG-Gateway 23.01 опубликован в стабильном канале `stable-02301`. Следующая архитектурная работа, включая Cascade, ведётся отдельно от стабильной версии.
 
-Целевое направление Single Edge: единая внешняя TCP-точка 443 с L4/SNI-маршрутизацией, passthrough для Reality и внутренними loopback listeners для совместимых TCP/TLS сервисов. UDP рассматривается отдельно: AWG 3.1 остаётся владельцем UDP 443, а Hysteria2 на первом этапе использует отдельный UDP-порт.
+Single Edge 23.01 использует общий публичный порт 443: TCP/443 маршрутизируется через L4/SNI edge, а UDP/443 — через отдельный SG-Gateway UDP edge к приватным backend. Внутренние listeners не публикуются напрямую наружу.
 
 ## Основные возможности
 
