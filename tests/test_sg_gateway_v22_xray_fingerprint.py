@@ -9,19 +9,15 @@ from app.xray import profiles
 ROOT = Path(__file__).resolve().parents[1]
 EXPECTED = (
     "chrome",
-    "brave",
-    "edge",
     "firefox",
     "safari",
     "ios",
     "android",
-    "opera",
-    "vivaldi",
+    "edge",
     "360",
     "qq",
     "random",
     "randomized",
-    "unsafe",
 )
 
 
@@ -71,10 +67,10 @@ def _patch_config(monkeypatch, fingerprint: str = "firefox") -> None:
     )
 
 
-def test_fingerprint_contract_matches_sg_panel() -> None:
+def test_fingerprint_contract_matches_current_xray_public_presets() -> None:
     assert profiles.FINGERPRINT_VALUES == EXPECTED
-    assert profiles.FINGERPRINT_DEFAULT == "firefox"
-    assert profiles._fingerprint(None) == "firefox"
+    assert profiles.FINGERPRINT_DEFAULT == "chrome"
+    assert profiles._fingerprint(None) == "chrome"
     assert profiles._fingerprint("Chrome") == "chrome"
     assert profiles._fingerprint("legacy-custom") == "legacy-custom"
 
@@ -102,20 +98,20 @@ def test_new_unknown_fingerprint_is_rejected(monkeypatch) -> None:
         profiles._prepare(_form("made-up-browser"))
 
 
-def test_connections_ui_contains_full_sg_panel_selector() -> None:
+def test_connections_ui_contains_current_xray_public_selector() -> None:
     template = (ROOT / "app/web/templates/connections.html").read_text(encoding="utf-8")
 
     assert 'name="fingerprint"' in template
-    assert 'optgroup label="Браузеры"' in template
-    assert 'optgroup label="Автоматический выбор"' in template
-    assert 'optgroup label="Расширенные"' in template
-    assert "Другое текущее значение" in template
+    assert "<optgroup" not in template
+    for removed in ("brave", "opera", "vivaldi", "unsafe"):
+        assert f'value="{removed}"' not in template
     for value in EXPECTED:
         assert f'<option value="{value}"' in template
 
 
-def test_xray_exports_use_saved_fingerprint_with_firefox_fallback() -> None:
+def test_xray_exports_use_saved_fingerprint_with_chrome_fallback() -> None:
     exports = (ROOT / "app/clients/exports.py").read_text(encoding="utf-8")
 
-    assert 'server_config.get("fingerprint") or "firefox"' in exports
+    assert 'server_config.get("fingerprint") or "chrome"' in exports
+    assert 'config.get("fingerprint", "chrome")' in exports
     assert '"fp": fingerprint' in exports
