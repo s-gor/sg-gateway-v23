@@ -548,7 +548,7 @@ def build_xray_profile_link(
         state.get("host"),
     )
     user_id = str(config.get("uuid") or "")
-    fingerprint = str(server_config.get("fingerprint") or "firefox")
+    fingerprint = str(server_config.get("fingerprint") or "chrome")
     server_name = str(server_config.get("server_name") or "bing.com")
     public_key = str(server_config.get("public_key") or "")
     short_id = str(server_config.get("short_id") or "")
@@ -748,7 +748,7 @@ def build_anytls_link(client: Client, device: Device | None = None) -> ClientExp
             "security": "tls",
             "sni": tls_domain,
             "alpn": ANYTLS_ALPN,
-            "fp": config.get("fingerprint", "firefox"),
+            "fp": config.get("fingerprint", "chrome"),
             "type": "tcp",
         }
     )
