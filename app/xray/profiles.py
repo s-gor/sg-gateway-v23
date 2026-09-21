@@ -182,7 +182,7 @@ def _fingerprint(value: Any, default: str = FINGERPRINT_DEFAULT) -> str:
     if not raw:
         return default
     normalized = raw.lower()
-    return normalized if normalized in FINGERPRINT_VALUES else default
+    return normalized if normalized in FINGERPRINT_VALUES else raw
 
 
 def _installed_xray_version() -> str:
@@ -295,12 +295,16 @@ def _prepare(form: Any) -> PreparedXraySettings:
     tls_ready = bool(tls.get("https_ready"))
 
     current_fingerprint = str(current["fingerprint"])
-    requested_raw = str(form.get("fingerprint", current_fingerprint) or "").strip().lower()
-    if requested_raw not in FINGERPRINT_VALUES:
+    requested_fingerprint = _fingerprint(
+        form.get("fingerprint", current_fingerprint), current_fingerprint
+    )
+    if (
+        requested_fingerprint not in FINGERPRINT_VALUES
+        and requested_fingerprint != current_fingerprint
+    ):
         raise XrayProfilesError(
             "Некорректный Fingerprint. Выберите значение из списка SG-Gateway."
         )
-    requested_fingerprint = requested_raw
 
     values: dict[str, Any] = {
         "fingerprint": requested_fingerprint,
