@@ -53,7 +53,6 @@ NGINX_STREAM_CONFIG="$(system_path /etc/nginx/stream-conf.d/sg-gateway-443.conf)
 XRAY_CONFIG="$(system_path /usr/local/etc/xray/config.json)"
 PANEL_UNIT="$(system_path /etc/systemd/system/sg-gateway.service)"
 HOSTD_UNIT="$(system_path /etc/systemd/system/sg-hostd.service)"
-MIHOMO_UNIT="$(system_path /etc/systemd/system/mihomo.service)"
 TEMP_DIR=""
 BACKUP_DIR=""
 SOURCE_DIR=""
@@ -822,7 +821,6 @@ create_safety_backup() {
     etc/nginx/stream-conf.d/sg-gateway-443.conf \
     etc/systemd/system/sg-gateway.service \
     etc/systemd/system/sg-hostd.service \
-    etc/systemd/system/mihomo.service \
     etc/systemd/system/sg-gateway-awg.service \
     etc/systemd/system/sg-gateway-awg3.service \
     etc/systemd/system/sg-gateway-awg31.service \
@@ -888,7 +886,6 @@ rollback_update() {
     "$NGINX_STREAM_CONFIG" \
     "$PANEL_UNIT" \
     "$HOSTD_UNIT" \
-    "$MIHOMO_UNIT" \
     "$AWG2_UNIT" \
     "$AWG3_UNIT" \
     "$AWG31_UNIT" \
@@ -1704,29 +1701,6 @@ PYPANELSTATE
   runuser -u sg-gateway -- test -r "$PANEL_UPDATE_STATE"
 }
 
-sync_mihomo_service_unit() {
-  local source="$PREFIX/deploy/mihomo.service"
-  [[ -f "$source" ]] || fail "deployed Mihomo systemd unit is missing"
-
-  if cmp -s "$source" "$MIHOMO_UNIT"; then
-    printf '[SG-Gateway Update] Mihomo systemd unit already current.\n'
-    return 0
-  fi
-
-  install -m 0644 "$source" "$MIHOMO_UNIT"
-  systemctl daemon-reload
-  if systemctl is-active --quiet mihomo.service; then
-    systemctl restart mihomo.service
-    systemctl is-active --quiet mihomo.service || fail "mihomo.service failed after unit refresh"
-  fi
-  printf '[SG-Gateway Update] Mihomo systemd unit refreshed.\n'
-}
-
-restart_panel_and_sync_mihomo() {
-  restart_panel
-  sync_mihomo_service_unit
-}
-
 ensure_udp_edge_service() {
   [[ -f "$PREFIX/deploy/sg-gateway-udp-edge.service" ]] || \
     fail "deployed UDP edge systemd unit is missing"
@@ -1758,7 +1732,7 @@ main() {
   run_stage 2 "Safety Backup: SG state + TLS + AWG3 runtime" create_safety_backup
   run_stage 3 "Обновление исходников SG-Gateway + WSGI migration" deploy_source "$SOURCE_DIR"
   run_stage 4 "Python/UI проверка без изменения runtime" validate_deployed_panel
-  run_stage 5 "Перезапуск panel + hostd и синхронизация Mihomo unit" restart_panel_and_sync_mihomo
+  run_stage 5 "Перезапуск только panel + hostd" restart_panel
   run_stage 6 "AWG31 Stage3A migration внутри Update transaction" run_stage3a_migration
   run_stage 7 "Repair managed Nginx Single Edge config if needed" repair_managed_nginx_if_needed
   run_stage 8 "Проверка HTTPS, credentials, Nginx и runtime" verify_final
