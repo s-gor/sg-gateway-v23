@@ -130,30 +130,17 @@
                 <section class="xps2-primary-setting">
                   <strong>Client Fingerprint</strong>
                   <div class="xps2-primary-control">
-                    <select name="fingerprint" required>
-                    <optgroup label="Браузеры">
+                    <select name="fingerprint" required aria-label="Client Fingerprint">
                       <option value="chrome" {% if xray_profiles.fingerprint == 'chrome' %}selected{% endif %}>Google Chrome</option>
-                      <option value="brave" {% if xray_profiles.fingerprint == 'brave' %}selected{% endif %}>Brave (технически Chrome)</option>
-                      <option value="edge" {% if xray_profiles.fingerprint == 'edge' %}selected{% endif %}>Microsoft Edge</option>
                       <option value="firefox" {% if xray_profiles.fingerprint == 'firefox' %}selected{% endif %}>Mozilla Firefox</option>
                       <option value="safari" {% if xray_profiles.fingerprint == 'safari' %}selected{% endif %}>Apple Safari</option>
                       <option value="ios" {% if xray_profiles.fingerprint == 'ios' %}selected{% endif %}>iPhone / iPad (iOS)</option>
                       <option value="android" {% if xray_profiles.fingerprint == 'android' %}selected{% endif %}>Android</option>
-                      <option value="opera" {% if xray_profiles.fingerprint == 'opera' %}selected{% endif %}>Opera (технически Chrome)</option>
-                      <option value="vivaldi" {% if xray_profiles.fingerprint == 'vivaldi' %}selected{% endif %}>Vivaldi (технически Chrome)</option>
+                      <option value="edge" {% if xray_profiles.fingerprint == 'edge' %}selected{% endif %}>Microsoft Edge</option>
                       <option value="360" {% if xray_profiles.fingerprint == '360' %}selected{% endif %}>360 Browser</option>
                       <option value="qq" {% if xray_profiles.fingerprint == 'qq' %}selected{% endif %}>QQ Browser</option>
-                    </optgroup>
-                    <optgroup label="Автоматический выбор">
-                      <option value="random" {% if xray_profiles.fingerprint == 'random' %}selected{% endif %}>Random — случайный современный браузер</option>
-                      <option value="randomized" {% if xray_profiles.fingerprint == 'randomized' %}selected{% endif %}>Randomized — полностью случайный</option>
-                    </optgroup>
-                    <optgroup label="Расширенные">
-                      <option value="unsafe" {% if xray_profiles.fingerprint == 'unsafe' %}selected{% endif %}>Go TLS без эмуляции (unsafe)</option>
-                      {% if xray_profiles.fingerprint not in xray_profiles.fingerprint_values %}
-                      <option value="{{ xray_profiles.fingerprint }}" selected>Другое текущее значение: {{ xray_profiles.fingerprint }}</option>
-                      {% endif %}
-                    </optgroup>
+                      <option value="random" {% if xray_profiles.fingerprint == 'random' %}selected{% endif %}>Random — современный браузер</option>
+                      <option value="randomized" {% if xray_profiles.fingerprint == 'randomized' %}selected{% endif %}>Randomized — случайный TLS ClientHello</option>
                     </select>
                     <button class="button primary sg-ljd-key-action"
                             type="submit"
