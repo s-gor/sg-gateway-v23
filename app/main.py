@@ -1222,17 +1222,25 @@ def create_app() -> Flask:
                 str(result.get("message") or "Клиент создан и применён."),
                 "success",
             )
-        except ClientWorkflowError as exc:
+        except Exception as exc:
             # Creation is atomic from the user's point of view. A client whose
             # candidate runtime failed must not remain as a misleading active
-            # database record. Remove it and re-apply the previous catalogue.
+            # database record. This deliberately catches unexpected runtime
+            # exceptions too: a protocol bootstrap bug must become a normal
+            # client-create failure with rollback, never a raw Flask 500.
             delete_client(client_id)
             restore_note = ""
             try:
                 apply_clients_runtime()
                 restore_note = " Предыдущий runtime восстановлен."
-            except ClientWorkflowError as restore_exc:
+            except Exception as restore_exc:
                 restore_note = f" Восстановление runtime: {restore_exc}"
+            log_operation(
+                "client.create",
+                f"client:{client_id}",
+                f"Создание клиента отменено после ошибки runtime: {type(exc).__name__}: {exc}",
+                status="error",
+            )
             flash(
                 f"Клиент не создан: конфигурация не прошла проверку. {exc}."
                 f" Запись клиента удалена.{restore_note}",
