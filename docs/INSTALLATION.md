@@ -1,104 +1,77 @@
-# Установка и обновление SG-Gateway
-
-> **0.1.0-021.12 = FINAL AWG2.** Версия зафиксирована как окончательная линия с AmneziaWG 2. AWG3 начинается только с `0.1.0-022.01`.
-
-## Проверка Update 0.1.0-021.12 → 0.1.0-022.04 Fix30
-
-Установите стабильную `0.1.0-021.12` на чистую Ubuntu:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/s-gor/sg-gateway/stable-02112/deploy/install-from-github.sh | sudo env SG_GATEWAY_GITHUB_BRANCH=stable-02112 bash
-```
-
-После завершения установки выполните Update до `0.1.0-022.04 Fix30`:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/s-gor/sg-gateway-v22/main/deploy/update-from-github.sh | sudo env SG_GATEWAY_GITHUB_BRANCH=main bash
-```
-
-Проверьте установленную версию:
-
-```bash
-sudo cat /opt/sg-gateway/VERSION
-```
-
-Ожидается `0.1.0-022.04`; тот же номер отображается в интерфейсе панели.
+# Установка и обновление SG-Gateway 23.01
 
 ## Требования
 
 - чистая Ubuntu Server 24.04;
 - root-доступ через `sudo`;
-- публичный IPv4;
+- публичный IPv4.
 
 SG-Gateway устанавливается нативно и не требует Docker.
 
-## Установка из GitHub main
+## Clean Install 23.01
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/s-gor/sg-gateway/main/deploy/install-from-github.sh | sudo bash
+curl -4 -fsSL https://raw.githubusercontent.com/s-gor/sg-gateway-v23/stable-02301/deploy/install-from-github.sh | sudo env SG_GATEWAY_GITHUB_BRANCH=stable-02301 bash
 ```
 
-Bootstrap загружает текущий `main`, проверяет обязательные файлы и запускает нативный `install.sh`.
+Clean Install предназначен только для сервера без установленного SG-Gateway.
 
-## Схема чистой установки 021.10
+## Update внутри линии 23.01
 
-Технические параметры назначаются автоматически:
-
-- hostname `sg-gateway-<страна>`;
-- панель `63443/TCP`;
-- VLESS Reality `443/TCP`;
-- AmneziaWG `585/UDP`;
-- Reality target `www.bing.com:443`;
-- Reality SNI `www.bing.com`.
-
-Установщик задаёт только два связанных запроса:
-
-1. пароль администратора панели;
-2. повтор пароля.
-
-Первый VPN-клиент `sg-admin` создаётся автоматически с профилями Reality TCP, XHTTP Reality, AmneziaWG и Mieru. После входа владелец создаёт собственных пользователей в разделе `Clients`.
-
-Предварительная проверка портов установщиком временно отключена.
-
-## Что делает установщик
-
-1. ждёт освобождения apt/dpkg;
-2. устанавливает системные зависимости;
-3. определяет публичный IPv4 и страну;
-4. автоматически назначает технические параметры;
-5. запрашивает и хеширует пароль администратора;
-6. создаёт `sg-admin`, пользователя и каталоги SG-Gateway;
-7. устанавливает веб-панель, HostD и движки;
-8. создаёт systemd-службы;
-9. строит и проверяет runtime-конфигурации;
-10. настраивает Nginx и UFW и показывает адрес панели.
-
-Постоянный журнал очищается от паролей, приватных ключей, PEM-блоков и клиентских ссылок.
-
-## Начальный доступ
-
-Свежая установка открывается по HTTP и IP. HTTPS включается позднее из раздела `Security`.
-
-## Обновление
-
-Для уже установленного SG-Gateway используется отдельная команда:
+Для уже установленной 23.01:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/s-gor/sg-gateway/main/deploy/update-from-github.sh | sudo bash
+curl -4 -fsSL https://raw.githubusercontent.com/s-gor/sg-gateway-v23/stable-02301/deploy/update-from-github.sh | sudo env SG_GATEWAY_GITHUB_BRANCH=stable-02301 bash
 ```
 
-Clean Install и Update — разные операции. `install-from-github.sh` предназначен для чистого сервера и при обнаружении уже установленного SG-Gateway останавливается до изменения системы.
+Updater создаёт Safety Backup, проверяет candidate и выполняет rollback при критической ошибке.
 
-Update не запускает полный installer, не выполняет `apt-get` и не переустанавливает Nginx, Certbot, Xray, AmneziaWG, Mihomo, sing-box или WARP helper.
+## Переход 22.08 → 23.01
 
-В обычном режиме Update исходники получаются через Git partial clone (`--depth=1 --filter=blob:none`) и **runtime whitelist**. В Light Update попадают `app/`, `hostd/`, `deploy/` и нужные root-файлы; `assets`, `data`, `docs`, `tests`, `vendor` и `.github` не загружаются. Если Git на старом сервере отсутствует или Light source недоступен, updater автоматически переходит на compatibility archive без установки пакетов.
+**Прямой in-place Update с 22.08 на 23.01 временно не поддерживается.**
 
-Перед переключением кода создаётся safety backup, включая `/opt/sg-gateway`, `/etc/sg-gateway`, `/var/lib/sg-gateway`, полный `/etc/letsencrypt`, SG-конфигурацию Nginx и состояние служб. После обновления проверяются Clients/credentials, HTTPS, Nginx и ранее работающие runtime-службы. При ошибке выполняется автоматический rollback.
+Причина — архитектурный переход на Single Edge 443: публичные TCP/UDP подключения переводятся на общий edge, а backend listeners и часть server runtime становятся внутренними. Кроме того, ранние установки 22.08 могли содержать другой вариант Mihomo runtime. Чтобы не переносить старую runtime-схему в 23.01, используйте чистую миграцию.
 
-## Полное удаление
+### 1. Сохранить клиентов, ключи и HTTPS
+
+В 22.08 откройте **Maintenance → Backups → Clients, Keys & HTTPS** и создайте переносимый backup. Скачайте файл `SG-Gateway-CLIENTS-*.sgbackup` на локальный компьютер до удаления сервера.
+
+Этот профиль сохраняет:
+
+- клиентов и устройства;
+- credentials, ключи, UUID и пароли;
+- SG/Router subscription-данные;
+- активный HTTPS-домен;
+- сертификат и private key.
+
+Он не переносит Routing, WARP, настройки протоколов, старые listener/ports и server runtime.
+
+### 2. Удалить 22.08
+
+Используйте штатную Full Uninstall команду именно вашей установленной линии 22.08. Перед подтверждением убедитесь, что `.sgbackup` уже скачан с сервера на ваш компьютер.
+
+### 3. Установить 23.01
+
+После полного удаления выполните Clean Install 23.01 командой выше.
+
+### 4. Вернуть клиентов и сертификаты
+
+В новой панели 23.01 откройте **Maintenance → Backups → Clients, Keys & HTTPS**:
+
+1. выберите сохранённый `.sgbackup`;
+2. нажмите **«Проверить backup»**;
+3. после успешной проверки нажмите **«Восстановить»**.
+
+Restore возвращает клиентов, их реквизиты и активную HTTPS-идентичность. Перед изменением новая система создаёт страховочную копию.
+
+### 5. Включить протоколы заново
+
+После Restore откройте **Connections**, включите необходимые протоколы и примените конфигурацию. Проверьте subscriptions и реальные подключения клиентов. Routing/WARP и другие server-side настройки настраиваются заново.
+
+## Full Uninstall 23.01
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/s-gor/sg-gateway/main/deploy/full-uninstall-ubuntu.sh | sudo bash
+curl -4 -fsSL https://raw.githubusercontent.com/s-gor/sg-gateway-v23/stable-02301/deploy/uninstall-from-github.sh | sudo env SG_GATEWAY_GITHUB_BRANCH=stable-02301 bash
 ```
 
 Подтверждение:
@@ -106,5 +79,3 @@ curl -fsSL https://raw.githubusercontent.com/s-gor/sg-gateway/main/deploy/full-u
 ```text
 DELETE SG-GATEWAY
 ```
-
-Удаляются приложение, данные и управляемые SG-Gateway службы и конфигурации. Общие пакеты Ubuntu намеренно сохраняются.
