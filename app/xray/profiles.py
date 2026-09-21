@@ -69,26 +69,23 @@ XHTTP_MODE_OPTIONS = (
     },
 )
 
-# Same client fingerprint contract as SG-Panel. Firefox is the default for
-# fresh/missing values. An unknown value already stored by an older version is
-# preserved and shown by the UI, but new arbitrary values are rejected.
+# Public SG-Gateway selector follows the current Xray documented browser
+# fingerprints plus its two automatic modes. Native uTLS hello names and
+# "unsafe" remain Xray implementation options, but are intentionally not
+# exposed by the normal panel UI.
 FINGERPRINT_VALUES = (
     "chrome",
-    "brave",
-    "edge",
     "firefox",
     "safari",
     "ios",
     "android",
-    "opera",
-    "vivaldi",
+    "edge",
     "360",
     "qq",
     "random",
     "randomized",
-    "unsafe",
 )
-FINGERPRINT_DEFAULT = "firefox"
+FINGERPRINT_DEFAULT = "chrome"
 VLESS_ENCRYPTION_PLACEHOLDER = "PLACEHOLDER_VLESS_ENCRYPTION"
 
 # Client-only XHTTP XMUX fast-rotation preset for Russian networks.
@@ -185,7 +182,7 @@ def _fingerprint(value: Any, default: str = FINGERPRINT_DEFAULT) -> str:
     if not raw:
         return default
     normalized = raw.lower()
-    return normalized if normalized in FINGERPRINT_VALUES else raw
+    return normalized if normalized in FINGERPRINT_VALUES else default
 
 
 def _installed_xray_version() -> str:
@@ -298,16 +295,12 @@ def _prepare(form: Any) -> PreparedXraySettings:
     tls_ready = bool(tls.get("https_ready"))
 
     current_fingerprint = str(current["fingerprint"])
-    requested_fingerprint = _fingerprint(
-        form.get("fingerprint", current_fingerprint), current_fingerprint
-    )
-    if (
-        requested_fingerprint not in FINGERPRINT_VALUES
-        and requested_fingerprint != current_fingerprint
-    ):
+    requested_raw = str(form.get("fingerprint", current_fingerprint) or "").strip().lower()
+    if requested_raw not in FINGERPRINT_VALUES:
         raise XrayProfilesError(
-            "Некорректный Fingerprint. Выберите значение из списка SG-Panel."
+            "Некорректный Fingerprint. Выберите значение из списка SG-Gateway."
         )
+    requested_fingerprint = requested_raw
 
     values: dict[str, Any] = {
         "fingerprint": requested_fingerprint,
