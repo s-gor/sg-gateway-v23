@@ -20,8 +20,8 @@ SG-Gateway 23.01 начинается с проверенной рабочей r
 Поддерживаемая база включает Xray Reality TCP, XHTTP Reality, XHTTP TLS, Hysteria2 с Salamander/Gecko, NaiveProxy, Mihomo/Mieru, Clients и subscriptions, Routing, Backup/Restore, Maintenance, диагностику и безопасный Update/rollback.
 
 > [!IMPORTANT]
-> **Прямое обновление SG-Gateway 22.08 → 23.01 временно не поддерживается для публичных установок.**
-> В 23.01 изменена транспортная архитектура: публичный трафик сводится к Single Edge на порту 443, а внутренние listeners и часть server runtime перенесены за этот edge. Кроме того, ранние установки 22.08 могли получить другой вариант Mihomo runtime. Поэтому для перехода с 22.08 используйте перенос клиентов/ключей/HTTPS через backup и чистую установку 23.01. Обычный Update ниже предназначен только для уже установленной линии 23.01.
+> **Прямой Update SG-Gateway 22.08 → 23.01 не поддерживается.**
+> 23.01 использует другую транспортную архитектуру: публичный трафик сводится к Single Edge на 443, backend listeners становятся внутренними, а часть server runtime отличается от 22.08. Для перехода сохраните **Clients, Keys & HTTPS**, удалите 22.08 и выполните Clean Install 23.01. Команда Update ниже предназначена только для уже установленной 23.01.
 
 ## Быстрые команды
 
@@ -39,6 +39,11 @@ Clean Install блокируется, если SG-Gateway уже установ�
 curl -4 -fsSL https://raw.githubusercontent.com/s-gor/sg-gateway-v23/stable-02301/deploy/update-from-github.sh | sudo env SG_GATEWAY_GITHUB_BRANCH=stable-02301 bash
 ```
 
+Обычный Update 23.01 — это **безопасное обновление панели и кода SG-Gateway**, а не повторный Clean Install. Он создаёт Safety Backup, проверяет candidate, применяет совместимые миграции и выполняет rollback при критической ошибке.
+
+> [!NOTE]
+> Обычный Update **не переустанавливает VPN cores и не заменяет существующий core runtime целиком**. Исправления, которые относятся именно к systemd-unit или низкоуровневому runtime отдельного ядра, могут требовать Clean Install либо отдельной процедуры обновления ядра. Например, актуальный Clean Install уже содержит исправленный Mihomo unit с доступом к `AF_NETLINK`.
+
 ### Full Uninstall
 
 ```bash
@@ -49,6 +54,15 @@ curl -4 -fsSL https://raw.githubusercontent.com/s-gor/sg-gateway-v23/stable-0230
 
 Полный набор команд: **[deploy/GITHUB-COMMANDS.md](deploy/GITHUB-COMMANDS.md)**.
 
+
+## Как выбрать способ обновления
+
+| Исходное состояние | Что делать |
+| --- | --- |
+| Чистый Ubuntu 24.04 без SG-Gateway | **Clean Install 23.01** |
+| Уже установлен SG-Gateway 23.01 | **Update 23.01** |
+| SG-Gateway 22.08 | **Backup Clients, Keys & HTTPS → Full Uninstall → Clean Install 23.01 → Restore** |
+| Нужно заменить VPN core/runtime, а не только код панели | Использовать отдельную core/runtime процедуру или Clean Install; обычный Update это намеренно не делает |
 
 ## Переход с 22.08 на 23.01
 
@@ -94,7 +108,9 @@ HTTPS включается из `Security`. Панель проверяет DNS,
 
 ### Update
 
-Clean Install и Update разделены. Update не запускает повторный полный installer, а обновляет исходники по безопасной транзакционной схеме и проверяет состояние сервера после переключения.
+Clean Install и Update разделены намеренно. Update внутри 23.01 обновляет код SG-Gateway по безопасной транзакционной схеме, создаёт Safety Backup, проверяет candidate и итоговое состояние сервера, а при критической ошибке выполняет rollback.
+
+Update не следует воспринимать как «переустановить всё». Он не должен самовольно заменять VPN cores, сертификаты или существующий низкоуровневый runtime. Это сохраняет рабочую серверную конфигурацию и снижает риск неожиданной поломки уже работающих протоколов.
 
 ## Документация
 
