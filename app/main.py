@@ -959,8 +959,14 @@ def create_app() -> Flask:
 
     @app.post("/cascade/disable")
     def cascade_disable():
-        disable_cascade()
-        flash("Каскад выключен. Сохранённые параметры второго сервера оставлены.", "success")
+        try:
+            disable_cascade()
+            flash(
+                "Каскад выключен. Bundle и результаты проверок сохранены.",
+                "success",
+            )
+        except CascadeError as exc:
+            flash(f"Каскад не выключен: {exc}", "error")
         return redirect(url_for("cascade"))
 
     @app.get("/routing")
