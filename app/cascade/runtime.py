@@ -150,6 +150,63 @@ def _service_action(action: str, *, required: bool) -> None:
         raise CascadeError(result.message or f"Cascade service {action} failed")
 
 
+def _refresh_xray_runtime() -> None:
+    """Rebuild the live Xray config with the current Cascade state transactionally."""
+    from app.routing.runtime import (
+        atomic_write_json,
+        build_full_config,
+        restart_xray,
+        service_is_active,
+        xray_config_path,
+        xray_test_config,
+    )
+
+    target = xray_config_path()
+    try:
+        old = json.loads(target.read_text(encoding="utf-8")) if target.is_file() else None
+    except (OSError, ValueError, json.JSONDecodeError) as exc:
+        raise CascadeError(f"Рабочий Xray config не читается: {exc}") from exc
+    if old is None:
+        return
+
+    candidate = build_full_config(base_config=old)
+    status, message = xray_test_config(candidate)
+    if status == "error":
+        raise CascadeError(message)
+
+    was_active = service_is_active()
+    try:
+        atomic_write_json(target, candidate, 0o600)
+        if was_active:
+            restart_status, restart_message = restart_xray(required=True)
+            if restart_status == "error":
+                raise CascadeError(restart_message)
+    except Exception:
+        atomic_write_json(target, old, 0o600)
+        if was_active:
+            restart_xray(required=False)
+        raise
+
+
+def _routing_uses_cascade() -> bool:
+    from app.routing.runtime import managed_routing_path
+
+    path = managed_routing_path()
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError, json.JSONDecodeError):
+        return False
+    routing = payload.get("routing") if isinstance(payload, dict) else None
+    rules = routing.get("rules") if isinstance(routing, dict) else None
+    if not isinstance(rules, list):
+        return False
+    return any(
+        isinstance(rule, dict)
+        and str(rule.get("outboundTag") or "").strip().lower() in CASCADE_ROUTING_TAGS
+        for rule in rules
+    )
+
+
 def import_bundle(document: object, *, name: str = "Gateway B", ipv4_ready: bool = True, ipv6_ready: bool = False) -> dict:
     try:
         parsed = validate_bundle(document)
