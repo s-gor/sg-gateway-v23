@@ -895,6 +895,7 @@ def create_app() -> Flask:
             geofiles=geofiles_overview(),
             routing_templates=routing_templates_overview(),
             warp=warp_overview(),
+            cascade=cascade_overview(),
             mihomo=mihomo_overview(),
             client_total=count_clients(),
         )
