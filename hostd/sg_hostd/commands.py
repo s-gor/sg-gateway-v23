@@ -327,6 +327,10 @@ def _warp_export_json() -> HostCommandResult:
     return _sg_gateway_privileged_result("warp.export_json")
 
 
+def _cascade_awg_test() -> HostCommandResult:
+    return _sg_gateway_privileged_result("cascade.awg.test")
+
+
 def _tls_renew() -> HostCommandResult:
     try:
         payload = run_tls_maintenance("renew")
@@ -842,6 +846,7 @@ _COMMANDS: dict[str, Callable[[], HostCommandResult]] = {
     "warp.remove": _warp_remove,
     "warp.test": _warp_test,
     "warp.export_json": _warp_export_json,
+    "cascade.awg.test": _cascade_awg_test,
     "tls.renew": _tls_renew,
     "tls.rollback": _tls_rollback,
     "mihomo.apply": _mihomo_apply,
