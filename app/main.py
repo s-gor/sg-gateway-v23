@@ -53,6 +53,7 @@ from app.cascade.runtime import (
     disable as disable_cascade,
     enable as enable_cascade,
     overview as cascade_overview,
+    test_connection as test_cascade_connection,
 )
 from app.config import load_config
 from app.cpu_activity import collect_cpu_activity
@@ -841,6 +842,29 @@ def create_app() -> Flask:
             )
         except (ValueError, json.JSONDecodeError, CascadeError) as exc:
             flash(f"Каскад не сохранён: {exc}", "error")
+        return redirect(url_for("cascade"))
+
+    @app.post("/cascade/test")
+    def cascade_test():
+        try:
+            result = test_cascade_connection()
+            last_test = result.get("last_test") if isinstance(result, dict) else {}
+            ok = bool(last_test.get("ok")) if isinstance(last_test, dict) else False
+            if ok:
+                details = []
+                for family in ("ipv4", "ipv6"):
+                    item = last_test.get(family) if isinstance(last_test, dict) else None
+                    if isinstance(item, dict) and item.get("ok"):
+                        details.append(f"{family.upper()} {item.get('ip') or 'OK'}")
+                flash(
+                    "Каскад проверен через реальный трафик"
+                    + (": " + " · ".join(details) if details else "."),
+                    "success",
+                )
+            else:
+                flash("Каскад не прошёл проверку через второй SG-Gateway.", "error")
+        except CascadeError as exc:
+            flash(f"Проверка Каскада не выполнена: {exc}", "error")
         return redirect(url_for("cascade"))
 
     @app.post("/cascade/enable")
