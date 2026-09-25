@@ -94,11 +94,17 @@
             ('strict','Strict · усиленная фильтрация'),
             ('blocked_warp','Ресурсы, заблокированные в РФ через WARP · IPv4'),
             ('all_warp','Весь интернет через WARP · IPv4'),
+            ('blocked_cascade','Ресурсы, заблокированные в РФ через Каскад · IPv4'),
+            ('all_cascade','Весь интернет через Каскад · IPv4'),
             ('custom','Пользовательская схема')
           ] %}
           {% set warp_preset = value in ['blocked_warp','all_warp'] %}
-          <label class="r096-choice-card{% if warp_preset and not caps.get('warp4') %} disabled{% endif %}" {% if warp_preset and not caps.get('warp4') %}title="Сначала подготовьте и включите WARP IPv4"{% endif %}>
-            <input type="radio" name="preset" value="{{ value }}" {% if preset == value %}checked{% endif %} {% if warp_preset and not caps.get('warp4') %}disabled{% endif %}>
+          {% set cascade_preset = value in ['blocked_cascade','all_cascade'] %}
+          <label class="r096-choice-card{% if (warp_preset and not caps.get('warp4')) or (cascade_preset and not caps.get('cascade4')) %} disabled{% endif %}"
+                 {% if warp_preset and not caps.get('warp4') %}title="Сначала подготовьте и включите WARP IPv4"
+                 {% elif cascade_preset and not caps.get('cascade4') %}title="Сначала настройте, проверьте и включите Каскад IPv4"{% endif %}>
+            <input type="radio" name="preset" value="{{ value }}" {% if preset == value %}checked{% endif %}
+                   {% if (warp_preset and not caps.get('warp4')) or (cascade_preset and not caps.get('cascade4')) %}disabled{% endif %}>
             <span>{{ label }}</span>
           </label>
           {% endfor %}
@@ -307,7 +313,9 @@
     direct: {local_action:'direct4',russia_scope:'none',russia_action:'direct4',blocked_action:'direct4',ads_action:'direct4',default_action:'direct4'},
     ads_block: {local_action:'direct4',russia_scope:'none',russia_action:'direct4',blocked_action:'direct4',ads_action:'block',default_action:'direct4'},
     blocked_warp: {local_action:'direct4',russia_scope:'none',russia_action:'direct4',blocked_action:'warp4',ads_action:'direct4',default_action:'direct4'},
-    all_warp: {local_action:'direct4',russia_scope:'none',russia_action:'direct4',blocked_action:'warp4',ads_action:'warp4',default_action:'warp4'}
+    all_warp: {local_action:'direct4',russia_scope:'none',russia_action:'direct4',blocked_action:'warp4',ads_action:'warp4',default_action:'warp4'},
+    blocked_cascade: {local_action:'direct4',russia_scope:'none',russia_action:'direct4',blocked_action:'cascade4',ads_action:'direct4',default_action:'direct4'},
+    all_cascade: {local_action:'direct4',russia_scope:'none',russia_action:'direct4',blocked_action:'cascade4',ads_action:'cascade4',default_action:'cascade4'}
   };
   let applyingPreset = false;
   const setValue = (name, value) => { const input = form?.querySelector(`input[name="${name}"][value="${value}"]`); if (input) input.checked = true; };
