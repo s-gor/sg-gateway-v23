@@ -67,3 +67,7 @@ def test_routing_exposes_verified_cascade_actions():
     assert '"cascade6"' in backend
     assert "custom_cascade4_domains" in backend
     assert "custom_cascade6_domains" in backend
+    assert "blocked_cascade" in source
+    assert "all_cascade" in source
+    assert '"blocked_cascade"' in backend
+    assert '"all_cascade"' in backend
