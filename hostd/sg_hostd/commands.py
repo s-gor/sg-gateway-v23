@@ -331,6 +331,67 @@ def _cascade_awg_test() -> HostCommandResult:
     return _sg_gateway_privileged_result("cascade.awg.test")
 
 
+def _cascade_service(action: str) -> HostCommandResult:
+    command = f"cascade.service.{action}"
+    if action not in {"start", "stop", "restart", "status"}:
+        return HostCommandResult(command=command, status="error", message="Unsupported Cascade service action", payload={})
+    if action == "status":
+        result = subprocess.run(
+            ["systemctl", "is-active", "sg-gateway-cascade.service"],
+            capture_output=True, text=True, check=False,
+        )
+        active = result.returncode == 0
+        return HostCommandResult(
+            command=command,
+            status="ok",
+            message="Cascade transport active" if active else "Cascade transport inactive",
+            payload={"active": active, "state": (result.stdout or "").strip()},
+        )
+    result = subprocess.run(
+        ["systemctl", action, "sg-gateway-cascade.service"],
+        capture_output=True, text=True, timeout=30, check=False,
+    )
+    if result.returncode != 0:
+        return HostCommandResult(
+            command=command, status="error",
+            message=(result.stderr or result.stdout or "Cascade service action failed").strip(),
+            payload={},
+        )
+    if action != "stop":
+        verify = subprocess.run(
+            ["systemctl", "is-active", "--quiet", "sg-gateway-cascade.service"],
+            check=False,
+        )
+        if verify.returncode != 0:
+            return HostCommandResult(
+                command=command, status="error",
+                message="sg-gateway-cascade.service не активен после запуска",
+                payload={},
+            )
+    return HostCommandResult(
+        command=command, status="ok",
+        message=f"Cascade transport {action} complete",
+        payload={"service": "sg-gateway-cascade.service"},
+    )
+
+
+def _cascade_service_start() -> HostCommandResult:
+    return _cascade_service("start")
+
+
+def _cascade_service_stop() -> HostCommandResult:
+    return _cascade_service("stop")
+
+
+def _cascade_service_restart() -> HostCommandResult:
+    return _cascade_service("restart")
+
+
+def _cascade_service_status() -> HostCommandResult:
+    return _cascade_service("status")
+
+
+
 def _tls_renew() -> HostCommandResult:
     try:
         payload = run_tls_maintenance("renew")
@@ -847,6 +908,10 @@ _COMMANDS: dict[str, Callable[[], HostCommandResult]] = {
     "warp.test": _warp_test,
     "warp.export_json": _warp_export_json,
     "cascade.awg.test": _cascade_awg_test,
+    "cascade.service.start": _cascade_service_start,
+    "cascade.service.stop": _cascade_service_stop,
+    "cascade.service.restart": _cascade_service_restart,
+    "cascade.service.status": _cascade_service_status,
     "tls.renew": _tls_renew,
     "tls.rollback": _tls_rollback,
     "mihomo.apply": _mihomo_apply,
