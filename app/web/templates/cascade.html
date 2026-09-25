@@ -195,29 +195,29 @@
         <header class="xps2-section-head">
           <div>
             <div class="cnv1-card-kicker">НАСТРОЙКА</div>
-            <h3>Связать два SG-Gateway</h3>
-            <p>Gateway B создаёт bundle Каскада, Gateway A импортирует его и проверяет все девять каналов.</p>
+            <h3>Подключить второй SG-Gateway</h3>
+            <p>Сервер ваших клиентов отправляет трафик через второй SG-Gateway — выходной сервер.</p>
           </div>
         </header>
 
         <div class="cs-gateway-grid">
           <article class="cs-gateway-card sg-ui-nested">
             <div class="cs-gateway-copy">
-              <span class="cnv1-card-kicker">GATEWAY B</span>
-              <h4>Подготовить этот сервер как выход</h4>
-              <p>SG-Gateway создаст отдельный служебный доступ и соберёт один bundle со всеми девятью каналами. Обычные клиенты и их доступы не изменяются.</p>
+              <span class="cnv1-card-kicker">ВЫХОДНОЙ СЕРВЕР</span>
+              <h4>Этот сервер — выход в интернет</h4>
+              <p>На втором SG-Gateway создайте bundle Каскада и скачайте его. Он содержит доступы для соединения между двумя серверами.</p>
             </div>
-            <a class="button primary sg-ljd-key-action" href="{{ url_for('cascade_bundle_export') }}">Создать / скачать bundle Каскада</a>
+            <a class="button primary sg-ljd-key-action" href="{{ url_for('cascade_bundle_export') }}">Создать / скачать bundle</a>
           </article>
 
           <article class="cs-gateway-card sg-ui-nested">
             <div class="cs-gateway-copy">
-              <span class="cnv1-card-kicker">GATEWAY A</span>
-              <h4>Подключить второй SG-Gateway</h4>
-              <p>Импортируйте bundle, созданный на Gateway B. После импорта все девять каналов будут настроены и проверены независимо.</p>
+              <span class="cnv1-card-kicker">СЕРВЕР ВАШИХ КЛИЕНТОВ</span>
+              <h4>К этому серверу подключаются ваши клиенты</h4>
+              <p>Загрузите сюда bundle с выходного сервера. После импорта SG-Gateway подготовит и проверит все девять каналов.</p>
             </div>
             <form class="cs-import-form" method="post" enctype="multipart/form-data" action="{{ url_for('cascade_import') }}">
-              <label><span>Название второго сервера</span><input type="text" name="name" value="{{ cascade.name or 'Gateway B' }}" maxlength="80"></label>
+              <label><span>Название выходного сервера</span><input type="text" name="name" value="{{ cascade.name or 'Gateway B' }}" maxlength="80"></label>
               <div class="cs-family">
                 <label><input type="checkbox" name="ipv4_ready" value="1" {% if cascade.ipv4_requested or not cascade.configured %}checked{% endif %}> IPv4</label>
                 <label><input type="checkbox" name="ipv6_ready" value="1" {% if cascade.ipv6_requested %}checked{% endif %}> IPv6</label>
