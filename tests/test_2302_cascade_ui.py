@@ -110,8 +110,9 @@ def test_cascade_uses_two_channel_cards_per_row_and_visual_priority():
     template = Path("app/web/templates/cascade.html").read_text(encoding="utf-8")
     js = Path("app/web/static/sg-cascade-v23-02.js").read_text(encoding="utf-8")
 
-    assert ".cs-channel-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))" in css
-    assert ".cs-channel:nth-child(9){grid-column:1/-1}" in css
+    assert "grid-template-columns:repeat(2,minmax(0,1fr))" in css
+    assert ".cs-channel-grid>.cs-channel:nth-child(9)" in css
+    assert "grid-column:1/-1" in css
     assert "Порядок каналов" in template
     assert "data-cascade-priority-list" in template
     assert "data-cascade-priority-input" in template
@@ -127,3 +128,40 @@ def test_cascade_priority_ui_hides_internal_ids_from_status_summary():
     assert "priority_names.get(item, item)" in template
     assert "Резервные каналы" in template
     assert "Идентификаторы каналов через запятую" not in template
+
+
+def test_cascade_reuses_native_connections_visual_components():
+    template = Path("app/web/templates/cascade.html").read_text(encoding="utf-8")
+    css = Path("app/web/static/sg-ui-cascade-v23-02.css").read_text(encoding="utf-8")
+
+    for asset in (
+        "sg-ui-connections-components-v22-08.css",
+        "sg-xray-profiles-v2.css",
+        "sg-ui-connections-v22-08.css",
+    ):
+        assert asset in template
+
+    for klass in (
+        "cnv1-heading",
+        "cnv1-engine-card",
+        "cnv1-engine-head",
+        "cnv1-engine-title",
+        "cnv1-engine-status",
+        "cnv1-endpoint-card",
+        "xps2-panel",
+        "xps2-selection",
+        "xps2-section-head",
+        "xps2-choice",
+        "xps2-choice-status",
+        "xps2-parameters",
+        "cnv1-note-panel",
+        "button primary",
+    ):
+        assert klass in template
+
+    assert "cs-primary" not in template
+    assert "cs-secondary" not in template
+    assert "cs-board" not in template
+    assert "cs-summary" not in template
+    assert "cs-setup-grid" not in template
+    assert "Native Connections components provide the visual language" in css
