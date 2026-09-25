@@ -266,8 +266,14 @@ def test_channel(channel: dict, timeout: int = 25) -> dict:
     if channel_id == "mieru":
         return test_mieru(channel, timeout)
     if channel_id == "awg31":
+        from app.hostd.client import run_hostd_command
+
+        result = run_hostd_command("cascade.awg.test", timeout=max(120, timeout))
+        if result.status != "ok":
+            raise CascadeError(result.message or "AWG3.1 privileged test failed")
+        payload = dict(result.payload or {})
         return {
-            "ipv4": {"ok": False, "ip": "", "message": "Требуется privileged AWG network-namespace test"},
-            "ipv6": {"ok": False, "ip": "", "message": "Требуется privileged AWG network-namespace test"},
+            "ipv4": payload.get("ipv4") if isinstance(payload.get("ipv4"), dict) else {},
+            "ipv6": payload.get("ipv6") if isinstance(payload.get("ipv6"), dict) else {},
         }
     raise CascadeError(f"Неизвестный канал: {channel_id}")
