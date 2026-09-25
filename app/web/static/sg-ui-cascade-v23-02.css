@@ -1,324 +1,210 @@
 /* SG-Gateway 23.02 Cascade.
-   Native Connections components provide the visual language.
-   Only Cascade-specific composition and states live here. */
+   The page intentionally mirrors Connections. Custom CSS only:
+   1) maps Connections' scoped composition to page-cascade;
+   2) keeps Cascade channels at two cards per row;
+   3) styles the priority sorter. */
 
-body.page-cascade .cs-page{
-  gap:var(--sg-ui-page-gap,18px)
-}
-body.page-cascade .cnv1-heading{
-  margin:0
-}
-body.page-cascade .cs-shell{
-  padding:0;
-  overflow:hidden;
+body.page-cascade .cnv1-page.sg-ui-page{gap:var(--sg-ui-page-gap,18px)}
+body.page-cascade .cnv1-heading.sg-ui-page-head{margin:0}
+body.page-cascade .cnv1-heading-actions.sg-ui-actions{align-self:flex-start;gap:var(--sg-ui-grid-gap,12px)}
+
+body.page-cascade .cnv1-engine-xray{
+  min-width:0;
   border-radius:var(--sg-ui-card-radius,14px)
 }
-body.page-cascade .cs-shell>.cnv1-engine-head{
-  padding:18px
-}
-body.page-cascade .cs-engine-logo{
-  border-color:rgba(96,169,243,.24);
-  background:rgba(96,169,243,.11);
-  color:var(--sg-blue)
-}
+body.page-cascade .cnv1-engine-xray.sg-ui-card{padding:0}
+body.page-cascade .cnv1-engine-xray.sg-ui-section{gap:0}
+body.page-cascade .cnv1-engine-xray .xps2-panel.sg-ui-section{gap:var(--sg-ui-section-gap,16px)}
+body.page-cascade .cnv1-engine-xray .sg-ui-rail{padding-inline:var(--sg-ui-rail-inset,18px)}
 
-/* Route preview: one native nested rail, no decorative wrapper on top of it. */
-body.page-cascade .cs-flow{
-  display:grid;
-  grid-template-columns:minmax(0,1fr) auto minmax(0,1fr) auto minmax(0,1fr) auto minmax(0,1fr) auto minmax(0,1fr);
-  align-items:stretch;
-  gap:10px;
-  margin-bottom:0
-}
-body.page-cascade .cs-flow>b{
-  display:grid;
-  place-items:center;
-  color:var(--sg-muted);
-  font-size:17px;
-  font-weight:600
-}
-body.page-cascade .cs-flow-node{
-  display:grid;
-  align-content:center;
-  gap:4px;
+body.page-cascade :is(
+  .cnv1-endpoint-card,
+  .xps2-selection,
+  .xps2-parameters,
+  .xps2-parameter-row,
+  .xps2-choice,
+  .cnv1-compact-protocol-card
+){
   min-width:0;
-  min-height:76px;
-  padding:10px 12px;
-  border:1px solid transparent;
   border-radius:var(--sg-ui-nested-radius,10px)
 }
-body.page-cascade .cs-flow-node.current{
-  border-color:color-mix(in srgb,var(--sg-blue) 54%,var(--sg-line));
-  background:color-mix(in srgb,var(--sg-blue) 6%,var(--sg-panel-deep))
-}
-body.page-cascade .cs-flow-node.active{
-  border-color:color-mix(in srgb,var(--sg-green) 45%,var(--sg-line));
-  background:color-mix(in srgb,var(--sg-green) 5%,var(--sg-panel-deep))
-}
-body.page-cascade .cs-flow-node>span{
-  color:var(--sg-muted);
-  font-size:9px;
-  font-weight:850;
-  letter-spacing:.09em
-}
-body.page-cascade .cs-flow-node>strong{
-  overflow:hidden;
-  color:var(--sg-text);
-  font-size:14px;
-  text-overflow:ellipsis;
-  white-space:nowrap
-}
-body.page-cascade .cs-flow-node>small{
-  overflow:hidden;
-  color:var(--sg-muted);
-  font-size:10px;
-  text-overflow:ellipsis;
-  white-space:nowrap
+
+body.page-cascade :is(
+  .button,
+  .xps2-parameter-row input:not([type="checkbox"]):not([type="radio"]),
+  .xps2-parameter-row select,
+  .cs-import-form input[type="text"],
+  .cs-import-form input[type="file"],
+  .cs-import-form textarea
+){
+  border-radius:var(--sg-ui-control-radius,9px)
 }
 
-/* Same inner rhythm as Connections/Xray. */
-body.page-cascade .cs-content{
-  gap:var(--sg-ui-section-gap,16px);
-  margin:18px
-}
-body.page-cascade .cs-content>.sg-ui-rail{
-  padding:18px
-}
-body.page-cascade .cs-top-actions{
-  gap:10px;
-  margin-bottom:-2px
-}
-body.page-cascade .cs-top-actions form{
-  margin:0
-}
-body.page-cascade .cs-top-actions .button{
-  min-height:43px;
-  min-width:170px;
-  justify-content:center
+body.page-cascade :is(
+  .button,
+  .xps2-parameter-row input:not([type="checkbox"]):not([type="radio"]),
+  .xps2-parameter-row select,
+  .cs-import-form input[type="text"],
+  .cs-import-form input[type="file"]
+){
+  min-height:var(--sg-ui-control-height,42px)
 }
 
-/* Status is a normal nested Connections section, not a separate dashboard sidebar. */
-body.page-cascade .cs-status-section{
-  display:grid;
-  gap:16px
-}
-body.page-cascade .cs-status-grid{
-  display:grid;
-  grid-template-columns:repeat(3,minmax(0,1fr));
-  gap:var(--sg-ui-grid-gap,12px)
-}
-body.page-cascade .cs-status-grid>div{
-  display:grid;
-  gap:5px;
-  min-width:0;
-  min-height:64px;
-  padding:12px 13px;
-  border:1px solid var(--sg-line-soft);
-  border-radius:var(--sg-ui-nested-radius,10px);
-  background:var(--sg-panel)
-}
-body.page-cascade .cs-status-grid>div.wide{
-  grid-column:span 2
-}
-body.page-cascade .cs-status-grid span{
-  color:var(--sg-muted);
-  font-size:10px;
-  font-weight:760
-}
-body.page-cascade .cs-status-grid strong{
-  overflow-wrap:anywhere;
-  color:var(--sg-text);
-  font-size:12px;
-  line-height:1.45
+body.page-cascade :is(.cnv1-engine-status,.xps2-choice-status){
+  min-height:var(--sg-ui-badge-height,28px);
+  border-radius:999px
 }
 
-/* Channel cards deliberately reuse xps2-choice visual behavior from Connections. */
+body.page-cascade .xps2-panel form{margin:0}
+body.page-cascade .xps2-top-actions{gap:10px}
+body.page-cascade .xps2-top-actions form{display:block}
+body.page-cascade .xps2-top-actions .button{min-width:190px}
+
+body.page-cascade .cs-endpoint-icon{
+  width:40px;
+  height:40px;
+  flex:0 0 40px
+}
+
+/* Exactly the Connections profile cards, but 2 per row as requested. */
 body.page-cascade .cs-channel-grid{
-  display:grid;
-  grid-template-columns:repeat(2,minmax(0,1fr));
-  gap:var(--sg-ui-grid-gap,12px);
-  margin-top:17px
-}
-body.page-cascade .cs-channel-grid>.cs-channel:nth-child(9){
-  grid-column:1/-1
+  grid-template-columns:repeat(2,minmax(0,1fr))
 }
 body.page-cascade .cs-channel{
-  min-height:132px;
   cursor:default
-}
-body.page-cascade .cs-channel:hover{
-  transform:none;
-  border-color:var(--sg-muted)
-}
-body.page-cascade .cs-channel.state-ready{
-  border-color:color-mix(in srgb,var(--sg-green) 46%,var(--sg-line));
-  background:color-mix(in srgb,var(--sg-green) 4%,var(--sg-panel))
 }
 body.page-cascade .cs-channel.state-active{
   border-color:var(--sg-blue);
   background:var(--sg-panel-soft);
   box-shadow:inset 0 0 0 1px var(--sg-blue)
 }
+body.page-cascade .cs-channel.state-ready{
+  border-color:color-mix(in srgb,var(--sg-green) 45%,var(--sg-line))
+}
 body.page-cascade .cs-channel.state-error{
-  border-color:color-mix(in srgb,var(--sg-red) 50%,var(--sg-line))
+  border-color:color-mix(in srgb,var(--sg-red) 48%,var(--sg-line))
 }
 body.page-cascade .cs-channel.state-checking{
-  border-color:color-mix(in srgb,var(--sg-yellow) 55%,var(--sg-line))
+  border-color:color-mix(in srgb,var(--sg-yellow) 52%,var(--sg-line))
 }
-body.page-cascade .cs-channel-head{
-  display:grid;
-  grid-template-columns:auto auto minmax(0,1fr) auto;
-  align-items:center;
-  gap:10px
+
+/* State rows use the same xps2 parameter rows as Connections. */
+body.page-cascade .cs-state-value{
+  align-self:center;
+  color:var(--sg-text);
+  font-size:13px;
+  font-weight:750;
+  overflow-wrap:anywhere
 }
-body.page-cascade .cs-channel-number{
-  color:var(--sg-muted);
-  font:10px ui-monospace,SFMono-Regular,Consolas,monospace
+body.page-cascade .cs-priority-line{
+  font-size:11px;
+  line-height:1.45
 }
-body.page-cascade .cs-channel-icon{
-  display:grid;
-  place-items:center;
-  width:40px;
-  height:40px;
-  border:0;
-  border-radius:10px;
-  background:color-mix(in srgb,var(--sg-blue) 13%,var(--sg-panel));
+body.page-cascade .xps2-parameter-note a{
   color:var(--sg-blue);
-  font-size:14px;
-  font-weight:850
+  text-decoration:none
 }
-body.page-cascade .cs-channel-title{
+
+/* Same compact two-column protocol cards used on Connections. */
+body.page-cascade .cnv1-compact-protocol-grid{
   display:grid;
-  gap:3px;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:var(--sg-ui-grid-gap,12px);
+  margin-top:17px
+}
+body.page-cascade .cnv1-compact-protocol-card{
+  position:relative;
+  min-width:0;
+  padding:14px;
+  display:grid;
+  align-content:start;
+  gap:12px;
+  border:1px solid var(--sg-line-soft);
+  background:var(--sg-panel)
+}
+body.page-cascade .cnv1-compact-protocol-head{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:12px
+}
+body.page-cascade .cnv1-compact-protocol-title{
+  display:flex;
+  align-items:center;
+  gap:10px;
   min-width:0
 }
-body.page-cascade .cs-channel-title>strong{
-  overflow:hidden;
-  color:var(--sg-text);
-  font-size:16px;
-  line-height:1.25;
-  text-overflow:ellipsis;
-  white-space:nowrap
-}
-body.page-cascade .cs-channel>p{
-  margin:16px 0 0 60px;
+body.page-cascade .cnv1-compact-protocol-title h3{margin:0 0 2px}
+body.page-cascade .cnv1-compact-protocol-title p{
+  margin:0;
   color:var(--sg-muted);
   font-size:11px;
   line-height:1.45
 }
-body.page-cascade .cs-channel-status{
-  margin-top:0
+body.page-cascade .cnv1-compact-protocol-icon{
+  width:40px;
+  height:40px;
+  flex:0 0 40px;
+  border-radius:10px;
+  display:grid;
+  place-items:center;
+  font-weight:850;
+  font-size:11px;
+  border:0;
+  background:color-mix(in srgb,var(--sg-blue) 13%,var(--sg-panel));
+  color:var(--sg-blue)
 }
-body.page-cascade .cs-channel-status.state-ready,
-body.page-cascade .cs-channel-status.state-active{
-  color:var(--sg-green)
+body.page-cascade .cnv1-compact-protocol-endpoint{
+  display:grid;
+  gap:3px;
+  padding:10px 0;
+  border:0
 }
-body.page-cascade .cs-channel-status.state-checking{
-  color:var(--sg-yellow)
+body.page-cascade .cnv1-compact-protocol-endpoint>span,
+body.page-cascade .cs-import-form label>span{
+  color:var(--sg-muted);
+  font-size:10px;
+  font-weight:800;
+  text-transform:uppercase;
+  letter-spacing:.06em
 }
-body.page-cascade .cs-channel-status.state-error{
-  color:var(--sg-red)
+body.page-cascade .cnv1-compact-protocol-endpoint small{
+  color:var(--sg-muted);
+  font-size:11px
 }
-body.page-cascade .cs-legend{
+body.page-cascade .cnv1-compact-protocol-actions{
   display:flex;
   align-items:center;
-  flex-wrap:wrap;
-  gap:15px;
-  margin-top:14px;
-  color:var(--sg-muted);
-  font-size:10px
+  justify-content:flex-end;
+  gap:10px;
+  min-height:42px
 }
-body.page-cascade .cs-legend span{
-  display:inline-flex;
-  align-items:center;
-  gap:6px
-}
-body.page-cascade .cs-legend i{
-  width:7px;
-  height:7px;
-  border-radius:50%;
-  background:var(--sg-muted)
-}
-body.page-cascade .cs-legend i.ready{background:var(--sg-green)}
-body.page-cascade .cs-legend i.active{background:var(--sg-blue)}
-body.page-cascade .cs-legend i.checking{background:var(--sg-yellow)}
-body.page-cascade .cs-legend i.error{background:var(--sg-red)}
-
-/* Gateway setup is a native two-column nested block. */
-body.page-cascade .cs-gateways{
-  display:grid;
-  gap:16px
-}
-body.page-cascade .cs-gateway-grid{
-  display:grid;
-  grid-template-columns:repeat(2,minmax(0,1fr));
-  gap:var(--sg-ui-grid-gap,12px)
-}
-body.page-cascade .cs-gateway-card{
-  display:grid;
-  align-content:start;
-  gap:14px;
-  min-width:0;
-  padding:15px;
-  border:1px solid var(--sg-line-soft);
-  border-radius:var(--sg-ui-nested-radius,10px);
-  background:var(--sg-panel)
-}
-body.page-cascade .cs-gateway-copy{
-  display:grid;
-  gap:6px
-}
-body.page-cascade .cs-gateway-copy h4{
-  margin:0;
-  color:var(--sg-text);
-  font-size:16px
-}
-body.page-cascade .cs-gateway-copy p{
-  margin:0;
-  color:var(--sg-muted);
-  font-size:11px;
-  line-height:1.5
-}
-body.page-cascade .cs-gateway-card>.button{
-  min-height:42px;
+body.page-cascade .cnv1-compact-protocol-actions .button{
+  min-width:190px;
   justify-content:center
 }
+
 body.page-cascade .cs-import-form{
   display:grid;
   gap:10px
 }
-body.page-cascade .cs-import-form>label,
-body.page-cascade .cs-mode-field{
-  display:grid;
-  gap:6px
-}
-body.page-cascade .cs-import-form label>span,
-body.page-cascade .cs-mode-field>span{
-  color:var(--sg-muted);
-  font-size:10px;
-  font-weight:750
-}
+body.page-cascade .cs-import-form>label{display:grid;gap:5px}
 body.page-cascade .cs-import-form input[type="text"],
 body.page-cascade .cs-import-form input[type="file"],
-body.page-cascade .cs-import-form textarea,
-body.page-cascade .cs-mode-field select{
-  width:100%;
-  min-height:var(--sg-ui-control-height,42px);
-  border-radius:var(--sg-ui-control-radius,9px)
+body.page-cascade .cs-import-form textarea{
+  width:100%
 }
 body.page-cascade .cs-import-form textarea{
-  min-height:90px;
+  min-height:86px;
   resize:vertical;
-  font-family:ui-monospace,SFMono-Regular,Consolas,monospace;
-  font-size:10px
+  font:10px ui-monospace,SFMono-Regular,Consolas,monospace
 }
-body.page-cascade .cs-import-form details{
+body.page-cascade .cs-import-form details,
+body.page-cascade .cs-import-form summary{
   color:var(--sg-muted);
   font-size:10px
 }
-body.page-cascade .cs-import-form summary{
-  cursor:pointer
-}
+body.page-cascade .cs-import-form summary{cursor:pointer}
 body.page-cascade .cs-family{
   display:flex;
   align-items:center;
@@ -331,83 +217,46 @@ body.page-cascade .cs-family label{
   color:var(--sg-text);
   font-size:11px
 }
-body.page-cascade .cs-import-form .button{
-  min-height:42px;
-  justify-content:center
-}
 
-/* Mode selector uses native nested cards, without an extra outer skin. */
-body.page-cascade .cs-mode{
-  display:grid;
-  gap:16px
-}
+/* Mode cards also reuse xps2-choice. */
 body.page-cascade .cs-mode-form{
   display:grid;
-  gap:14px
+  gap:16px;
+  margin-top:17px
 }
-body.page-cascade .cs-mode-cards{
-  display:grid;
+body.page-cascade .cs-mode-grid{
   grid-template-columns:repeat(3,minmax(0,1fr));
-  gap:var(--sg-ui-grid-gap,12px)
+  margin-top:0
 }
-body.page-cascade .cs-mode-cards label{
-  display:flex;
-  align-items:flex-start;
-  gap:10px;
-  min-width:0;
-  padding:13px;
-  border:1px solid var(--sg-line-soft);
-  border-radius:var(--sg-ui-nested-radius,10px);
-  background:var(--sg-panel);
-  cursor:pointer
+body.page-cascade .cs-mode-choice{
+  min-height:168px
 }
-body.page-cascade .cs-mode-cards label:has(input:checked){
-  border-color:var(--sg-blue);
-  background:var(--sg-panel-soft);
-  box-shadow:inset 0 0 0 1px var(--sg-blue)
+body.page-cascade .cs-mode-choice input[type="radio"]{
+  accent-color:var(--sg-blue)
 }
-body.page-cascade .cs-mode-cards span{
-  display:grid;
-  gap:4px
-}
-body.page-cascade .cs-mode-cards strong{
-  color:var(--sg-text);
-  font-size:12px
-}
-body.page-cascade .cs-mode-cards small{
-  color:var(--sg-muted);
-  font-size:10px;
-  line-height:1.4
-}
+
+/* Priority is the only component that does not exist on Connections. */
 body.page-cascade .cs-priority-field{
   display:grid;
-  gap:10px
+  gap:12px;
+  padding-top:2px
 }
-body.page-cascade .cs-priority-head>div{
-  display:grid;
-  gap:4px
-}
-body.page-cascade .cs-priority-head strong{
-  color:var(--sg-text);
-  font-size:11px
-}
-body.page-cascade .cs-priority-head small{
-  color:var(--sg-muted);
-  font-size:10px
+body.page-cascade .cs-priority-head h3{
+  font-size:16px
 }
 body.page-cascade .cs-priority-list{
   display:grid;
   grid-template-columns:repeat(3,minmax(0,1fr));
-  gap:9px
+  gap:var(--sg-ui-grid-gap,12px)
 }
 body.page-cascade .cs-priority-item{
   display:grid;
-  grid-template-columns:auto auto minmax(0,1fr) auto;
+  grid-template-columns:auto minmax(0,1fr) auto;
   align-items:center;
-  gap:8px;
+  gap:9px;
   min-width:0;
   min-height:48px;
-  padding:8px 10px;
+  padding:9px 10px;
   border:1px solid var(--sg-line-soft);
   border-radius:var(--sg-ui-nested-radius,10px);
   background:var(--sg-panel);
@@ -420,17 +269,12 @@ body.page-cascade .cs-priority-item.dragging{
 body.page-cascade .cs-priority-rank{
   display:grid;
   place-items:center;
-  width:24px;
-  height:24px;
-  border-radius:7px;
+  width:26px;
+  height:26px;
+  border-radius:8px;
   background:color-mix(in srgb,var(--sg-blue) 13%,var(--sg-panel));
   color:var(--sg-blue);
   font:10px ui-monospace,SFMono-Regular,Consolas,monospace
-}
-body.page-cascade .cs-priority-grip{
-  color:var(--sg-muted);
-  font-size:14px;
-  letter-spacing:-3px
 }
 body.page-cascade .cs-priority-item>strong{
   overflow:hidden;
@@ -443,95 +287,39 @@ body.page-cascade .cs-priority-actions{
   display:flex;
   gap:4px
 }
-body.page-cascade .cs-priority-move{
-  display:grid;
-  place-items:center;
-  width:28px;
-  height:28px;
-  border:1px solid var(--sg-line);
-  border-radius:8px;
-  background:var(--sg-panel-deep);
-  color:var(--sg-text);
-  cursor:pointer
-}
-body.page-cascade .cs-priority-move:hover{
-  border-color:var(--sg-blue)
-}
-body.page-cascade .cs-mode-actions{
-  display:flex;
-  justify-content:flex-end
-}
-body.page-cascade .cs-mode-actions .button{
-  min-width:180px;
-  min-height:43px;
+body.page-cascade .cs-priority-move.button{
+  min-width:30px;
+  width:30px;
+  min-height:30px;
+  height:30px;
+  padding:0;
   justify-content:center
 }
 
-/* Bottom note is literally the same Connections note component. */
-body.page-cascade .cs-note{
+body.page-cascade .cnv1-note-panel.sg-ui-card{
   padding:var(--sg-ui-card-pad,18px)
 }
 
-/* Light theme follows the shared panel variables; no separate palette. */
-@media(max-width:1180px){
-  body.page-cascade .cs-flow{
-    grid-template-columns:1fr
-  }
-  body.page-cascade .cs-flow>b{
-    min-height:14px;
-    transform:rotate(90deg)
-  }
-  body.page-cascade .cs-status-grid{
-    grid-template-columns:repeat(2,minmax(0,1fr))
-  }
-  body.page-cascade .cs-status-grid>div.wide{
-    grid-column:1/-1
-  }
-}
 @media(max-width:900px){
   body.page-cascade .cs-channel-grid,
-  body.page-cascade .cs-gateway-grid{
+  body.page-cascade .cnv1-compact-protocol-grid{
     grid-template-columns:1fr
   }
-  body.page-cascade .cs-channel-grid>.cs-channel:nth-child(9){
-    grid-column:auto
-  }
-  body.page-cascade .cs-mode-cards{
+  body.page-cascade .cs-mode-grid{
     grid-template-columns:1fr
   }
   body.page-cascade .cs-priority-list{
     grid-template-columns:repeat(2,minmax(0,1fr))
   }
 }
+
+@media(max-width:760px){
+  body.page-cascade .cnv1-heading-actions.sg-ui-actions{align-self:stretch}
+  body.page-cascade .cnv1-engine-xray .sg-ui-rail{padding-inline:var(--sg-ui-rail-inset,14px)}
+}
+
 @media(max-width:650px){
-  body.page-cascade .cs-content{
-    margin:14px
-  }
-  body.page-cascade .cs-content>.sg-ui-rail{
-    padding:14px
-  }
-  body.page-cascade .cs-status-grid,
-  body.page-cascade .cs-priority-list{
-    grid-template-columns:1fr
-  }
-  body.page-cascade .cs-status-grid>div.wide{
-    grid-column:auto
-  }
-  body.page-cascade .cs-channel-head{
-    grid-template-columns:auto auto minmax(0,1fr)
-  }
-  body.page-cascade .cs-channel-status{
-    grid-column:3
-  }
-  body.page-cascade .cs-channel>p{
-    margin-left:0
-  }
-  body.page-cascade .cs-top-actions{
-    align-items:stretch;
-    flex-direction:column
-  }
-  body.page-cascade .cs-top-actions form,
-  body.page-cascade .cs-top-actions .button{
-    width:100%
-  }
+  body.page-cascade .cs-priority-list{grid-template-columns:1fr}
+  body.page-cascade .xps2-parameter-row{grid-template-columns:1fr}
+  body.page-cascade .xps2-parameter-title{grid-column:1/-1}
 }
