@@ -9,8 +9,11 @@ from .runtime import (
     enable,
     enabled,
     family_capabilities,
+    import_bundle,
     outbound,
     overview,
+    set_mode,
+    test_all_channels,
 )
 
 __all__ = [
@@ -22,6 +25,9 @@ __all__ = [
     "enable",
     "enabled",
     "family_capabilities",
+    "import_bundle",
     "outbound",
     "overview",
+    "set_mode",
+    "test_all_channels",
 ]
