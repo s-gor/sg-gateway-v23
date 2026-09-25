@@ -121,6 +121,20 @@ def configure(
     return overview()
 
 
+def enable() -> dict:
+    payload = _read_state()
+    if not payload or payload.get("outbound") is None:
+        raise CascadeError("Каскад ещё не настроен")
+    normalize_outbound(payload.get("outbound"))
+    families = payload.get("families")
+    if not isinstance(families, dict) or not any(bool(families.get(key)) for key in ("ipv4", "ipv6")):
+        raise CascadeError("Для Каскада не выбрано ни одного семейства IP")
+    payload["enabled"] = True
+    payload["updated_at"] = _utc_now()
+    _atomic_write_json(state_path(), payload, 0o600)
+    return overview()
+
+
 def disable() -> dict:
     payload = _read_state()
     if not payload:
