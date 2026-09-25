@@ -293,12 +293,33 @@ def configure(
 
 def enable() -> dict:
     payload = _read_state()
-    if not payload or payload.get("outbound") is None:
-        raise CascadeError("Каскад ещё не настроен")
-    normalize_outbound(payload.get("outbound"))
+    channels = _channel_map(payload)
+    if channels:
+        missing = [
+            channel_id
+            for channel_id in CHANNEL_IDS
+            if not isinstance(channels.get(channel_id), dict)
+            or not bool(channels[channel_id].get("ready"))
+        ]
+        if missing:
+            raise CascadeError(
+                "Каскад включается только при готовности 9/9 каналов. Не готовы: "
+                + ", ".join(missing)
+            )
+        active = _choose_active_channel(payload)
+        if not active:
+            raise CascadeError("Нет готового канала, который можно сделать активным")
+        payload["active_channel"] = active
+    else:
+        if not payload or payload.get("outbound") is None:
+            raise CascadeError("Каскад ещё не настроен")
+        normalize_outbound(payload.get("outbound"))
+
     families = payload.get("families")
-    if not isinstance(families, dict) or not any(bool(families.get(key)) for key in ("ipv4", "ipv6")):
-        raise CascadeError("Для Каскада не выбрано ни одного семейства IP")
+    if not isinstance(families, dict) or not any(
+        bool(families.get(key)) for key in ("ipv4", "ipv6")
+    ):
+        raise CascadeError("Для Каскада не подтверждено ни одного семейства IP")
     payload["enabled"] = True
     payload["updated_at"] = _utc_now()
     _atomic_write_json(state_path(), payload, 0o600)
@@ -330,6 +351,8 @@ def family_capabilities() -> dict[str, bool]:
 
 def enabled() -> bool:
     state = _read_state()
+    if _channel_map(state):
+        return _multi_channel_enabled(state) and any(family_capabilities().values())
     if not bool(state.get("enabled")):
         return False
     try:
@@ -343,6 +366,20 @@ def outbound(*, require_enabled: bool = True) -> dict | None:
     state = _read_state()
     if require_enabled and not enabled():
         return None
+
+    channels = _channel_map(state)
+    if channels:
+        active_id = str(state.get("active_channel") or _choose_active_channel(state))
+        channel = channels.get(active_id)
+        if not isinstance(channel, dict) or not channel.get("ready"):
+            return None
+        if active_id not in XRAY_ROUTABLE_CHANNELS:
+            raise CascadeError(
+                f"{active_id}: канал проверен, но persistent adapter ещё не активирован"
+            )
+        from app.cascade.adapters import xray_outbound
+        return xray_outbound(channel)
+
     raw = state.get("outbound")
     if raw is None:
         return None
