@@ -21,11 +21,15 @@ def test_cascade_page_uses_sg_ui_shell_and_real_state():
     assert "GATEWAY A" in source
     assert "GATEWAY B" in source
     assert "Интернет" in source
-    assert "cascade.endpoint" in source
+    assert "cascade.channels" in source
+    assert "cascade.ready_count" in source
+    assert "cascade.required_count" in source
     assert "cascade.ipv4_ready" in source
     assert "cascade.ipv6_ready" in source
-    assert "cascade_save" in source
-    assert "cascade_test" in source
+    assert "cascade_test_all" in source
+    assert "cascade_bundle_export" in source
+    assert "cascade_import" in source
+    assert "cascade_mode" in source
     assert "cascade_enable" in source
     assert "cascade_disable" in source
     assert "confirm(" not in source
@@ -35,25 +39,28 @@ def test_cascade_page_uses_sg_ui_shell_and_real_state():
 
 def test_cascade_page_does_not_echo_saved_secrets():
     source = Path("app/web/templates/cascade.html").read_text(encoding="utf-8")
+    assert "channel.payload" not in source
     assert "cascade.outbound" not in source
     assert "publicKey" not in source
     assert "shortId" not in source
-    assert 'value="{{ cascade' not in source or "cascade.name" in source
-    assert "Секреты не показываются обратно в интерфейсе" in source
+    assert "password" not in source.lower()
 
 
 def test_cascade_routes_are_present():
     source = Path("app/main.py").read_text(encoding="utf-8")
     for route in (
         '@app.get("/cascade")',
-        '@app.post("/cascade/save")',
-        '@app.post("/cascade/test")',
+        '@app.get("/cascade/bundle")',
+        '@app.post("/cascade/import")',
+        '@app.post("/cascade/test-all")',
+        '@app.post("/cascade/mode")',
         '@app.post("/cascade/enable")',
         '@app.post("/cascade/disable")',
     ):
         assert route in source
     assert 'active_page="cascade"' in source
-    assert "configure_cascade(" in source
+    assert "import_cascade_bundle(" in source
+    assert "test_all_cascade_channels(" in source
 
 
 def test_routing_exposes_verified_cascade_actions():
@@ -71,3 +78,25 @@ def test_routing_exposes_verified_cascade_actions():
     assert "all_cascade" in source
     assert '"blocked_cascade"' in backend
     assert '"all_cascade"' in backend
+
+
+def test_cascade_dashboard_has_nine_real_channel_slots():
+    source = Path("app/cascade/bundle.py").read_text(encoding="utf-8")
+    template = Path("app/web/templates/cascade.html").read_text(encoding="utf-8")
+    for channel_id in (
+        "reality_tcp",
+        "xhttp_reality",
+        "xhttp_tls",
+        "hysteria2",
+        "awg31",
+        "mieru",
+        "anytls",
+        "tuic",
+        "naiveproxy",
+    ):
+        assert f'("{channel_id}",' in source
+    assert "for channel in cascade.channels" in template
+    assert "Каскад можно включить только после успешной проверки всех девяти каналов" in template
+    assert "Проверить все каналы" in template
+    assert "Настроить приоритет" in template
+    assert "bundle 9 каналов" in template
