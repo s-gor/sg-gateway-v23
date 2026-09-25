@@ -328,7 +328,12 @@ def test_connection(*, timeout: int = 25) -> dict:
 
 def overview() -> dict:
     state = _read_state()
-    families = family_capabilities()
+    stored_families = state.get("families")
+    stored_families = stored_families if isinstance(stored_families, dict) else {}
+    families = {
+        "ipv4": bool(stored_families.get("ipv4")),
+        "ipv6": bool(stored_families.get("ipv6")),
+    }
     active = enabled()
     outbound_doc = None
     endpoint = ""
