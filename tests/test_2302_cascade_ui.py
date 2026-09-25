@@ -6,7 +6,7 @@ from pathlib import Path
 def test_cascade_is_a_first_class_menu_section():
     base = Path("app/web/templates/base.html").read_text(encoding="utf-8")
     assert "url_for('cascade')" in base
-    assert "<strong>Каскад</strong>" in base
+    assert "<strong>Cascade</strong>" in base
     assert "SG-Gateway → SG-Gateway" in base
     assert base.index("url_for('outbounds')") < base.index("url_for('cascade')") < base.index('href="/routing"')
 
@@ -14,6 +14,9 @@ def test_cascade_is_a_first_class_menu_section():
 def test_cascade_page_uses_sg_ui_shell_and_real_state():
     source = Path("app/web/templates/cascade.html").read_text(encoding="utf-8")
     assert '{% extends "base.html" %}' in source
+    assert "SG-Gateway · Cascade" in source
+    assert "SG-GATEWAY / CASCADE" in source
+    assert "<h1>Cascade</h1>" in source
     assert "sg-ui-page" in source
     assert "sg-ui-section" in source
     assert "sg-ui-cascade-v23-02.css" in source
@@ -99,4 +102,28 @@ def test_cascade_dashboard_has_nine_real_channel_slots():
     assert "Каскад можно включить только после успешной проверки всех девяти каналов" in template
     assert "Проверить все каналы" in template
     assert "Настроить приоритет" in template
-    assert "bundle 9 каналов" in template
+    assert "Создать / скачать bundle Каскада" in template
+
+
+def test_cascade_uses_two_channel_cards_per_row_and_visual_priority():
+    css = Path("app/web/static/sg-ui-cascade-v23-02.css").read_text(encoding="utf-8")
+    template = Path("app/web/templates/cascade.html").read_text(encoding="utf-8")
+    js = Path("app/web/static/sg-cascade-v23-02.js").read_text(encoding="utf-8")
+
+    assert ".cs-channel-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))" in css
+    assert ".cs-channel:nth-child(9){grid-column:1/-1}" in css
+    assert "Порядок каналов" in template
+    assert "data-cascade-priority-list" in template
+    assert "data-cascade-priority-input" in template
+    assert "data-priority-move" in template
+    assert "sg-cascade-v23-02.js" in template
+    assert "dragstart" in js
+    assert "dragend" in js
+    assert "data-priority-channel" in js
+
+
+def test_cascade_priority_ui_hides_internal_ids_from_status_summary():
+    template = Path("app/web/templates/cascade.html").read_text(encoding="utf-8")
+    assert "priority_names.get(item, item)" in template
+    assert "Резервные каналы" in template
+    assert "Идентификаторы каналов через запятую" not in template
