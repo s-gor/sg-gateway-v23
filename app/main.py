@@ -47,12 +47,20 @@ from app.clients.repository import (
     update_device,
     snapshot_client,
 )
+from app.cascade.bundle import (
+    CascadeBundleError,
+    dumps_bundle as dumps_cascade_bundle,
+    ensure_service_bundle as ensure_cascade_service_bundle,
+)
 from app.cascade.runtime import (
     CascadeError,
     configure as configure_cascade,
     disable as disable_cascade,
     enable as enable_cascade,
+    import_bundle as import_cascade_bundle,
     overview as cascade_overview,
+    set_mode as set_cascade_mode,
+    test_all_channels as test_all_cascade_channels,
     test_connection as test_cascade_connection,
 )
 from app.config import load_config
@@ -842,6 +850,79 @@ def create_app() -> Flask:
             )
         except (ValueError, json.JSONDecodeError, CascadeError) as exc:
             flash(f"Каскад не сохранён: {exc}", "error")
+        return redirect(url_for("cascade"))
+
+    @app.get("/cascade/bundle")
+    def cascade_bundle_export():
+        try:
+            bundle = ensure_cascade_service_bundle()
+            document = dumps_cascade_bundle(bundle)
+        except CascadeBundleError as exc:
+            flash(f"Cascade bundle не создан: {exc}", "error")
+            return redirect(url_for("cascade"))
+        return Response(
+            document,
+            mimetype="application/json",
+            headers={
+                "Content-Disposition": "attachment; filename=sg-cascade-bundle.json"
+            },
+        )
+
+    @app.post("/cascade/import")
+    def cascade_import():
+        raw = str(request.form.get("bundle_json") or "").strip()
+        upload = request.files.get("bundle_file")
+        if upload is not None and upload.filename:
+            try:
+                raw = upload.read().decode("utf-8")
+            except (OSError, UnicodeDecodeError) as exc:
+                flash(f"Cascade bundle не прочитан: {exc}", "error")
+                return redirect(url_for("cascade"))
+        try:
+            document = json.loads(raw)
+            result = import_cascade_bundle(
+                document,
+                name=str(request.form.get("name") or "Gateway B").strip() or "Gateway B",
+                ipv4_ready=bool(request.form.get("ipv4_ready")),
+                ipv6_ready=bool(request.form.get("ipv6_ready")),
+            )
+            flash(
+                f"Cascade bundle импортирован: {result['ready_count']}/{result['required_count']} каналов ожидают проверку.",
+                "success",
+            )
+        except (ValueError, json.JSONDecodeError, CascadeError) as exc:
+            flash(f"Cascade bundle не импортирован: {exc}", "error")
+        return redirect(url_for("cascade"))
+
+    @app.post("/cascade/test-all")
+    def cascade_test_all():
+        try:
+            result = test_all_cascade_channels()
+            flash(
+                f"Проверка каналов завершена: {result['ready_count']}/{result['required_count']} готовы.",
+                "success" if result["ready_count"] == result["required_count"] else "error",
+            )
+        except CascadeError as exc:
+            flash(f"Проверка Каскада не выполнена: {exc}", "error")
+        return redirect(url_for("cascade"))
+
+    @app.post("/cascade/mode")
+    def cascade_mode():
+        try:
+            raw_priority = str(request.form.get("priority") or "")
+            priority = [
+                item.strip()
+                for item in raw_priority.replace("\n", ",").split(",")
+                if item.strip()
+            ]
+            set_cascade_mode(
+                str(request.form.get("mode") or "auto"),
+                manual_channel=str(request.form.get("manual_channel") or ""),
+                priority=priority or None,
+            )
+            flash("Режим Каскада сохранён.", "success")
+        except CascadeError as exc:
+            flash(f"Режим Каскада не сохранён: {exc}", "error")
         return redirect(url_for("cascade"))
 
     @app.post("/cascade/test")
