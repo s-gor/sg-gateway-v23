@@ -113,13 +113,17 @@ def configure(
 ) -> dict:
     normalized = normalize_outbound(document)
     payload = {
-        "enabled": True,
+        "enabled": False,
         "name": str(name or "Gateway B").strip() or "Gateway B",
         "outbound": normalized,
-        "families": {
+        "requested_families": {
             "ipv4": bool(ipv4_ready),
             "ipv6": bool(ipv6_ready),
         },
+        # Readiness is earned only by test_connection(); saving JSON alone
+        # must never make a Cascade route selectable.
+        "families": {"ipv4": False, "ipv6": False},
+        "last_test": {},
         "updated_at": _utc_now(),
     }
     _atomic_write_json(state_path(), payload, 0o600)
@@ -311,9 +315,11 @@ def test_connection(*, timeout: int = 25) -> dict:
     }
     # Availability is derived from a real end-to-end request, not from a UI
     # checkbox. A failed family becomes unavailable to Routing until re-tested.
+    requested = payload.get("requested_families")
+    requested = requested if isinstance(requested, dict) else {"ipv4": True, "ipv6": False}
     payload["families"] = {
-        "ipv4": bool(results["ipv4"]["ok"]),
-        "ipv6": bool(results["ipv6"]["ok"]),
+        "ipv4": bool(requested.get("ipv4")) and bool(results["ipv4"]["ok"]),
+        "ipv6": bool(requested.get("ipv6")) and bool(results["ipv6"]["ok"]),
     }
     payload["updated_at"] = _utc_now()
     _atomic_write_json(state_path(), payload, 0o600)
@@ -347,6 +353,10 @@ def overview() -> dict:
         "protocol": protocol,
         "ipv4_ready": bool(families["ipv4"]),
         "ipv6_ready": bool(families["ipv6"]),
+        "ipv4_requested": bool((state.get("requested_families") or {}).get("ipv4", True))
+        if isinstance(state.get("requested_families") or {}, dict) else True,
+        "ipv6_requested": bool((state.get("requested_families") or {}).get("ipv6", False))
+        if isinstance(state.get("requested_families") or {}, dict) else False,
         "updated_at": str(state.get("updated_at") or ""),
         "last_test": state.get("last_test") if isinstance(state.get("last_test"), dict) else {},
     }
