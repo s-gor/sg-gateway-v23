@@ -69,7 +69,16 @@
     </div>
 
     {% if cascade.configured %}
+    {% set ctest = cascade.last_test or {} %}
+    <div class="cs-test-results">
+      <div><small>Последняя проверка</small><strong>{{ ctest.get('checked_at', 'Ещё не выполнялась') }}</strong></div>
+      <div><small>IPv4 через Gateway B</small><strong>{% if ctest.get('ipv4', {}).get('ok') %}✓ {{ ctest.ipv4.ip }}{% elif ctest.get('ipv4') %}✕ Не прошёл{% else %}Не проверен{% endif %}</strong></div>
+      <div><small>IPv6 через Gateway B</small><strong>{% if ctest.get('ipv6', {}).get('ok') %}✓ {{ ctest.ipv6.ip }}{% elif ctest.get('ipv6') %}✕ Не прошёл{% else %}Не проверен{% endif %}</strong></div>
+    </div>
     <div class="cs-actions sg-ui-actions">
+      <form method="post" action="{{ url_for('cascade_test') }}">
+        <button class="cs-secondary" type="submit">Проверить соединение</button>
+      </form>
       {% if cascade.enabled %}
       <form method="post" action="{{ url_for('cascade_disable') }}"
             data-sg-confirm="Выключить Каскад? Параметры второго сервера останутся сохранены."
@@ -103,14 +112,14 @@
 
       <div class="cs-family">
         <span>Разрешённые семейства выхода</span>
-        <label><input type="checkbox" name="ipv4_ready" value="1" {% if not cascade.configured or cascade.ipv4_ready %}checked{% endif %}> IPv4</label>
-        <label><input type="checkbox" name="ipv6_ready" value="1" {% if cascade.ipv6_ready %}checked{% endif %}> IPv6</label>
+        <label><input type="checkbox" name="ipv4_ready" value="1" {% if not cascade.configured or cascade.ipv4_requested %}checked{% endif %}> IPv4</label>
+        <label><input type="checkbox" name="ipv6_ready" value="1" {% if cascade.ipv6_requested %}checked{% endif %}> IPv6</label>
       </div>
 
       <label class="cs-field cs-json">
         <span>Xray VLESS outbound</span>
         <textarea name="outbound_json" rows="14" spellcheck="false" placeholder='{"protocol":"vless","settings":{"vnext":[...]}, "streamSettings":{...}}'></textarea>
-        <small>Секреты не показываются обратно в интерфейсе. Для изменения вставьте полный outbound заново.</small>
+        <small>Секреты не показываются обратно в интерфейсе. Для изменения вставьте полный outbound заново. После сохранения обязательно выполните реальную проверку соединения.</small>
       </label>
 
       <div class="cs-form-actions">
