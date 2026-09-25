@@ -526,6 +526,7 @@ def test_connection(*, timeout: int = 25) -> dict:
 
 def overview() -> dict:
     state = _read_state()
+    channels_map = _channel_map(state)
     stored_families = state.get("families")
     stored_families = stored_families if isinstance(stored_families, dict) else {}
     families = {
@@ -548,8 +549,31 @@ def overview() -> dict:
             host = str(vnext[0].get("address") or "")
             port = int(vnext[0].get("port") or 0)
             endpoint = f"{host}:{port}" if host and port else host
+    channel_rows = []
+    for channel_id, title, kind, engine in CHANNEL_SPECS:
+        item = channels_map.get(channel_id)
+        row = (
+            dict(item)
+            if isinstance(item, dict)
+            else {
+                "id": channel_id,
+                "title": title,
+                "kind": kind,
+                "engine": engine,
+                "status": "missing",
+                "ready": False,
+                "routable": channel_id in XRAY_ROUTABLE_CHANNELS,
+                "last_test": {},
+            }
+        )
+        row["active"] = bool(
+            active and str(state.get("active_channel") or "") == channel_id
+        )
+        channel_rows.append(row)
+    ready_count = sum(1 for item in channel_rows if item.get("ready"))
+
     return {
-        "configured": outbound_doc is not None,
+        "configured": bool(channels_map) or outbound_doc is not None,
         "enabled": active,
         "name": str(state.get("name") or "Gateway B"),
         "endpoint": endpoint,
@@ -562,4 +586,13 @@ def overview() -> dict:
         if isinstance(state.get("requested_families") or {}, dict) else False,
         "updated_at": str(state.get("updated_at") or ""),
         "last_test": state.get("last_test") if isinstance(state.get("last_test"), dict) else {},
+        "mode": str(state.get("mode") or "auto"),
+        "priority": list(state.get("priority") or DEFAULT_PRIORITY),
+        "manual_channel": str(state.get("manual_channel") or ""),
+        "active_channel": str(state.get("active_channel") or ""),
+        "channels": channel_rows,
+        "ready_count": ready_count,
+        "required_count": len(CHANNEL_IDS),
+        "bundle_complete": bool(state.get("bundle_complete")),
+        "bundle_created_at": str(state.get("bundle_created_at") or ""),
     }
