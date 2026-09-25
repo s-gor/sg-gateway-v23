@@ -21,8 +21,8 @@ def test_cascade_page_uses_sg_ui_shell_and_real_state():
     assert "sg-ui-section" in source
     assert "sg-ui-cascade-v23-02.css" in source
     assert "Клиент" in source
-    assert "GATEWAY A" in source
-    assert "GATEWAY B" in source
+    assert "СЕРВЕР ВАШИХ КЛИЕНТОВ" in source
+    assert "ВЫХОДНОЙ СЕРВЕР" in source
     assert "Интернет" in source
     assert "cascade.channels" in source
     assert "cascade.ready_count" in source
@@ -99,7 +99,7 @@ def test_cascade_dashboard_has_nine_real_channel_slots():
     ):
         assert f'("{channel_id}",' in source
     assert "for channel in cascade.channels" in template
-    assert "Каскад можно включить только после успешной проверки всех девяти каналов" in template
+    assert "Для включения Каскада должны быть готовы все девять" in template
     assert "Проверить все каналы" in template
     assert "Настроить приоритет" in template
     assert "Создать / скачать bundle" in template
