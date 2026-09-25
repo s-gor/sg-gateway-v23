@@ -102,7 +102,11 @@ def test_cascade_dashboard_has_nine_real_channel_slots():
     assert "Каскад можно включить только после успешной проверки всех девяти каналов" in template
     assert "Проверить все каналы" in template
     assert "Настроить приоритет" in template
-    assert "Создать / скачать bundle Каскада" in template
+    assert "Создать / скачать bundle" in template
+    assert "СЕРВЕР ВАШИХ КЛИЕНТОВ" in template
+    assert "ВЫХОДНОЙ СЕРВЕР" in template
+    assert "К этому серверу подключаются ваши клиенты" in template
+    assert "Название выходного сервера" in template
 
 
 def test_cascade_uses_two_channel_cards_per_row_and_visual_priority():
