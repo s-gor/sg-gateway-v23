@@ -27,6 +27,7 @@ _ACTIONS: dict[str, tuple[str, str, int]] = {
     "warp.remove": ("app.routing.warp_helper", "remove", 240),
     "warp.test": ("app.routing.warp_helper", "test", 180),
     "warp.export_json": ("app.routing.warp_helper", "export-json", 60),
+    "cascade.awg.test": ("app.cascade.awg_test_helper", "test", 120),
 }
 
 _PYTHON = Path("/opt/sg-gateway/.venv/bin/python")
