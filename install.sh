@@ -110,6 +110,7 @@ MANAGED_PATHS=(
   etc/systemd/system/sg-gateway-awg.service
   etc/systemd/system/sg-gateway-awg3.service
   etc/systemd/system/sg-gateway-singbox.service
+  etc/systemd/system/sg-gateway-cascade.service
   etc/systemd/system/sg-gateway-udp-edge.service
   etc/systemd/system/mihomo.service
   etc/nginx/nginx.conf
@@ -349,7 +350,7 @@ show_service_diagnostics() {
     local service
     echo "===== SERVICE DIAGNOSTICS ====="
     for service in sg-gateway.service sg-hostd.service xray.service mihomo.service \
-      sg-gateway-awg.service sg-gateway-awg3.service sg-gateway-singbox.service nginx.service; do
+      sg-gateway-awg.service sg-gateway-awg3.service sg-gateway-singbox.service sg-gateway-cascade.service nginx.service; do
       if systemctl cat "$service" >/dev/null 2>&1; then
         echo "===== ${service} ====="
         systemctl is-active "$service" 2>/dev/null || true
@@ -381,7 +382,7 @@ restore_backup() {
   printf "\n%s[SG-Gateway] [ОТКАТ]%s Восстанавливаю предыдущую установку SG-Gateway.\n" "$YELLOW" "$RESET"
 
   systemctl stop sg-gateway.service sg-hostd.service xray.service mihomo.service \
-    sg-gateway-awg.service sg-gateway-awg3.service sg-gateway-singbox.service nginx.service >/dev/null 2>&1 || true
+    sg-gateway-awg.service sg-gateway-awg3.service sg-gateway-singbox.service sg-gateway-cascade.service nginx.service >/dev/null 2>&1 || true
   rollback_remove_managed_paths /
 
   if [[ -f "$BACKUP_DIR/managed-paths.tar" ]]; then
@@ -2339,6 +2340,7 @@ WantedBy=multi-user.target
 EOF
 
   install -m 0644 "$PREFIX/deploy/sg-gateway-singbox.service" /etc/systemd/system/sg-gateway-singbox.service
+  install -m 0644 "$PREFIX/deploy/sg-gateway-cascade.service" /etc/systemd/system/sg-gateway-cascade.service
   install -m 0644 "$PREFIX/deploy/mihomo.service" /etc/systemd/system/mihomo.service
 
   install -d -m 0755 /etc/nginx/stream-conf.d /etc/nginx/sites-available /etc/nginx/sites-enabled
@@ -2503,6 +2505,7 @@ EOF
   nginx -t
   systemctl reload nginx.service
   systemctl daemon-reload
+  systemctl disable --now sg-gateway-cascade.service >/dev/null 2>&1 || true
   [[ "$(systemctl show -p User --value sg-hostd.service)" == "root" ]]
   [[ -z "$(systemctl show -p DropInPaths --value sg-hostd.service)" ]]
   if (( UPDATE_MODE == 0 )); then
@@ -3093,7 +3096,7 @@ create_backup() {
   for service in \
     sg-hostd.service xray.service mihomo.service \
     sg-gateway-awg.service sg-gateway-awg3.service sg-gateway-awg31.service \
-    sg-gateway-singbox.service sg-gateway-naiveproxy.service sg-gateway-udp-edge.service \
+    sg-gateway-singbox.service sg-gateway-cascade.service sg-gateway-naiveproxy.service sg-gateway-udp-edge.service \
     sg-gateway.service nginx.service; do
     active=0
     enabled=0
@@ -3116,7 +3119,7 @@ restore_backup() {
   systemctl stop \
     sg-gateway.service sg-hostd.service xray.service mihomo.service \
     sg-gateway-awg.service sg-gateway-awg3.service sg-gateway-awg31.service \
-    sg-gateway-singbox.service sg-gateway-naiveproxy.service nginx.service \
+    sg-gateway-singbox.service sg-gateway-cascade.service sg-gateway-naiveproxy.service nginx.service \
     >/dev/null 2>&1 || true
 
   rollback_remove_managed_paths /
@@ -3145,7 +3148,7 @@ restore_backup() {
   local services=(
     sg-hostd.service xray.service mihomo.service
     sg-gateway-awg.service sg-gateway-awg3.service sg-gateway-awg31.service
-    sg-gateway-singbox.service sg-gateway-naiveproxy.service sg-gateway-udp-edge.service
+    sg-gateway-singbox.service sg-gateway-cascade.service sg-gateway-naiveproxy.service sg-gateway-udp-edge.service
     sg-gateway.service nginx.service
   )
 
@@ -3236,7 +3239,7 @@ stage_backup_and_prepare() {
   systemctl stop \
     sg-gateway.service sg-hostd.service xray.service mihomo.service \
     sg-gateway-awg.service sg-gateway-awg3.service sg-gateway-awg31.service \
-    sg-gateway-singbox.service sg-gateway-naiveproxy.service sg-gateway-udp-edge.service \
+    sg-gateway-singbox.service sg-gateway-cascade.service sg-gateway-naiveproxy.service sg-gateway-udp-edge.service \
     >/dev/null 2>&1 || true
 
   rm -rf "$PREFIX.new" "$PREFIX"
@@ -3429,7 +3432,7 @@ restore_update_runtime_services() {
   local service
   for service in \
     mihomo.service sg-gateway-awg.service sg-gateway-awg3.service \
-    sg-gateway-awg31.service sg-gateway-singbox.service sg-gateway-naiveproxy.service sg-gateway-udp-edge.service; do
+    sg-gateway-awg31.service sg-gateway-singbox.service sg-gateway-cascade.service sg-gateway-naiveproxy.service sg-gateway-udp-edge.service; do
     if service_was_enabled_before_update "$service"; then
       systemctl_with_retry enable "$service"
     fi
