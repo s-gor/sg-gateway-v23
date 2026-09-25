@@ -11,6 +11,8 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
+from app.cascade.bundle import CHANNEL_SPECS, CascadeBundleError, validate_bundle
+
 
 class CascadeError(RuntimeError):
     pass
@@ -103,6 +105,165 @@ def normalize_outbound(document: object) -> dict:
     result["tag"] = CASCADE_CORE_TAG
     return result
 
+
+
+CHANNEL_IDS = tuple(item[0] for item in CHANNEL_SPECS)
+DEFAULT_PRIORITY = list(CHANNEL_IDS)
+XRAY_ROUTABLE_CHANNELS = {"reality_tcp", "xhttp_reality", "xhttp_tls", "hysteria2"}
+VALID_MODES = {"auto", "manual", "priority"}
+
+
+def _channel_map(state: dict | None = None) -> dict[str, dict]:
+    payload = state if isinstance(state, dict) else _read_state()
+    raw = payload.get("channels")
+    return raw if isinstance(raw, dict) else {}
+
+
+def _choose_active_channel(state: dict) -> str:
+    channels = _channel_map(state)
+    ready = {
+        key for key, value in channels.items()
+        if isinstance(value, dict) and value.get("ready") and value.get("routable")
+    }
+    if not ready:
+        return ""
+    mode = str(state.get("mode") or "auto")
+    if mode == "manual":
+        manual = str(state.get("manual_channel") or "")
+        return manual if manual in ready else ""
+    priority = state.get("priority")
+    order = priority if isinstance(priority, list) else DEFAULT_PRIORITY
+    return next((str(item) for item in order if str(item) in ready), sorted(ready)[0])
+
+
+def import_bundle(document: object, *, name: str = "Gateway B", ipv4_ready: bool = True, ipv6_ready: bool = False) -> dict:
+    try:
+        parsed = validate_bundle(document)
+    except CascadeBundleError as exc:
+        raise CascadeError(str(exc)) from exc
+    rows = {str(item["id"]): dict(item) for item in parsed["channels"]}
+    channels = {}
+    for channel_id, title, kind, engine in CHANNEL_SPECS:
+        row = rows.get(channel_id)
+        channels[channel_id] = {
+            "id": channel_id,
+            "title": title,
+            "kind": kind,
+            "engine": engine,
+            "payload": str(row.get("payload") or "") if row else "",
+            "status": "unchecked" if row else "missing",
+            "ready": False,
+            "routable": channel_id in XRAY_ROUTABLE_CHANNELS,
+            "last_test": {},
+        }
+    payload = {
+        "format": "sg-cascade-state-v2",
+        "enabled": False,
+        "name": str(name or "Gateway B").strip() or "Gateway B",
+        "mode": "auto",
+        "priority": list(DEFAULT_PRIORITY),
+        "manual_channel": "",
+        "active_channel": "",
+        "bundle_created_at": str(parsed.get("created_at") or ""),
+        "bundle_complete": bool(parsed.get("complete")),
+        "channels": channels,
+        "requested_families": {"ipv4": bool(ipv4_ready), "ipv6": bool(ipv6_ready)},
+        "families": {"ipv4": False, "ipv6": False},
+        "last_test": {},
+        "updated_at": _utc_now(),
+    }
+    _atomic_write_json(state_path(), payload, 0o600)
+    return overview()
+
+
+def set_mode(mode: str, *, manual_channel: str = "", priority: list[str] | None = None) -> dict:
+    payload = _read_state()
+    selected = str(mode or "").strip().lower()
+    if selected not in VALID_MODES:
+        raise CascadeError("Неизвестный режим Каскада")
+    if priority is not None:
+        cleaned = []
+        for item in priority:
+            token = str(item or "").strip()
+            if token in CHANNEL_IDS and token not in cleaned:
+                cleaned.append(token)
+        cleaned.extend(item for item in CHANNEL_IDS if item not in cleaned)
+        payload["priority"] = cleaned
+    if selected == "manual":
+        manual = str(manual_channel or "").strip()
+        if manual not in CHANNEL_IDS:
+            raise CascadeError("Выберите канал для ручного режима")
+        payload["manual_channel"] = manual
+    payload["mode"] = selected
+    payload["active_channel"] = _choose_active_channel(payload)
+    payload["updated_at"] = _utc_now()
+    _atomic_write_json(state_path(), payload, 0o600)
+    return overview()
+
+
+def test_all_channels(*, timeout: int = 25) -> dict:
+    payload = _read_state()
+    channels = _channel_map(payload)
+    if not channels:
+        raise CascadeError("Сначала импортируйте Cascade bundle второго сервера")
+    from app.cascade.channel_test import test_channel
+    for channel_id in CHANNEL_IDS:
+        item = channels.get(channel_id)
+        if not isinstance(item, dict) or not str(item.get("payload") or "").strip():
+            if isinstance(item, dict):
+                item["status"] = "missing"
+                item["ready"] = False
+            continue
+        item["status"] = "checking"
+        item["ready"] = False
+        _atomic_write_json(state_path(), payload, 0o600)
+        try:
+            result = test_channel(item, timeout=timeout)
+            ipv4 = result.get("ipv4") if isinstance(result, dict) else {}
+            ipv6 = result.get("ipv6") if isinstance(result, dict) else {}
+            ok = bool(
+                (isinstance(ipv4, dict) and ipv4.get("ok"))
+                or (isinstance(ipv6, dict) and ipv6.get("ok"))
+            )
+            item["last_test"] = {
+                "ok": ok,
+                "ipv4": ipv4 if isinstance(ipv4, dict) else {},
+                "ipv6": ipv6 if isinstance(ipv6, dict) else {},
+                "checked_at": _utc_now(),
+            }
+            item["ready"] = ok
+            item["status"] = "ready" if ok else "error"
+        except Exception as exc:
+            item["last_test"] = {"ok": False, "message": str(exc), "checked_at": _utc_now()}
+            item["ready"] = False
+            item["status"] = "error"
+    ready_items = [item for item in channels.values() if isinstance(item, dict) and item.get("ready")]
+    requested = payload.get("requested_families")
+    requested = requested if isinstance(requested, dict) else {"ipv4": True, "ipv6": False}
+    payload["families"] = {
+        "ipv4": bool(requested.get("ipv4")) and any(bool((item.get("last_test") or {}).get("ipv4", {}).get("ok")) for item in ready_items),
+        "ipv6": bool(requested.get("ipv6")) and any(bool((item.get("last_test") or {}).get("ipv6", {}).get("ok")) for item in ready_items),
+    }
+    payload["active_channel"] = _choose_active_channel(payload)
+    payload["last_test"] = {
+        "ok": len(ready_items) == len(CHANNEL_IDS),
+        "ready_count": len(ready_items),
+        "required_count": len(CHANNEL_IDS),
+        "checked_at": _utc_now(),
+    }
+    payload["updated_at"] = _utc_now()
+    _atomic_write_json(state_path(), payload, 0o600)
+    return overview()
+
+
+def _multi_channel_enabled(state: dict) -> bool:
+    if not bool(state.get("enabled")):
+        return False
+    channels = _channel_map(state)
+    return bool(channels) and all(
+        isinstance(channels.get(channel_id), dict) and channels[channel_id].get("ready")
+        for channel_id in CHANNEL_IDS
+    ) and bool(_choose_active_channel(state))
 
 def configure(
     document: object,
