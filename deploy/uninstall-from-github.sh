@@ -11,7 +11,10 @@ fail() {
   exit 1
 }
 
-[[ "$BRANCH" == "stable-02301" ]] || fail "stable uninstaller is pinned to stable-02301; requested branch: $BRANCH"
+case "$BRANCH" in
+  stable-02301|feature/2302-cascade) ;;
+  *) fail "uninstaller is pinned to stable-02301 or feature/2302-cascade; requested branch: $BRANCH" ;;
+esac
 [[ "$(id -u)" -eq 0 ]] || fail "run this uninstaller through sudo"
 
 cleanup() {
