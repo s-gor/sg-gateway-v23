@@ -347,8 +347,22 @@ def _cascade_service(action: str) -> HostCommandResult:
             message="Cascade transport active" if active else "Cascade transport inactive",
             payload={"active": active, "state": (result.stdout or "").strip()},
         )
+    systemctl_args = (
+        ["systemctl", "disable", "--now", "sg-gateway-cascade.service"]
+        if action == "stop"
+        else (
+            ["systemctl", "enable", "--now", "sg-gateway-cascade.service"]
+            if action == "start"
+            else ["systemctl", "restart", "sg-gateway-cascade.service"]
+        )
+    )
+    if action == "restart":
+        subprocess.run(
+            ["systemctl", "enable", "sg-gateway-cascade.service"],
+            capture_output=True, text=True, timeout=30, check=False,
+        )
     result = subprocess.run(
-        ["systemctl", action, "sg-gateway-cascade.service"],
+        systemctl_args,
         capture_output=True, text=True, timeout=30, check=False,
     )
     if result.returncode != 0:
