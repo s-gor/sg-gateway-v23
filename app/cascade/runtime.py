@@ -110,6 +110,7 @@ def normalize_outbound(document: object) -> dict:
 CHANNEL_IDS = tuple(item[0] for item in CHANNEL_SPECS)
 DEFAULT_PRIORITY = list(CHANNEL_IDS)
 XRAY_ROUTABLE_CHANNELS = {"reality_tcp", "xhttp_reality", "xhttp_tls", "hysteria2"}
+SIDECAR_SOCKS_PORT = 10490
 VALID_MODES = {"auto", "manual", "priority"}
 
 
@@ -123,7 +124,7 @@ def _choose_active_channel(state: dict) -> str:
     channels = _channel_map(state)
     ready = {
         key for key, value in channels.items()
-        if isinstance(value, dict) and value.get("ready") and value.get("routable")
+        if isinstance(value, dict) and value.get("ready")
     }
     if not ready:
         return ""
@@ -153,7 +154,7 @@ def import_bundle(document: object, *, name: str = "Gateway B", ipv4_ready: bool
             "payload": str(row.get("payload") or "") if row else "",
             "status": "unchecked" if row else "missing",
             "ready": False,
-            "routable": channel_id in XRAY_ROUTABLE_CHANNELS,
+            "routable": True,
             "last_test": {},
         }
     payload = {
@@ -373,12 +374,19 @@ def outbound(*, require_enabled: bool = True) -> dict | None:
         channel = channels.get(active_id)
         if not isinstance(channel, dict) or not channel.get("ready"):
             return None
-        if active_id not in XRAY_ROUTABLE_CHANNELS:
-            raise CascadeError(
-                f"{active_id}: канал проверен, но persistent adapter ещё не активирован"
-            )
-        from app.cascade.adapters import xray_outbound
-        return xray_outbound(channel)
+        address = "169.254.231.2" if active_id == "awg31" else "127.0.0.1"
+        return {
+            "tag": CASCADE_CORE_TAG,
+            "protocol": "socks",
+            "settings": {
+                "servers": [
+                    {
+                        "address": address,
+                        "port": SIDECAR_SOCKS_PORT,
+                    }
+                ]
+            },
+        }
 
     raw = state.get("outbound")
     if raw is None:
@@ -562,7 +570,7 @@ def overview() -> dict:
                 "engine": engine,
                 "status": "missing",
                 "ready": False,
-                "routable": channel_id in XRAY_ROUTABLE_CHANNELS,
+                "routable": True,
                 "last_test": {},
             }
         )
