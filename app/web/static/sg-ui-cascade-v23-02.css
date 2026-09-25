@@ -33,3 +33,9 @@
 .cs-note p{margin:6px 0 0;opacity:.72}
 @media(max-width:1100px){.cs-chain{grid-template-columns:1fr}.cs-arrow{transform:rotate(90deg);min-height:20px}.cs-facts{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:680px){.cs-heading,.cs-note{align-items:stretch;flex-direction:column}.cs-facts{grid-template-columns:1fr}}
+
+.cs-test-results{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:16px}
+.cs-test-results>div{padding:12px;border:1px solid var(--sg-border);border-radius:10px}
+.cs-test-results small{display:block;margin-bottom:5px;opacity:.62}
+.cs-test-results strong{display:block;overflow-wrap:anywhere}
+@media(max-width:780px){.cs-test-results{grid-template-columns:1fr}}
