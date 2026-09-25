@@ -137,6 +137,19 @@ def _choose_active_channel(state: dict) -> str:
     return next((str(item) for item in order if str(item) in ready), sorted(ready)[0])
 
 
+def _service_action(action: str, *, required: bool) -> None:
+    unit = Path("/etc/systemd/system/sg-gateway-cascade.service")
+    if not unit.exists():
+        if required and os.getenv("SG_GATEWAY_CASCADE_REQUIRE_SERVICE", "") == "1":
+            raise CascadeError("Служба sg-gateway-cascade.service не установлена")
+        return
+    from app.hostd.client import run_hostd_command
+
+    result = run_hostd_command(f"cascade.service.{action}", timeout=60)
+    if result.status != "ok" and required:
+        raise CascadeError(result.message or f"Cascade service {action} failed")
+
+
 def import_bundle(document: object, *, name: str = "Gateway B", ipv4_ready: bool = True, ipv6_ready: bool = False) -> dict:
     try:
         parsed = validate_bundle(document)
@@ -199,6 +212,8 @@ def set_mode(mode: str, *, manual_channel: str = "", priority: list[str] | None 
     payload["active_channel"] = _choose_active_channel(payload)
     payload["updated_at"] = _utc_now()
     _atomic_write_json(state_path(), payload, 0o600)
+    if bool(payload.get("enabled")):
+        _service_action("restart", required=True)
     return overview()
 
 
@@ -324,6 +339,13 @@ def enable() -> dict:
     payload["enabled"] = True
     payload["updated_at"] = _utc_now()
     _atomic_write_json(state_path(), payload, 0o600)
+    try:
+        if channels:
+            _service_action("restart", required=True)
+    except Exception:
+        payload["enabled"] = False
+        _atomic_write_json(state_path(), payload, 0o600)
+        raise
     return overview()
 
 
@@ -334,6 +356,7 @@ def disable() -> dict:
     payload["enabled"] = False
     payload["updated_at"] = _utc_now()
     _atomic_write_json(state_path(), payload, 0o600)
+    _service_action("stop", required=False)
     return overview()
 
 
