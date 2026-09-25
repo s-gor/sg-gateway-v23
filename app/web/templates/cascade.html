@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}SG-Gateway · Каскад{% endblock %}
+{% block title %}SG-Gateway · Cascade{% endblock %}
 
 {% block page_styles %}
   <link rel="stylesheet" href="{{ static_asset('sg-ui-cascade-v23-02.css') }}">
@@ -8,11 +8,22 @@
 {% block content %}
 {% set active = cascade.channels | selectattr('active') | list | first if cascade.channels else none %}
 {% set ctest = cascade.last_test or {} %}
+{% set priority_names = {
+  'reality_tcp':'Reality TCP',
+  'xhttp_reality':'XHTTP Reality',
+  'xhttp_tls':'XHTTP TLS',
+  'hysteria2':'Hysteria2',
+  'awg31':'AmneziaWG 3.1',
+  'mieru':'Mieru',
+  'anytls':'AnyTLS',
+  'tuic':'TUIC',
+  'naiveproxy':'NaiveProxy'
+} %}
 <section class="cs-page sg-ui-page" data-sg-ui-page="cascade">
   <header class="cs-heading sg-ui-page-head">
     <div>
-      <div class="cs-kicker"><span></span> SG-GATEWAY / КАСКАД</div>
-      <h1>Каскад</h1>
+      <div class="cs-kicker"><span></span> SG-GATEWAY / CASCADE</div>
+      <h1>Cascade</h1>
       <p>Клиент → Gateway A → Gateway B → Интернет</p>
     </div>
     <div class="cs-heading-actions">
@@ -100,7 +111,7 @@
           <div class="cs-channel-meta">
             <span>{{ channel.engine }}</span>
             {% if channel.last_test and channel.last_test.get('ipv4', {}).get('ip') %}
-              <span>IPv4 {{ channel.last_test.ipv4.ip }}</span>
+              <span>IPv4: {{ channel.last_test.ipv4.ip }}</span>
             {% elif channel.last_test and channel.last_test.get('message') %}
               <span>{{ channel.last_test.message }}</span>
             {% else %}
@@ -120,7 +131,7 @@
           <div><dt>IPv4</dt><dd>{{ '● Готов' if cascade.ipv4_ready else '—' }}</dd></div>
           <div><dt>IPv6</dt><dd>{{ '● Готов' if cascade.ipv6_ready else '—' }}</dd></div>
           <div><dt>Последняя проверка</dt><dd>{{ ctest.get('checked_at', '—') }}</dd></div>
-          <div><dt>Резерв</dt><dd class="priority-list">{{ cascade.priority | join(' → ') }}</dd></div>
+          <div><dt>Резервные каналы</dt><dd class="priority-list">{% for item in cascade.priority %}{{ priority_names.get(item, item) }}{% if not loop.last %} → {% endif %}{% endfor %}</dd></div>
         </dl>
       </aside>
     </div>
@@ -139,16 +150,16 @@
       <div class="cs-setup-copy">
         <div class="cs-kicker"><span></span> GATEWAY B</div>
         <h2>Подготовить этот сервер как выход</h2>
-        <p>SG-Gateway создаст отдельный служебный доступ и соберёт один bundle со всеми девятью каналами. Обычные клиенты не меняются.</p>
+        <p>SG-Gateway создаст отдельный служебный доступ и соберёт один bundle со всеми девятью каналами. Обычные клиенты и их доступы не изменяются.</p>
       </div>
-      <a class="cs-primary" href="{{ url_for('cascade_bundle_export') }}">Создать / скачать bundle 9 каналов</a>
+      <a class="cs-primary" href="{{ url_for('cascade_bundle_export') }}">Создать / скачать bundle Каскада</a>
     </article>
 
     <article class="cs-setup sg-ui-section">
       <div class="cs-setup-copy">
         <div class="cs-kicker"><span></span> GATEWAY A</div>
         <h2>Подключить второй SG-Gateway</h2>
-        <p>Импортируйте bundle, полученный на Gateway B. После импорта все девять каналов будут проверяться независимо.</p>
+        <p>Импортируйте bundle, созданный на Gateway B. После импорта все девять каналов будут настроены и проверены независимо.</p>
       </div>
       <form class="cs-import-form" method="post" enctype="multipart/form-data" action="{{ url_for('cascade_import') }}">
         <label><span>Название второго сервера</span><input type="text" name="name" value="{{ cascade.name or 'Gateway B' }}" maxlength="80"></label>
@@ -161,15 +172,36 @@
   </section>
 
   <section class="cs-mode sg-ui-section" id="cascade-mode">
-    <header class="sg-ui-section-head"><div><h2>Режим выбора канала</h2><p>Routing видит только Каскад. Какой из девяти transport используется между серверами, решает этот блок.</p></div></header>
-    <form class="cs-mode-form" method="post" action="{{ url_for('cascade_mode') }}">
+    <header class="sg-ui-section-head"><div><h2>Режим выбора канала</h2><p>Routing видит только Каскад. Какой из девяти каналов используется между серверами, определяет этот блок.</p></div></header>
+    <form class="cs-mode-form" method="post" action="{{ url_for('cascade_mode') }}" data-cascade-mode-form>
       <div class="cs-mode-cards">
-        <label><input type="radio" name="mode" value="auto" {% if cascade.mode == 'auto' %}checked{% endif %}><span><strong>Авто</strong><small>Первый готовый канал по приоритету</small></span></label>
-        <label><input type="radio" name="mode" value="priority" {% if cascade.mode == 'priority' %}checked{% endif %}><span><strong>Приоритет</strong><small>Использовать заданную очередь</small></span></label>
-        <label><input type="radio" name="mode" value="manual" {% if cascade.mode == 'manual' %}checked{% endif %}><span><strong>Вручную</strong><small>Зафиксировать один канал</small></span></label>
+        <label><input type="radio" name="mode" value="auto" {% if cascade.mode == 'auto' %}checked{% endif %}><span><strong>Авто</strong><small>Использовать первый готовый канал по заданному приоритету</small></span></label>
+        <label><input type="radio" name="mode" value="priority" {% if cascade.mode == 'priority' %}checked{% endif %}><span><strong>Приоритет</strong><small>Автоматически переходить к следующему готовому каналу по очереди</small></span></label>
+        <label><input type="radio" name="mode" value="manual" {% if cascade.mode == 'manual' %}checked{% endif %}><span><strong>Вручную</strong><small>Зафиксировать один канал без автоматического переключения</small></span></label>
       </div>
+
       <label class="cs-mode-field"><span>Ручной канал</span><select name="manual_channel"><option value="">—</option>{% for channel in cascade.channels %}<option value="{{ channel.id }}" {% if cascade.manual_channel == channel.id %}selected{% endif %}>{{ channel.title }}</option>{% endfor %}</select></label>
-      <label class="cs-mode-field"><span>Приоритет</span><input type="text" name="priority" value="{{ cascade.priority | join(', ') }}"><small>Идентификаторы каналов через запятую. Отсутствующие автоматически добавляются в конец.</small></label>
+
+      <div class="cs-priority-field">
+        <div class="cs-priority-head">
+          <div><strong>Порядок каналов</strong><small>Перетащите карточки или используйте стрелки. Первый готовый канал имеет наивысший приоритет.</small></div>
+        </div>
+        <input type="hidden" name="priority" value="{{ cascade.priority | join(', ') }}" data-cascade-priority-input>
+        <div class="cs-priority-list" data-cascade-priority-list>
+          {% for channel_id in cascade.priority %}
+          <div class="cs-priority-item" draggable="true" data-priority-channel="{{ channel_id }}">
+            <span class="cs-priority-rank">{{ loop.index }}</span>
+            <span class="cs-priority-grip" aria-hidden="true">⋮⋮</span>
+            <strong>{{ priority_names.get(channel_id, channel_id) }}</strong>
+            <div class="cs-priority-actions">
+              <button type="button" class="cs-priority-move" data-priority-move="up" title="Выше" aria-label="Переместить выше">↑</button>
+              <button type="button" class="cs-priority-move" data-priority-move="down" title="Ниже" aria-label="Переместить ниже">↓</button>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+
       <button class="cs-primary" type="submit">Сохранить режим</button>
     </form>
   </section>
@@ -179,4 +211,9 @@
     <a class="cs-secondary" href="{{ url_for('routing') }}">Открыть Routing</a>
   </section>
 </section>
+{% endblock %}
+
+{% block scripts %}
+  {{ super() }}
+  <script src="{{ static_asset('sg-cascade-v23-02.js') }}" defer></script>
 {% endblock %}
