@@ -17,12 +17,12 @@ _ALLOWED_PROTOCOLS = {"vless"}
 
 
 def state_path() -> Path:
-    return Path(
-        os.getenv(
-            "SG_GATEWAY_CASCADE_STATE_PATH",
-            "/etc/sg-gateway/cascade.json",
-        )
-    )
+    explicit = os.getenv("SG_GATEWAY_CASCADE_STATE_PATH", "").strip()
+    if explicit:
+        return Path(explicit)
+    from app.config import load_config
+
+    return load_config().data_dir / "cascade.json"
 
 
 def _utc_now() -> str:
