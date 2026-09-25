@@ -1,3 +1,4 @@
+import json
 import os
 import re
 import shutil
@@ -45,6 +46,13 @@ from app.clients.repository import (
     update_client,
     update_device,
     snapshot_client,
+)
+from app.cascade.runtime import (
+    CascadeError,
+    configure as configure_cascade,
+    disable as disable_cascade,
+    enable as enable_cascade,
+    overview as cascade_overview,
 )
 from app.config import load_config
 from app.cpu_activity import collect_cpu_activity
@@ -804,6 +812,51 @@ def create_app() -> Flask:
             warp=warp_overview(),
             custom_outbounds=[],
         )
+
+    @app.get("/cascade")
+    def cascade():
+        return render_template(
+            "cascade.html",
+            active_page="cascade",
+            cascade=cascade_overview(),
+        )
+
+    @app.post("/cascade/save")
+    def cascade_save():
+        raw = str(request.form.get("outbound_json") or "").strip()
+        if not raw:
+            flash("Каскад: вставьте Xray VLESS outbound второго SG-Gateway.", "error")
+            return redirect(url_for("cascade"))
+        try:
+            document = json.loads(raw)
+            configure_cascade(
+                document,
+                name=str(request.form.get("name") or "Gateway B").strip() or "Gateway B",
+                ipv4_ready=bool(request.form.get("ipv4_ready")),
+                ipv6_ready=bool(request.form.get("ipv6_ready")),
+            )
+            flash(
+                "Каскад сохранён. Второй SG-Gateway подготовлен как выход Xray.",
+                "success",
+            )
+        except (ValueError, json.JSONDecodeError, CascadeError) as exc:
+            flash(f"Каскад не сохранён: {exc}", "error")
+        return redirect(url_for("cascade"))
+
+    @app.post("/cascade/enable")
+    def cascade_enable():
+        try:
+            enable_cascade()
+            flash("Каскад включён.", "success")
+        except CascadeError as exc:
+            flash(f"Каскад не включён: {exc}", "error")
+        return redirect(url_for("cascade"))
+
+    @app.post("/cascade/disable")
+    def cascade_disable():
+        disable_cascade()
+        flash("Каскад выключен. Сохранённые параметры второго сервера оставлены.", "success")
+        return redirect(url_for("cascade"))
 
     @app.get("/routing")
     def routing():
