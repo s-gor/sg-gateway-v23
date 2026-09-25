@@ -248,7 +248,8 @@ def import_bundle(document: object, *, name: str = "Gateway B", ipv4_ready: bool
 
 
 def set_mode(mode: str, *, manual_channel: str = "", priority: list[str] | None = None) -> dict:
-    payload = _read_state()
+    previous = _read_state()
+    payload = _clone(previous)
     selected = str(mode or "").strip().lower()
     if selected not in VALID_MODES:
         raise CascadeError("Неизвестный режим Каскада")
@@ -264,15 +265,29 @@ def set_mode(mode: str, *, manual_channel: str = "", priority: list[str] | None 
         manual = str(manual_channel or "").strip()
         if manual not in CHANNEL_IDS:
             raise CascadeError("Выберите канал для ручного режима")
+        channel = _channel_map(payload).get(manual)
+        if bool(payload.get("enabled")) and (
+            not isinstance(channel, dict) or not channel.get("ready")
+        ):
+            raise CascadeError("Выбранный ручной канал сейчас не готов")
         payload["manual_channel"] = manual
     payload["mode"] = selected
     payload["active_channel"] = _choose_active_channel(payload)
     payload["updated_at"] = _utc_now()
     _atomic_write_json(state_path(), payload, 0o600)
     if bool(payload.get("enabled")):
-        _service_action("restart", required=True)
+        try:
+            _service_action("restart", required=True)
+            _refresh_xray_runtime()
+        except Exception:
+            _atomic_write_json(state_path(), previous, 0o600)
+            _service_action("restart", required=False)
+            try:
+                _refresh_xray_runtime()
+            except Exception:
+                pass
+            raise
     return overview()
-
 
 def test_all_channels(*, timeout: int = 25) -> dict:
     payload = _read_state()
@@ -366,6 +381,7 @@ def configure(
 
 def enable() -> dict:
     payload = _read_state()
+    previous = _clone(payload)
     channels = _channel_map(payload)
     if channels:
         missing = [
@@ -399,23 +415,42 @@ def enable() -> dict:
     try:
         if channels:
             _service_action("restart", required=True)
+        _refresh_xray_runtime()
     except Exception:
-        payload["enabled"] = False
-        _atomic_write_json(state_path(), payload, 0o600)
+        _atomic_write_json(state_path(), previous, 0o600)
+        if channels:
+            _service_action("stop", required=False)
+        try:
+            _refresh_xray_runtime()
+        except Exception:
+            pass
         raise
     return overview()
-
 
 def disable() -> dict:
     payload = _read_state()
     if not payload:
         return overview()
+    if _channel_map(payload) and _routing_uses_cascade():
+        raise CascadeError(
+            "Каскад используется в активном Routing. Сначала замените правила cascade4/cascade6."
+        )
+    previous = _clone(payload)
     payload["enabled"] = False
     payload["updated_at"] = _utc_now()
     _atomic_write_json(state_path(), payload, 0o600)
-    _service_action("stop", required=False)
+    try:
+        _service_action("stop", required=False)
+        _refresh_xray_runtime()
+    except Exception:
+        _atomic_write_json(state_path(), previous, 0o600)
+        _service_action("restart", required=False)
+        try:
+            _refresh_xray_runtime()
+        except Exception:
+            pass
+        raise
     return overview()
-
 
 def family_capabilities() -> dict[str, bool]:
     state = _read_state()
