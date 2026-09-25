@@ -1,78 +1,537 @@
+/* SG-Gateway 23.02 Cascade.
+   Native Connections components provide the visual language.
+   Only Cascade-specific composition and states live here. */
 
-.cs-page{display:grid;gap:18px}
-.cs-heading{display:flex;align-items:flex-end;justify-content:space-between;gap:18px}
-.cs-heading h1{margin-bottom:6px}
-.cs-heading p{margin:0;opacity:.72}
-.cs-heading-actions{display:flex;align-items:center;gap:10px}
-.cs-kicker{display:flex;align-items:center;gap:8px;font-size:11px;letter-spacing:.12em;text-transform:uppercase;opacity:.65}
-.cs-kicker>span{width:7px;height:7px;border-radius:50%;background:var(--sg-accent,#69a7ff)}
-.cs-status{display:inline-flex;align-items:center;gap:8px;min-height:34px;padding:0 12px;border:1px solid var(--sg-border);border-radius:999px;font-size:12px}
-.cs-status>span{width:7px;height:7px;border-radius:50%;background:currentColor}
-.cs-status.ok{color:#5fd19a}.cs-status.ready{color:#75b4ff}
+body.page-cascade .cs-page{
+  gap:var(--sg-ui-page-gap,18px)
+}
+body.page-cascade .cnv1-heading{
+  margin:0
+}
+body.page-cascade .cs-shell{
+  padding:0;
+  overflow:hidden;
+  border-radius:var(--sg-ui-card-radius,14px)
+}
+body.page-cascade .cs-shell>.cnv1-engine-head{
+  padding:18px
+}
+body.page-cascade .cs-engine-logo{
+  border-color:rgba(96,169,243,.24);
+  background:rgba(96,169,243,.11);
+  color:var(--sg-blue)
+}
 
-.cs-path,.cs-board,.cs-setup,.cs-mode,.cs-note{padding:20px}
-.cs-chain{display:grid;grid-template-columns:minmax(120px,1fr) auto minmax(150px,1fr) auto minmax(150px,1fr) auto minmax(150px,1fr) auto minmax(120px,1fr);gap:9px;align-items:stretch}
-.cs-node{display:flex;min-height:94px;flex-direction:column;justify-content:center;gap:4px;padding:15px;border:1px solid var(--sg-border);border-radius:13px;background:linear-gradient(180deg,rgba(255,255,255,.035),rgba(255,255,255,.018))}
-.cs-node small{font-size:10px;letter-spacing:.09em;opacity:.55}.cs-node strong{font-size:15px}.cs-node span{font-size:11px;opacity:.67}
-.cs-node.current{border-color:rgba(76,168,237,.55);box-shadow:0 0 0 1px rgba(76,168,237,.14),0 8px 24px rgba(0,0,0,.13)}
-.cs-node.protocol.active{border-color:#3fbaff;box-shadow:0 0 22px rgba(63,186,255,.18),inset 0 0 0 1px rgba(63,186,255,.55)}
-.cs-node.protocol.active strong{color:#62c7ff}
-.cs-arrow{display:flex;align-items:center;justify-content:center;font-size:20px;opacity:.45}
+/* Route preview: one native nested rail, no decorative wrapper on top of it. */
+body.page-cascade .cs-flow{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto minmax(0,1fr) auto minmax(0,1fr) auto minmax(0,1fr) auto minmax(0,1fr);
+  align-items:stretch;
+  gap:10px;
+  margin-bottom:0
+}
+body.page-cascade .cs-flow>b{
+  display:grid;
+  place-items:center;
+  color:var(--sg-muted);
+  font-size:17px;
+  font-weight:600
+}
+body.page-cascade .cs-flow-node{
+  display:grid;
+  align-content:center;
+  gap:4px;
+  min-width:0;
+  min-height:76px;
+  padding:10px 12px;
+  border:1px solid transparent;
+  border-radius:var(--sg-ui-nested-radius,10px)
+}
+body.page-cascade .cs-flow-node.current{
+  border-color:color-mix(in srgb,var(--sg-blue) 54%,var(--sg-line));
+  background:color-mix(in srgb,var(--sg-blue) 6%,var(--sg-panel-deep))
+}
+body.page-cascade .cs-flow-node.active{
+  border-color:color-mix(in srgb,var(--sg-green) 45%,var(--sg-line));
+  background:color-mix(in srgb,var(--sg-green) 5%,var(--sg-panel-deep))
+}
+body.page-cascade .cs-flow-node>span{
+  color:var(--sg-muted);
+  font-size:9px;
+  font-weight:850;
+  letter-spacing:.09em
+}
+body.page-cascade .cs-flow-node>strong{
+  overflow:hidden;
+  color:var(--sg-text);
+  font-size:14px;
+  text-overflow:ellipsis;
+  white-space:nowrap
+}
+body.page-cascade .cs-flow-node>small{
+  overflow:hidden;
+  color:var(--sg-muted);
+  font-size:10px;
+  text-overflow:ellipsis;
+  white-space:nowrap
+}
 
-.cs-board-head{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;margin-bottom:16px}
-.cs-board-head h2{margin:5px 0 6px}.cs-board-head p{margin:0;opacity:.65}
-.cs-toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
-.cs-primary,.cs-secondary{display:inline-flex;align-items:center;justify-content:center;min-height:38px;padding:0 14px;border-radius:9px;font:inherit;font-size:12px;text-decoration:none;cursor:pointer}
-.cs-primary{border:1px solid #4ca8ed;background:linear-gradient(180deg,#238bd1,#14689f);color:#fff;box-shadow:0 5px 18px rgba(25,124,190,.16)}
-.cs-primary:disabled{opacity:.42;cursor:not-allowed;box-shadow:none}
-.cs-secondary{border:1px solid var(--sg-border);background:linear-gradient(180deg,rgba(255,255,255,.035),rgba(255,255,255,.018));color:inherit}
+/* Same inner rhythm as Connections/Xray. */
+body.page-cascade .cs-content{
+  gap:var(--sg-ui-section-gap,16px);
+  margin:18px
+}
+body.page-cascade .cs-content>.sg-ui-rail{
+  padding:18px
+}
+body.page-cascade .cs-top-actions{
+  gap:10px;
+  margin-bottom:-2px
+}
+body.page-cascade .cs-top-actions form{
+  margin:0
+}
+body.page-cascade .cs-top-actions .button{
+  min-height:43px;
+  min-width:170px;
+  justify-content:center
+}
 
-.cs-board-grid{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:14px;align-items:start}
-.cs-channel-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
-.cs-channel:nth-child(9){grid-column:1/-1}
-.cs-channel{min-height:112px;padding:16px;border:1px solid var(--sg-border);border-radius:13px;background:linear-gradient(180deg,rgba(255,255,255,.032),rgba(255,255,255,.016));box-shadow:0 10px 28px rgba(0,0,0,.10);transition:border-color .15s,box-shadow .15s,transform .15s}
-.cs-channel:hover{border-color:rgba(93,160,220,.34);box-shadow:0 12px 32px rgba(0,0,0,.14)}
-.cs-channel.state-active{border-color:#22c3f3;box-shadow:0 0 22px rgba(34,195,243,.16),inset 0 0 0 1px rgba(74,227,175,.35);background:linear-gradient(135deg,rgba(24,138,188,.12),rgba(34,210,157,.055))}
-.cs-channel.state-ready{border-color:rgba(74,210,145,.32)}
-.cs-channel.state-error{border-color:rgba(238,102,128,.34)}
-.cs-channel.state-checking{border-color:rgba(235,183,63,.36)}
-.cs-channel-top{display:grid;grid-template-columns:auto auto minmax(0,1fr) auto;align-items:center;gap:10px}
-.cs-channel-number{font:11px ui-monospace,SFMono-Regular,Consolas,monospace;opacity:.5}
-.cs-channel-icon{display:flex;width:32px;height:32px;align-items:center;justify-content:center;border-radius:9px;background:linear-gradient(180deg,rgba(44,132,204,.20),rgba(28,92,148,.20));font-weight:800;color:#75bcff;border:1px solid rgba(102,174,236,.12)}
-.cs-channel strong{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.cs-channel-pill{display:inline-flex;align-items:center;gap:5px;padding:4px 8px;border:1px solid var(--sg-border);border-radius:999px;font-size:10px;white-space:nowrap}
-.cs-channel-pill i{width:6px;height:6px;border-radius:50%;background:#728296}
-.cs-channel-pill.state-ready{color:#5edb96;border-color:rgba(94,219,150,.28);background:rgba(52,180,112,.08)}.cs-channel-pill.state-ready i{background:#37de84;box-shadow:0 0 9px rgba(55,222,132,.55)}
-.cs-channel-pill.state-active{color:#80efff;border-color:rgba(57,213,242,.38);background:rgba(33,168,201,.13)}.cs-channel-pill.state-active i{background:#49e49d;box-shadow:0 0 10px rgba(73,228,157,.65)}
-.cs-channel-pill.state-checking{color:#eac14d;background:rgba(234,193,77,.08)}.cs-channel-pill.state-checking i{background:#e4b72f}
-.cs-channel-pill.state-error{color:#ff7f95;background:rgba(226,70,101,.09)}.cs-channel-pill.state-error i{background:#f05a76}
-.cs-channel-meta{display:grid;grid-template-columns:auto 1fr;gap:7px 16px;margin:14px 0 0 52px;font-size:11px;opacity:.66}
-.cs-channel-meta span:last-child{overflow-wrap:anywhere}
+/* Status is a normal nested Connections section, not a separate dashboard sidebar. */
+body.page-cascade .cs-status-section{
+  display:grid;
+  gap:16px
+}
+body.page-cascade .cs-status-grid{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:var(--sg-ui-grid-gap,12px)
+}
+body.page-cascade .cs-status-grid>div{
+  display:grid;
+  gap:5px;
+  min-width:0;
+  min-height:64px;
+  padding:12px 13px;
+  border:1px solid var(--sg-line-soft);
+  border-radius:var(--sg-ui-nested-radius,10px);
+  background:var(--sg-panel)
+}
+body.page-cascade .cs-status-grid>div.wide{
+  grid-column:span 2
+}
+body.page-cascade .cs-status-grid span{
+  color:var(--sg-muted);
+  font-size:10px;
+  font-weight:760
+}
+body.page-cascade .cs-status-grid strong{
+  overflow-wrap:anywhere;
+  color:var(--sg-text);
+  font-size:12px;
+  line-height:1.45
+}
 
-.cs-summary{padding:17px;border:1px solid var(--sg-border);border-radius:13px;background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(255,255,255,.016));box-shadow:0 10px 28px rgba(0,0,0,.10)}
-.cs-summary-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding-bottom:12px;border-bottom:1px solid var(--sg-border)}
-.cs-summary-head h3{margin:0;font-size:14px}.cs-summary-head>span{display:inline-flex;align-items:center;gap:6px;font-size:10px;opacity:.72}.cs-summary-head>span i{width:7px;height:7px;border-radius:50%;background:#718095}.cs-summary-head>span.ok{color:#55d38e;opacity:1}.cs-summary-head>span.ok i{background:#38df82;box-shadow:0 0 8px rgba(56,223,130,.5)}
-.cs-summary dl{margin:0}.cs-summary dl>div{display:grid;grid-template-columns:118px minmax(0,1fr);gap:10px;padding:11px 0;border-bottom:1px solid rgba(255,255,255,.055);font-size:11px}.cs-summary dl>div:last-child{border-bottom:0}.cs-summary dt{opacity:.55}.cs-summary dd{margin:0;text-align:right;overflow-wrap:anywhere}.cs-summary dd.ok-text{color:#52da92;font-weight:700}.priority-list{font-size:10px;line-height:1.55}
-.cs-legend{display:flex;gap:18px;flex-wrap:wrap;margin-top:14px;font-size:10px;opacity:.68}.cs-legend span{display:inline-flex;align-items:center;gap:6px}.cs-legend i{width:8px;height:8px;border-radius:50%;background:#708095}.cs-legend i.ready{background:#36db81}.cs-legend i.active{background:#3aaeff;box-shadow:0 0 8px rgba(58,174,255,.6)}.cs-legend i.checking{background:#e7b737}.cs-legend i.error{background:#ef607d}
+/* Channel cards deliberately reuse xps2-choice visual behavior from Connections. */
+body.page-cascade .cs-channel-grid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:var(--sg-ui-grid-gap,12px);
+  margin-top:17px
+}
+body.page-cascade .cs-channel-grid>.cs-channel:nth-child(9){
+  grid-column:1/-1
+}
+body.page-cascade .cs-channel{
+  min-height:132px;
+  cursor:default
+}
+body.page-cascade .cs-channel:hover{
+  transform:none;
+  border-color:var(--sg-muted)
+}
+body.page-cascade .cs-channel.state-ready{
+  border-color:color-mix(in srgb,var(--sg-green) 46%,var(--sg-line));
+  background:color-mix(in srgb,var(--sg-green) 4%,var(--sg-panel))
+}
+body.page-cascade .cs-channel.state-active{
+  border-color:var(--sg-blue);
+  background:var(--sg-panel-soft);
+  box-shadow:inset 0 0 0 1px var(--sg-blue)
+}
+body.page-cascade .cs-channel.state-error{
+  border-color:color-mix(in srgb,var(--sg-red) 50%,var(--sg-line))
+}
+body.page-cascade .cs-channel.state-checking{
+  border-color:color-mix(in srgb,var(--sg-yellow) 55%,var(--sg-line))
+}
+body.page-cascade .cs-channel-head{
+  display:grid;
+  grid-template-columns:auto auto minmax(0,1fr) auto;
+  align-items:center;
+  gap:10px
+}
+body.page-cascade .cs-channel-number{
+  color:var(--sg-muted);
+  font:10px ui-monospace,SFMono-Regular,Consolas,monospace
+}
+body.page-cascade .cs-channel-icon{
+  display:grid;
+  place-items:center;
+  width:40px;
+  height:40px;
+  border:0;
+  border-radius:10px;
+  background:color-mix(in srgb,var(--sg-blue) 13%,var(--sg-panel));
+  color:var(--sg-blue);
+  font-size:14px;
+  font-weight:850
+}
+body.page-cascade .cs-channel-title{
+  display:grid;
+  gap:3px;
+  min-width:0
+}
+body.page-cascade .cs-channel-title>strong{
+  overflow:hidden;
+  color:var(--sg-text);
+  font-size:16px;
+  line-height:1.25;
+  text-overflow:ellipsis;
+  white-space:nowrap
+}
+body.page-cascade .cs-channel>p{
+  margin:16px 0 0 60px;
+  color:var(--sg-muted);
+  font-size:11px;
+  line-height:1.45
+}
+body.page-cascade .cs-channel-status{
+  margin-top:0
+}
+body.page-cascade .cs-channel-status.state-ready,
+body.page-cascade .cs-channel-status.state-active{
+  color:var(--sg-green)
+}
+body.page-cascade .cs-channel-status.state-checking{
+  color:var(--sg-yellow)
+}
+body.page-cascade .cs-channel-status.state-error{
+  color:var(--sg-red)
+}
+body.page-cascade .cs-legend{
+  display:flex;
+  align-items:center;
+  flex-wrap:wrap;
+  gap:15px;
+  margin-top:14px;
+  color:var(--sg-muted);
+  font-size:10px
+}
+body.page-cascade .cs-legend span{
+  display:inline-flex;
+  align-items:center;
+  gap:6px
+}
+body.page-cascade .cs-legend i{
+  width:7px;
+  height:7px;
+  border-radius:50%;
+  background:var(--sg-muted)
+}
+body.page-cascade .cs-legend i.ready{background:var(--sg-green)}
+body.page-cascade .cs-legend i.active{background:var(--sg-blue)}
+body.page-cascade .cs-legend i.checking{background:var(--sg-yellow)}
+body.page-cascade .cs-legend i.error{background:var(--sg-red)}
 
-.cs-setup-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-.cs-setup{display:flex;flex-direction:column;justify-content:space-between;gap:20px;min-height:200px;background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(255,255,255,.016))}
-.cs-setup h2{margin:6px 0}.cs-setup p{margin:0;opacity:.67;line-height:1.55}
-.cs-import-form{display:grid;gap:12px}.cs-import-form label{display:grid;gap:6px;font-size:11px}.cs-import-form input[type=text],.cs-import-form input[type=file],.cs-import-form textarea,.cs-mode-field select{box-sizing:border-box;width:100%;border:1px solid var(--sg-border);border-radius:9px;background:rgba(0,0,0,.13);color:inherit;padding:10px;font:inherit}.cs-import-form textarea{resize:vertical;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:10px}.cs-import-form details summary{cursor:pointer;font-size:11px;opacity:.7}.cs-family{display:flex;gap:16px;align-items:center}.cs-family label{display:flex;align-items:center;gap:6px}
+/* Gateway setup is a native two-column nested block. */
+body.page-cascade .cs-gateways{
+  display:grid;
+  gap:16px
+}
+body.page-cascade .cs-gateway-grid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:var(--sg-ui-grid-gap,12px)
+}
+body.page-cascade .cs-gateway-card{
+  display:grid;
+  align-content:start;
+  gap:14px;
+  min-width:0;
+  padding:15px;
+  border:1px solid var(--sg-line-soft);
+  border-radius:var(--sg-ui-nested-radius,10px);
+  background:var(--sg-panel)
+}
+body.page-cascade .cs-gateway-copy{
+  display:grid;
+  gap:6px
+}
+body.page-cascade .cs-gateway-copy h4{
+  margin:0;
+  color:var(--sg-text);
+  font-size:16px
+}
+body.page-cascade .cs-gateway-copy p{
+  margin:0;
+  color:var(--sg-muted);
+  font-size:11px;
+  line-height:1.5
+}
+body.page-cascade .cs-gateway-card>.button{
+  min-height:42px;
+  justify-content:center
+}
+body.page-cascade .cs-import-form{
+  display:grid;
+  gap:10px
+}
+body.page-cascade .cs-import-form>label,
+body.page-cascade .cs-mode-field{
+  display:grid;
+  gap:6px
+}
+body.page-cascade .cs-import-form label>span,
+body.page-cascade .cs-mode-field>span{
+  color:var(--sg-muted);
+  font-size:10px;
+  font-weight:750
+}
+body.page-cascade .cs-import-form input[type="text"],
+body.page-cascade .cs-import-form input[type="file"],
+body.page-cascade .cs-import-form textarea,
+body.page-cascade .cs-mode-field select{
+  width:100%;
+  min-height:var(--sg-ui-control-height,42px);
+  border-radius:var(--sg-ui-control-radius,9px)
+}
+body.page-cascade .cs-import-form textarea{
+  min-height:90px;
+  resize:vertical;
+  font-family:ui-monospace,SFMono-Regular,Consolas,monospace;
+  font-size:10px
+}
+body.page-cascade .cs-import-form details{
+  color:var(--sg-muted);
+  font-size:10px
+}
+body.page-cascade .cs-import-form summary{
+  cursor:pointer
+}
+body.page-cascade .cs-family{
+  display:flex;
+  align-items:center;
+  gap:16px
+}
+body.page-cascade .cs-family label{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  color:var(--sg-text);
+  font-size:11px
+}
+body.page-cascade .cs-import-form .button{
+  min-height:42px;
+  justify-content:center
+}
 
-.cs-mode{background:linear-gradient(180deg,rgba(255,255,255,.028),rgba(255,255,255,.014))}
-.cs-mode header{margin-bottom:15px}.cs-mode-form{display:grid;gap:14px}.cs-mode-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.cs-mode-cards label{display:flex;align-items:flex-start;gap:10px;padding:14px;border:1px solid var(--sg-border);border-radius:11px;background:rgba(255,255,255,.018);cursor:pointer}.cs-mode-cards label:has(input:checked){border-color:rgba(70,164,238,.6);box-shadow:inset 0 0 0 1px rgba(70,164,238,.12);background:rgba(37,121,184,.08)}.cs-mode-cards span{display:grid;gap:4px}.cs-mode-cards small{opacity:.6;line-height:1.4}.cs-mode-field{display:grid;gap:6px;font-size:11px}
-.cs-priority-field{display:grid;gap:10px}
-.cs-priority-head{display:flex;align-items:flex-end;justify-content:space-between;gap:12px}.cs-priority-head>div{display:grid;gap:4px}.cs-priority-head strong{font-size:12px}.cs-priority-head small{font-size:10px;opacity:.58}
-.cs-priority-list{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}
-.cs-priority-item{display:grid;grid-template-columns:auto auto minmax(0,1fr) auto;align-items:center;gap:8px;min-height:48px;padding:8px 10px;border:1px solid var(--sg-border);border-radius:10px;background:linear-gradient(180deg,rgba(255,255,255,.025),rgba(255,255,255,.012));cursor:grab}
-.cs-priority-item.dragging{opacity:.45;border-color:#4ca8ed}
-.cs-priority-rank{display:flex;width:24px;height:24px;align-items:center;justify-content:center;border-radius:7px;background:rgba(44,132,204,.12);font:10px ui-monospace,SFMono-Regular,Consolas,monospace;color:#76bcf3}
-.cs-priority-grip{opacity:.42;letter-spacing:-3px;font-size:15px}.cs-priority-item strong{font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.cs-priority-actions{display:flex;gap:4px}.cs-priority-move{display:flex;width:27px;height:27px;align-items:center;justify-content:center;border:1px solid var(--sg-border);border-radius:7px;background:rgba(255,255,255,.02);color:inherit;cursor:pointer}.cs-priority-move:hover{border-color:rgba(92,166,226,.48);background:rgba(53,126,185,.08)}
-.cs-note{display:flex;align-items:center;justify-content:space-between;gap:20px}.cs-note p{margin:5px 0 0;opacity:.66}
+/* Mode selector uses native nested cards, without an extra outer skin. */
+body.page-cascade .cs-mode{
+  display:grid;
+  gap:16px
+}
+body.page-cascade .cs-mode-form{
+  display:grid;
+  gap:14px
+}
+body.page-cascade .cs-mode-cards{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:var(--sg-ui-grid-gap,12px)
+}
+body.page-cascade .cs-mode-cards label{
+  display:flex;
+  align-items:flex-start;
+  gap:10px;
+  min-width:0;
+  padding:13px;
+  border:1px solid var(--sg-line-soft);
+  border-radius:var(--sg-ui-nested-radius,10px);
+  background:var(--sg-panel);
+  cursor:pointer
+}
+body.page-cascade .cs-mode-cards label:has(input:checked){
+  border-color:var(--sg-blue);
+  background:var(--sg-panel-soft);
+  box-shadow:inset 0 0 0 1px var(--sg-blue)
+}
+body.page-cascade .cs-mode-cards span{
+  display:grid;
+  gap:4px
+}
+body.page-cascade .cs-mode-cards strong{
+  color:var(--sg-text);
+  font-size:12px
+}
+body.page-cascade .cs-mode-cards small{
+  color:var(--sg-muted);
+  font-size:10px;
+  line-height:1.4
+}
+body.page-cascade .cs-priority-field{
+  display:grid;
+  gap:10px
+}
+body.page-cascade .cs-priority-head>div{
+  display:grid;
+  gap:4px
+}
+body.page-cascade .cs-priority-head strong{
+  color:var(--sg-text);
+  font-size:11px
+}
+body.page-cascade .cs-priority-head small{
+  color:var(--sg-muted);
+  font-size:10px
+}
+body.page-cascade .cs-priority-list{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:9px
+}
+body.page-cascade .cs-priority-item{
+  display:grid;
+  grid-template-columns:auto auto minmax(0,1fr) auto;
+  align-items:center;
+  gap:8px;
+  min-width:0;
+  min-height:48px;
+  padding:8px 10px;
+  border:1px solid var(--sg-line-soft);
+  border-radius:var(--sg-ui-nested-radius,10px);
+  background:var(--sg-panel);
+  cursor:grab
+}
+body.page-cascade .cs-priority-item.dragging{
+  opacity:.45;
+  border-color:var(--sg-blue)
+}
+body.page-cascade .cs-priority-rank{
+  display:grid;
+  place-items:center;
+  width:24px;
+  height:24px;
+  border-radius:7px;
+  background:color-mix(in srgb,var(--sg-blue) 13%,var(--sg-panel));
+  color:var(--sg-blue);
+  font:10px ui-monospace,SFMono-Regular,Consolas,monospace
+}
+body.page-cascade .cs-priority-grip{
+  color:var(--sg-muted);
+  font-size:14px;
+  letter-spacing:-3px
+}
+body.page-cascade .cs-priority-item>strong{
+  overflow:hidden;
+  color:var(--sg-text);
+  font-size:11px;
+  text-overflow:ellipsis;
+  white-space:nowrap
+}
+body.page-cascade .cs-priority-actions{
+  display:flex;
+  gap:4px
+}
+body.page-cascade .cs-priority-move{
+  display:grid;
+  place-items:center;
+  width:28px;
+  height:28px;
+  border:1px solid var(--sg-line);
+  border-radius:8px;
+  background:var(--sg-panel-deep);
+  color:var(--sg-text);
+  cursor:pointer
+}
+body.page-cascade .cs-priority-move:hover{
+  border-color:var(--sg-blue)
+}
+body.page-cascade .cs-mode-actions{
+  display:flex;
+  justify-content:flex-end
+}
+body.page-cascade .cs-mode-actions .button{
+  min-width:180px;
+  min-height:43px;
+  justify-content:center
+}
 
-@media(max-width:1360px){.cs-board-grid{grid-template-columns:minmax(0,1fr) 300px}.cs-channel-meta{grid-template-columns:1fr;margin-left:52px}}
-@media(max-width:1180px){.cs-board-grid{grid-template-columns:1fr}.cs-summary{order:-1}.cs-chain{grid-template-columns:1fr}.cs-arrow{min-height:16px;transform:rotate(90deg)}}
-@media(max-width:900px){.cs-channel-grid{grid-template-columns:1fr}.cs-channel:nth-child(9){grid-column:auto}.cs-setup-grid{grid-template-columns:1fr}.cs-board-head,.cs-heading,.cs-note{align-items:stretch;flex-direction:column}.cs-toolbar{justify-content:flex-start}.cs-priority-list{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media(max-width:620px){.cs-mode-cards,.cs-priority-list{grid-template-columns:1fr}.cs-summary dl>div{grid-template-columns:1fr}.cs-summary dd{text-align:left}.cs-channel-top{grid-template-columns:auto auto 1fr}.cs-channel-pill{grid-column:3}.cs-channel-meta{margin-left:0}}
+/* Bottom note is literally the same Connections note component. */
+body.page-cascade .cs-note{
+  padding:var(--sg-ui-card-pad,18px)
+}
+
+/* Light theme follows the shared panel variables; no separate palette. */
+@media(max-width:1180px){
+  body.page-cascade .cs-flow{
+    grid-template-columns:1fr
+  }
+  body.page-cascade .cs-flow>b{
+    min-height:14px;
+    transform:rotate(90deg)
+  }
+  body.page-cascade .cs-status-grid{
+    grid-template-columns:repeat(2,minmax(0,1fr))
+  }
+  body.page-cascade .cs-status-grid>div.wide{
+    grid-column:1/-1
+  }
+}
+@media(max-width:900px){
+  body.page-cascade .cs-channel-grid,
+  body.page-cascade .cs-gateway-grid{
+    grid-template-columns:1fr
+  }
+  body.page-cascade .cs-channel-grid>.cs-channel:nth-child(9){
+    grid-column:auto
+  }
+  body.page-cascade .cs-mode-cards{
+    grid-template-columns:1fr
+  }
+  body.page-cascade .cs-priority-list{
+    grid-template-columns:repeat(2,minmax(0,1fr))
+  }
+}
+@media(max-width:650px){
+  body.page-cascade .cs-content{
+    margin:14px
+  }
+  body.page-cascade .cs-content>.sg-ui-rail{
+    padding:14px
+  }
+  body.page-cascade .cs-status-grid,
+  body.page-cascade .cs-priority-list{
+    grid-template-columns:1fr
+  }
+  body.page-cascade .cs-status-grid>div.wide{
+    grid-column:auto
+  }
+  body.page-cascade .cs-channel-head{
+    grid-template-columns:auto auto minmax(0,1fr)
+  }
+  body.page-cascade .cs-channel-status{
+    grid-column:3
+  }
+  body.page-cascade .cs-channel>p{
+    margin-left:0
+  }
+  body.page-cascade .cs-top-actions{
+    align-items:stretch;
+    flex-direction:column
+  }
+  body.page-cascade .cs-top-actions form,
+  body.page-cascade .cs-top-actions .button{
+    width:100%
+  }
+}
