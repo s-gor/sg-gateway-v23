@@ -71,8 +71,16 @@ printf 'Системные пакеты Ubuntu (nginx, certbot, ufw, Python и �
 if [[ -n "$TLS_DOMAIN" ]]; then
   printf 'Также будет удалён сертификат Let\x27s Encrypt, принадлежащий SG-Gateway: %s\n' "$TLS_DOMAIN"
 fi
-printf '\nДля подтверждения введите точно: %sDELETE SG-GATEWAY%s\n' "$YELLOW" "$RESET"
-read -r -p '> ' CONFIRM < /dev/tty
+CONFIRM="${SG_GATEWAY_UNINSTALL_CONFIRM:-}"
+if [[ "$CONFIRM" != "DELETE SG-GATEWAY" ]]; then
+  printf '\nДля подтверждения введите точно: %sDELETE SG-GATEWAY%s\n' "$YELLOW" "$RESET"
+  if [[ ! -c /dev/tty ]] || ! { : < /dev/tty; } 2>/dev/null; then
+    printf '[SG-Gateway] Интерактивный терминал недоступен.\n' >&2
+    printf '[SG-Gateway] Для non-interactive удаления передайте SG_GATEWAY_UNINSTALL_CONFIRM="DELETE SG-GATEWAY".\n' >&2
+    exit 2
+  fi
+  read -r -p '> ' CONFIRM < /dev/tty
+fi
 [[ "$CONFIRM" == "DELETE SG-GATEWAY" ]] || { echo "Удаление отменено."; exit 0; }
 
 : > "$UNINSTALL_LOG"
