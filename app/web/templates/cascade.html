@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+{% block title %}SG-Gateway · Каскад{% endblock %}
+
+{% block page_styles %}
+  <link rel="stylesheet" href="{{ static_asset('sg-ui-cascade-v23-02.css') }}">
+{% endblock %}
+
+{% block content %}
+<section class="cs-page sg-ui-page" data-sg-ui-page="cascade">
+  <header class="cs-heading sg-ui-page-head">
+    <div>
+      <div class="cs-kicker"><span></span> SG-GATEWAY / КАСКАД</div>
+      <h1>Каскад</h1>
+      <p>Два SG-Gateway последовательно: первый принимает клиента, второй выпускает трафик в интернет.</p>
+    </div>
+    <span class="cs-status {{ 'ok' if cascade.enabled else ('ready' if cascade.configured else '') }}">
+      <span></span>{{ 'Активен' if cascade.enabled else ('Настроен' if cascade.configured else 'Не настроен') }}
+    </span>
+  </header>
+
+  <section class="cs-path sg-ui-section" data-sg-section="cascade-path">
+    <header class="sg-ui-section-head">
+      <div>
+        <h2>Схема подключения</h2>
+        <p>Клиент знает только первый сервер. Выход в интернет выполняет второй SG-Gateway.</p>
+      </div>
+    </header>
+    <div class="cs-chain" aria-label="Схема каскада">
+      <div class="cs-node">
+        <small>ВХОД</small>
+        <strong>Клиент</strong>
+        <span>SG-Mobile / SG-Client</span>
+      </div>
+      <div class="cs-arrow">→</div>
+      <div class="cs-node current">
+        <small>GATEWAY A</small>
+        <strong>{{ server_identity.name }}</strong>
+        <span>Первый SG-Gateway</span>
+      </div>
+      <div class="cs-arrow">→</div>
+      <div class="cs-node {{ 'active' if cascade.configured else '' }}">
+        <small>GATEWAY B</small>
+        <strong>{{ cascade.name if cascade.configured else 'Второй SG-Gateway' }}</strong>
+        <span>{{ cascade.endpoint if cascade.endpoint else 'Не настроен' }}</span>
+      </div>
+      <div class="cs-arrow">→</div>
+      <div class="cs-node">
+        <small>ВЫХОД</small>
+        <strong>Интернет</strong>
+        <span>IP второго сервера</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="cs-state sg-ui-section" data-sg-section="cascade-state">
+    <header class="sg-ui-section-head">
+      <div>
+        <h2>Второй сервер</h2>
+        <p>Состояние сервер-серверного выхода Xray.</p>
+      </div>
+    </header>
+
+    <div class="cs-facts">
+      <div><small>Состояние</small><strong>{{ 'Активен' if cascade.enabled else ('Выключен' if cascade.configured else 'Не настроен') }}</strong></div>
+      <div><small>Протокол</small><strong>{{ cascade.protocol|upper if cascade.protocol else '—' }}</strong></div>
+      <div><small>Endpoint</small><strong>{{ cascade.endpoint if cascade.endpoint else '—' }}</strong></div>
+      <div><small>IPv4</small><strong>{{ 'Готов' if cascade.ipv4_ready else 'Нет' }}</strong></div>
+      <div><small>IPv6</small><strong>{{ 'Готов' if cascade.ipv6_ready else 'Нет' }}</strong></div>
+    </div>
+
+    {% if cascade.configured %}
+    <div class="cs-actions sg-ui-actions">
+      {% if cascade.enabled %}
+      <form method="post" action="{{ url_for('cascade_disable') }}"
+            data-sg-confirm="Выключить Каскад? Параметры второго сервера останутся сохранены."
+            data-sg-confirm-title="Выключить Каскад"
+            data-sg-confirm-button="Выключить">
+        <button class="cs-secondary" type="submit">Отключить</button>
+      </form>
+      {% else %}
+      <form method="post" action="{{ url_for('cascade_enable') }}">
+        <button class="cs-primary" type="submit">Включить</button>
+      </form>
+      {% endif %}
+    </div>
+    {% endif %}
+  </section>
+
+  <section class="cs-config sg-ui-section" data-sg-section="cascade-config">
+    <header class="sg-ui-section-head">
+      <div>
+        <h2>{{ 'Изменить второй сервер' if cascade.configured else 'Добавить второй SG-Gateway' }}</h2>
+        <p>Используется готовый Xray VLESS outbound второго SG-Gateway. Параметры Reality/TLS и transport сохраняются без преобразований.</p>
+      </div>
+    </header>
+
+    <form class="cs-form" method="post" action="{{ url_for('cascade_save') }}">
+      <label class="cs-field">
+        <span>Название</span>
+        <input type="text" name="name" maxlength="80" value="{{ cascade.name if cascade.configured else 'Gateway B' }}" autocomplete="off">
+        <small>Например: Amsterdam, Frankfurt или Gateway B.</small>
+      </label>
+
+      <div class="cs-family">
+        <span>Разрешённые семейства выхода</span>
+        <label><input type="checkbox" name="ipv4_ready" value="1" {% if not cascade.configured or cascade.ipv4_ready %}checked{% endif %}> IPv4</label>
+        <label><input type="checkbox" name="ipv6_ready" value="1" {% if cascade.ipv6_ready %}checked{% endif %}> IPv6</label>
+      </div>
+
+      <label class="cs-field cs-json">
+        <span>Xray VLESS outbound</span>
+        <textarea name="outbound_json" rows="14" spellcheck="false" placeholder='{"protocol":"vless","settings":{"vnext":[...]}, "streamSettings":{...}}'></textarea>
+        <small>Секреты не показываются обратно в интерфейсе. Для изменения вставьте полный outbound заново.</small>
+      </label>
+
+      <div class="cs-form-actions">
+        <button class="cs-primary" type="submit">{{ 'Сохранить изменения' if cascade.configured else 'Добавить сервер' }}</button>
+      </div>
+    </form>
+  </section>
+
+  <section class="cs-note sg-ui-section" data-sg-section="cascade-note">
+    <div>
+      <strong>Каскад и Routing — разные уровни.</strong>
+      <p>Здесь настраивается второй SG-Gateway. Какие потоки отправлять через него, определяет Routing. Автоматического обхода через обычный Direct при отказе второго сервера нет.</p>
+    </div>
+    <a class="cs-secondary" href="{{ url_for('routing') }}">Открыть Routing</a>
+  </section>
+</section>
+{% endblock %}
