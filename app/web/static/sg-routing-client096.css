@@ -306,3 +306,5 @@ html[data-theme="light"] body.page-routing .r096-choice-card input:checked + spa
   color: #FFFFFF;
   box-shadow: 0 10px 22px rgba(69, 111, 92, .20), 0 2px 5px rgba(43, 52, 46, .12);
 }
+
+.r096-rule-list .route-cascade { background: rgba(108, 211, 169, .13); color: #6CD3A9; }
