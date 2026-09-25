@@ -647,6 +647,8 @@ SMART_PRESET_TITLES = {
     "strict": "Strict · усиленная фильтрация",
     "blocked_warp": "Ресурсы, заблокированные в РФ через WARP · IPv4",
     "all_warp": "Весь интернет через WARP · IPv4",
+    "blocked_cascade": "Ресурсы, заблокированные в РФ через Каскад · IPv4",
+    "all_cascade": "Весь интернет через Каскад · IPv4",
     "custom": "Пользовательская схема",
 }
 SMART_ACTIONS = {"direct", "warp", "direct4", "direct6", "warp4", "warp6", "cascade4", "cascade6", "block"}
@@ -782,6 +784,12 @@ def _smart_apply_preset(state: dict) -> dict:
         state["blocked_action"] = "warp4"
         state["ads_action"] = "warp4"
         state["default_action"] = "warp4"
+    elif preset == "blocked_cascade":
+        state["blocked_action"] = "cascade4"
+    elif preset == "all_cascade":
+        state["blocked_action"] = "cascade4"
+        state["ads_action"] = "cascade4"
+        state["default_action"] = "cascade4"
     return state
 
 
@@ -935,7 +943,7 @@ def _smart_build(state: dict) -> dict:
                 state["blocked_action"],
                 domains=[f"geosite:{category}"] if category else [],
                 missing=[] if category else ["geosite:ru-blocked"],
-                required=state["preset"] == "blocked_warp",
+                required=state["preset"] in {"blocked_warp", "blocked_cascade"},
             )
         )
 
