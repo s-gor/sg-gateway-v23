@@ -115,8 +115,8 @@ def test_cascade_uses_two_channel_cards_per_row_and_visual_priority():
     js = Path("app/web/static/sg-cascade-v23-02.js").read_text(encoding="utf-8")
 
     assert "grid-template-columns:repeat(2,minmax(0,1fr))" in css
-    assert ".cs-channel-grid>.cs-channel:nth-child(9)" in css
-    assert "grid-column:1/-1" in css
+    assert "body.page-cascade .cs-channel-grid" in css
+    assert "grid-template-columns:repeat(2,minmax(0,1fr))" in css
     assert "Порядок каналов" in template
     assert "data-cascade-priority-list" in template
     assert "data-cascade-priority-input" in template
@@ -147,17 +147,27 @@ def test_cascade_reuses_native_connections_visual_components():
 
     for klass in (
         "cnv1-heading",
+        "cnv1-heading-actions",
         "cnv1-engine-card",
         "cnv1-engine-head",
         "cnv1-engine-title",
         "cnv1-engine-status",
         "cnv1-endpoint-card",
+        "cnv1-endpoint-main",
+        "cnv1-port-chip",
         "xps2-panel",
+        "xps2-top-actions",
         "xps2-selection",
         "xps2-section-head",
+        "xps2-choice-grid",
         "xps2-choice",
+        "xps2-choice-topline",
         "xps2-choice-status",
         "xps2-parameters",
+        "xps2-parameter-list",
+        "xps2-parameter-row",
+        "cnv1-compact-protocol-grid",
+        "cnv1-compact-protocol-card",
         "cnv1-note-panel",
         "button primary",
     ):
@@ -168,4 +178,16 @@ def test_cascade_reuses_native_connections_visual_components():
     assert "cs-board" not in template
     assert "cs-summary" not in template
     assert "cs-setup-grid" not in template
-    assert "Native Connections components provide the visual language" in css
+    assert "The page intentionally mirrors Connections" in css
+
+
+def test_cascade_channel_card_markup_matches_connections_profile_cards():
+    template = Path("app/web/templates/cascade.html").read_text(encoding="utf-8")
+    start = template.index('<article class="xps2-choice cs-channel')
+    sample = template[start:start + 1600]
+    assert "xps2-choice-topline" in sample
+    assert "<strong>{{ channel.title }}</strong>" in sample
+    assert "<p>" in sample
+    assert "xps2-choice-status" in sample
+    assert "cs-channel-head" not in sample
+    assert "cs-channel-icon" not in sample
