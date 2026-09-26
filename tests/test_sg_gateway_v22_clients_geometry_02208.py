@@ -54,6 +54,20 @@ def _assert_same_rail(page, selectors):
     return geometry
 
 
+def _assert_clients_frame(page, selectors, viewport):
+    geometry = {selector: rect(page, selector) for selector in selectors}
+    root = geometry[selectors[0]]
+    head = geometry[selectors[1]]
+    _assert_close(root["x"], head["x"])
+    _assert_close(root["width"], head["width"])
+
+    inset = 11.0 if viewport["width"] <= 760 else 19.0
+    for selector in selectors[2:]:
+        _assert_close(root["x"] + inset, geometry[selector]["x"])
+        _assert_close(root["width"] - 2 * inset, geometry[selector]["width"])
+    return geometry
+
+
 def test_02208_clients_and_detail_share_canonical_rail_and_theme_geometry(tmp_path, monkeypatch):
     app, client_id = _setup_app(tmp_path, monkeypatch)
     pages = (
@@ -83,7 +97,10 @@ def test_02208_clients_and_detail_share_canonical_rail_and_theme_geometry(tmp_pa
                         assert page.evaluate(
                             "document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1"
                         )
-                        theme_geometry[theme] = _assert_same_rail(page, selectors)
+                        if path == "/clients":
+                            theme_geometry[theme] = _assert_clients_frame(page, selectors, viewport)
+                        else:
+                            theme_geometry[theme] = _assert_same_rail(page, selectors)
                         page.close()
                     for selector in selectors:
                         for key in ("x", "width"):
