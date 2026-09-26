@@ -34,7 +34,7 @@ def test_same_ec2_retry_identity_ip_country_and_password_only_prompt():
         "SG_GATEWAY_CREATE_SG_ADMIN",
         "SG_GATEWAY_SERVER_NAME",
         "SG_GATEWAY_COUNTRY_CODE",
-        "Повторный запуск выполняется на этом же EC2",
+        "Повторный запуск выполняется на этом же Server",
     ):
         assert token in INSTALLER
     assert "installer_port_preflight" not in INSTALLER
