@@ -83,7 +83,7 @@ def test_installer_keeps_warp_manual_and_hides_links():
     assert "helper установлен; создаётся при необходимости в Outbounds" in source
     assert "существующий профиль сохранён" in source
     assert "Первый клиент sg-admin: создан" in source
-    assert "Первый VPN-клиент sg-admin будет создан автоматически" in source
+    assert 'CREATE_SG_ADMIN="1"' in source
     final = source.rsplit("INSTALL_SUCCESS=1", 1)[1]
     assert "subscription-base64" not in final
     assert "Ссылки первого клиента" not in source
