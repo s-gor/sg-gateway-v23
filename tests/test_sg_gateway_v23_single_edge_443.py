@@ -88,3 +88,25 @@ def test_single_edge_router_has_deterministic_sni_routes_and_reality_fallback():
     assert 'SG_GATEWAY_XHTTP_REALITY_SNI' in text
     assert 'SG_GATEWAY_TLS_EDGE_SNI' in text
     assert 'ssl_preread on;' in text
+
+
+def test_installer_summary_reports_public_edge_and_preserves_sg_version():
+    text = (ROOT / "install.sh").read_text(encoding="utf-8")
+
+    assert 'VERSION="0.1.0-023.01"' in text
+    assert 'PUBLIC_EDGE_PORT="443"' in text
+
+    require_start = text.index("require_supported_ubuntu() {")
+    require_end = text.index("\nprepare_log() {", require_start)
+    require_block = text[require_start:require_end]
+    assert 'os_id="$(. /etc/os-release;' in require_block
+    assert 'os_pretty="$(. /etc/os-release;' in require_block
+    assert "\n  . /etc/os-release\n" not in require_block
+
+    assert 'printf "[SG-Gateway] AmneziaWG 3.1: UDP %s\\n" "$PUBLIC_EDGE_PORT"' in text
+    assert "printf '[SG-Gateway] NaiveProxy:   %s · TCP %s\\n' \"$NAIVEPROXY_VERSION\" \"$PUBLIC_EDGE_PORT\"" in text
+
+    # Internal/retired runtime ports must not be presented as the client-facing
+    # ports in the installer summary.
+    assert 'printf "[SG-Gateway] AmneziaWG: UDP %s\\n" "$AWG_PORT"' not in text
+    assert "printf '[SG-Gateway] NaiveProxy:   %s · TCP %s\\n' \"$NAIVEPROXY_VERSION\" \"$NAIVEPROXY_PORT\"" not in text
