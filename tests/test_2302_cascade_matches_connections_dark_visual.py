@@ -8,13 +8,13 @@ STATIC = ROOT / "app" / "web" / "static"
 
 def test_cascade_loads_the_connections_dark_classic_layer():
     source = BASE.read_text(encoding="utf-8")
-    assert "active_page|default('') in ['connections', 'cascade']" in source
+    assert "active_page|default('') in ['connections', 'cascade', 'security']" in source
     assert "sg-connections-dark-classic-v1.css" in source
 
 
 def test_connections_dark_classic_layer_targets_cascade_too():
     css = (STATIC / "sg-connections-dark-classic-v1.css").read_text(encoding="utf-8")
-    shared = 'html[data-theme="dark"] body:is(.page-connections, .page-cascade)'
+    shared = 'html[data-theme="dark"] body:is(.page-connections, .page-cascade, .page-security)'
     assert shared in css
     assert 'html[data-theme="dark"] body.page-connections' not in css
 
