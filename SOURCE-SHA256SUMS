@@ -216,7 +216,7 @@ f3361c2a8e2dd91af6e53ad65402f36cebc29ea44be8c125369d3062b02d2ae8  app/web/static
 dac6739b39c581a57a09201da28cb091b9a9d286321beafc830b12d2121aa0f6  app/web/static/sg-mihomo-v1.css
 4c17eaabb6bbf5c305e6a8b4479596fd96a2d521d6c690fd9b259a16d7de93de  app/web/static/sg-mihomo-v2.css
 8fc232b2c4fafab7e6b81571aa110689c5c472d751d40c3441c06c7094a9cc29  app/web/static/sg-mobile-sidebar-v1.css
-8add120e9133e62f3d2ed959ce0951140b06fff05b666cdca654405ac88f8896  app/web/static/sg-page-frame-routing-v1.css
+a1e053b3c1518270fefe8c9ab43a8b4efa3659341ad21d9998b657e7204b8c3e  app/web/static/sg-page-frame-routing-v1.css
 536cd37ecff12adeb53eed63eb416f725d7b3c56a6ac037cfcb02d24abc2e379  app/web/static/sg-panel-shell-v1.css
 99edb9851b1142a9db96bdec973d6ac0dc6363bc4e7e2cefd81b9590f64e9f07  app/web/static/sg-preview27-final.css
 3af912049d0e8e4146d3ad0e4cba47c209f6a6bef9da46bce9b0749cd97f83a7  app/web/static/sg-preview28-final.css
@@ -263,8 +263,8 @@ ebba59e1ea1f65815571b35de458c4c4675b026877e0e57a4aaed873fc5663bf  app/web/static
 72a56dabf78bcd3c3e9ecbd456427a507549c0b0ebc9ce0c2f569fd0a6bb5a94  app/web/static/sg-ui-layout-v22-08.css
 ca262e98eb1471f121da51cf1905374f3175241a7361bff9b48f3fcafe29a363  app/web/static/sg-ui-maintenance-v22-08.css
 68e95cbf023cecfea5cc3452f06ee4975b982e339d5034e406ad5ca3748780bd  app/web/static/sg-ui-operation-job-v22-08.css
-4a2298ed1d7293f6e449727abcd083ad998eeb372e45434d35147fa0105f1d06  app/web/static/sg-ui-outbounds-v22-08.css
-2ed7248a1047fdb308bb2c1cb797e8f55941c4ecffa1550f96111eb8f3c86493  app/web/static/sg-ui-routing-v22-08.css
+137ad321305f7119d608ab78bd0b63337e6b71a29d5062dd396f5007d17d4034  app/web/static/sg-ui-outbounds-v22-08.css
+c0c6bd6cb3b3f60d4f8d2153a420dc2cbfb3e377143e561e0a4e47d8eb4cdaff  app/web/static/sg-ui-routing-v22-08.css
 734859064dae79a4d59a5f6b927f191974c3574b3d8294955093c3cee356db38  app/web/static/sg-ui-security-v22-08.css
 70d935b2c53495fd00ebafba17c1f9988d8d15a071cf048ff0fcbd3236656839  app/web/static/sg-ui-standalone-v22-08.css
 c1bbad25902c0e7e9881be58d3311451a3dc5b396e78ffc29014ea315b58b0e6  app/web/static/sg-ui-system-v22-08.css
@@ -319,7 +319,7 @@ c88004ebb17873ea0bbcfd052fd06ccf3a330007ec101878207508981cb3aae3  CHANGELOG.md
 36daeb7fd18c61113b87d012ba03c7db2391a9685d599e7ca680730c10f4879f  data/system-activity.json
 93ed1044da984f36fd7118b5f858cbadf1f1e121d706990ba25d3d7cbc24b477  deploy/configure-panel-access.sh
 00033541ac215dcdc1f0f0b1387da25a1fd33c0a36fd5188a981f38458247643  deploy/full-uninstall-02207.sh
-763fae144a51c42fa4ec36c27d0db1260a97af6e67a8ae5ed7d9030ccb790b74  deploy/full-uninstall-ubuntu.sh
+0f279e83e5d25e3910c04b8aaa78725eca45a189de19ebeef1798e4b74ee1464  deploy/full-uninstall-ubuntu.sh
 427bfcbdee18ac8896e57c9aef4a9b93d8dd468b42809fb05b3dc56134eccca9  deploy/GITHUB-COMMANDS.md
 f59757be47be58583cda4d4beb17222af861de192b27cfeb3e4fc9bcad61d689  deploy/install-core.sh
 dcad2da35a72d0836248ec8c3d10956180c0cfc453a1e813878f1a4d059cc7bb  deploy/install-from-github-02207.sh
@@ -454,7 +454,7 @@ eff4c911a0b3325741092f32d1f81c610c8ac220ce5451621549236469f52c4d  hostd/sg_hostd
 a1f9dcf7431c5ff25a3e3957cc72dd11c8c752cbad5cd7af84ee005109ee7dc3  hostd/systemd/sg-hostd.service
 c2d29ada38f96fb646484194c2c297828048295105e4b05d8b3319086c490162  hostd/tests/test_app.py
 d2c75499d6289dd6d644f53e1ce9032c137e050d4cd153e3a582bda2fa543189  hostd/tests/test_commands.py
-918a7e17596206c1d261b92f32ed1f161947ec1c0d0e654a440c339e099592ee  install.sh
+ea6051c8ea42adc000ec7d98c2bdad15ff0acc81aa8be8d780f52ceea74f03d5  install.sh
 52624fc8f3aeeb5ced4c2b2f0e56965719ba722100af742e33ba21b53b397d2f  pyproject.toml
 294f2a7cd9e4bc5e9cd213af2c29e9f768b100a874ec79301500114045fc95bd  README.md
 1d66513aab04feac751b3464b54b5cacbe8e4ab3fdfb75a068f7c75e97b38659  release-manifest.json
