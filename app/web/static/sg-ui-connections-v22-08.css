@@ -1,6 +1,54 @@
 /* SG-Gateway 22.08 Connections composition.
    Global shell and outer page rail belong to sg-ui-layout-v22-08.css. */
 
+/* Connections now follows the exact outer page/header contract used by
+   System and Security. Keep protocol-card internals page-specific. */
+[data-sg-ui-page="connections"] {
+  width: 100%;
+  max-width: none;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+}
+
+[data-sg-ui-page="connections"] > .sg-ui-page-head,
+[data-sg-ui-page="connections"] > [data-sg-section] {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: none;
+  min-width: 0;
+  margin-inline: 0;
+}
+
+.sg-ui-connections-head {
+  min-height: 68px;
+  padding-block: 4px 10px;
+  border-bottom: 1px solid var(--sg-ui-border);
+}
+
+.sg-ui-connections-head > div:first-child {
+  min-width: 0;
+}
+
+.sg-ui-connections-head h1 {
+  font-size: 27px;
+  line-height: 1.05;
+}
+
+.sg-ui-connections-head .sg-ui-actions {
+  min-width: 0;
+}
+
+@media (max-width: 760px) {
+  .sg-ui-connections-head {
+    min-height: 0;
+  }
+
+  .sg-ui-connections-head .sg-ui-actions {
+    width: 100%;
+  }
+}
+
 body.page-connections .cnv1-page.sg-ui-page {
   gap: var(--sg-ui-page-gap, 18px);
 }
