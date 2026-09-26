@@ -8,13 +8,13 @@ STATIC = ROOT / "app" / "web" / "static"
 
 def test_security_loads_shared_connections_dark_layer():
     source = BASE.read_text(encoding="utf-8")
-    assert "active_page|default('') in ['connections', 'cascade', 'security']" in source
+    assert "active_page|default('') in ['connections', 'cascade', 'security', 'clients']" in source
     assert "sg-connections-dark-classic-v1.css" in source
 
 
 def test_shared_dark_palette_scope_includes_security():
     css = (STATIC / "sg-connections-dark-classic-v1.css").read_text(encoding="utf-8")
-    scope = 'html[data-theme="dark"] body:is(.page-connections, .page-cascade, .page-security)'
+    scope = 'html[data-theme="dark"] body:is(.page-connections, .page-cascade, .page-security, .page-clients)'
     assert scope in css
 
 
