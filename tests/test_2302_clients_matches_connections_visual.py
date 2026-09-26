@@ -23,15 +23,14 @@ def test_clients_typography_matches_connections_scale():
         assert fragment in readable
 
     page = (STATIC / "sg-ui-clients-v22-08.css").read_text(encoding="utf-8")
-    for fragment in (
-        "min-height: 68px;",
-        "padding: 4px 0 10px;",
-        "font-size: 27px;",
-        "line-height: 1.05;",
-        "min-height: 43px;",
-        "font-size: 9px;",
-    ):
-        assert fragment in page
+    visual = (STATIC / "sg-clients-visual-v2.css").read_text(encoding="utf-8")
+    assert "min-height: 68px;" in page
+    assert "padding: 4px 0 10px;" in page
+    assert '[data-sg-ui-page="clients"] > .sg-ui-page-head h1' not in page
+    assert ".cv2-heading h1 {" in visual
+    assert "font-size: clamp(31px, 2.25vw, 38px);" in visual
+    assert "min-height: 43px;" in page
+    assert "font-size: 9px;" in page
 
 
 def test_clients_uses_connections_dark_palette_and_depth():
