@@ -29,6 +29,9 @@ def test_clients_typography_matches_connections_scale():
     assert '[data-sg-ui-page="clients"] > .sg-ui-page-head h1' not in page
     assert ".cv2-heading h1 {" in visual
     assert "font-size: clamp(31px, 2.25vw, 38px);" in visual
+
+    legacy = (STATIC / "sg-page-frame-routing-v1.css").read_text(encoding="utf-8")
+    assert ":is(.cv2-heading.cv15-heading, .ob49-heading, .mtv2-heading, .hlpv1-heading) h1" not in legacy
     assert "min-height: 43px;" in page
     assert "font-size: 9px;" in page
 
