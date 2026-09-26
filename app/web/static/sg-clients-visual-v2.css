@@ -348,17 +348,10 @@
 .cv2-server-cell strong {
   overflow: hidden;
   color: var(--sg-text);
+  font-size: 11px;
   font-weight: 720;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.cv2-client-cell strong {
-  font-size: 14px;
-}
-
-.cv2-server-cell strong {
-  font-size: 11px;
 }
 
 .cv2-client-cell small,
