@@ -1176,15 +1176,6 @@ collect_automatic_parameters() {
   REALITY_SNI="$DEFAULT_REALITY_SNI"
   CREATE_SG_ADMIN="1"
 
-  printf "[SG-Gateway] Публичный IP: %s\n" "$PUBLIC_ADDRESS"
-  printf "[SG-Gateway] Страна сервера: %s\n" "${COUNTRY_CODE^^}"
-  printf "[SG-Gateway] Имя сервера: %s\n" "$SERVER_NAME"
-  printf "[SG-Gateway] Панель: TCP %s\n" "$PANEL_PORT"
-  printf "[SG-Gateway] VLESS Reality TCP: публичный %s -> 127.0.0.1:%s\n" \
-    "$XRAY_PORT" "$REALITY_INTERNAL_PORT"
-  printf "[SG-Gateway] AmneziaWG 3.1: UDP %s\n" "$PUBLIC_EDGE_PORT"
-  printf "[SG-Gateway] Первый VPN-клиент sg-admin будет создан автоматически.\n"
-
   read_password
   SECRET_KEY="$(openssl rand -hex 32)"
 }
@@ -3584,7 +3575,6 @@ run_interactive_stage() {
 
   CURRENT_STAGE="$number"
   CURRENT_LABEL="Этап ${number}/${TOTAL_STAGES} · ${label}"
-  printf '%s[SG-Gateway] [..]%s %s\n' "$GREEN" "$RESET" "$CURRENT_LABEL"
 
   # This stage must stay in the foreground: it reads the administrator
   # password from /dev/tty. run_stage/run_quiet execute their functions in a
