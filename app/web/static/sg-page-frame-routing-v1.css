@@ -58,7 +58,7 @@ html[data-theme="light"] {
   min-width: 0;
 }
 
-:is(.cv2-heading.cv15-heading, .ob49-heading, .mtv2-heading, .hlpv1-heading) h1 {
+.hlpv1-heading h1 {
   margin: 6px 0 2px !important;
   color: var(--sgpf-text) !important;
   font-size: 27px !important;
