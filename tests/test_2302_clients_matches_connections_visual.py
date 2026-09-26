@@ -26,8 +26,8 @@ def test_clients_typography_matches_connections_scale():
     for fragment in (
         "min-height: 68px;",
         "padding: 4px 0 10px;",
-        "font-size: 27px;",
-        "line-height: 1.05;",
+        "font-size: 27px !important;",
+        "line-height: 1.05 !important;",
         "min-height: 43px;",
         "font-size: 9px;",
     ):
