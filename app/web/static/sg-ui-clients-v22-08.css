@@ -59,11 +59,6 @@
   align-items: flex-start;
 }
 
-[data-sg-ui-page="clients"] > .sg-ui-page-head h1 {
-  font-size: 27px;
-  line-height: 1.05;
-}
-
 [data-sg-ui-page="clients"] > .sg-ui-page-head .sg-ui-actions {
   align-self: flex-start;
 }
