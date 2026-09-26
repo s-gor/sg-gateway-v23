@@ -29,7 +29,7 @@ html[data-theme="light"] {
   --sgpf-shadow: 0 18px 36px rgba(43, 52, 46, .16), 0 2px 5px rgba(43, 52, 46, .10);
 }
 
-:is(.cv2-page.cv15-clarity-page, .ob49-page, .mtv2-page, .hlpv1-page){
+:is(.ob49-page, .mtv2-page, .hlpv1-page){
   display: grid !important;
   gap: 0 !important;
   min-width: 0;
@@ -39,7 +39,7 @@ html[data-theme="light"] {
   box-shadow: var(--sgpf-shadow);
 }
 
-:is(.cv2-heading.cv15-heading, .ob49-heading, .mtv2-heading, .hlpv1-heading){
+:is(.ob49-heading, .mtv2-heading, .hlpv1-heading){
   display: flex !important;
   justify-content: space-between !important;
   align-items: center !important;
@@ -139,28 +139,28 @@ html[data-theme="light"]
   box-shadow: 0 10px 22px rgba(69, 111, 92, .20), 0 2px 5px rgba(43, 52, 46, .12) !important;
 }
 
-:is(.cv2-page.cv15-clarity-page, .ob49-page, .mtv2-page, .hlpv1-page)
+:is(.ob49-page, .mtv2-page, .hlpv1-page)
 > :not(.cv2-heading, .ob49-heading, .mtv2-heading, .hlpv1-heading){
   margin-right: 18px !important;
   margin-left: 18px !important;
 }
 
-:is(.cv2-page.cv15-clarity-page, .ob49-page, .mtv2-page, .hlpv1-page) > :nth-child(2){
+:is(.ob49-page, .mtv2-page, .hlpv1-page) > :nth-child(2){
   margin-top: 14px !important;
 }
 
-:is(.cv2-page.cv15-clarity-page, .ob49-page, .mtv2-page, .hlpv1-page) > :last-child{
+:is(.ob49-page, .mtv2-page, .hlpv1-page) > :last-child{
   margin-bottom: 18px !important;
 }
 
 @media (max-width: 760px) {
-  :is(.cv2-heading.cv15-heading, .ob49-heading, .mtv2-heading, .hlpv1-heading){
+  :is(.ob49-heading, .mtv2-heading, .hlpv1-heading){
     display: grid !important;
     align-items: stretch !important;
     padding: 12px 10px !important;
   }
 
-  :is(.cv2-page.cv15-clarity-page, .ob49-page, .mtv2-page, .hlpv1-page)
+  :is(.ob49-page, .mtv2-page, .hlpv1-page)
   > :not(.cv2-heading, .ob49-heading, .mtv2-heading, .hlpv1-heading){
     margin-right: 10px !important;
     margin-left: 10px !important;
@@ -241,30 +241,30 @@ html[data-theme="light"]
    Keep the accepted Routing-style outer frame without pushing every direct
    grid item outside its own track. */
 
-:is(.cv2-page.cv15-clarity-page, .ob49-page, .mtv2-page, .hlpv1-page){
+:is(.ob49-page, .mtv2-page, .hlpv1-page){
   box-sizing: border-box !important;
   gap: 14px !important;
   padding: 0 18px 18px !important;
 }
 
-:is(.cv2-heading.cv15-heading, .ob49-heading, .mtv2-heading, .hlpv1-heading){
+:is(.ob49-heading, .mtv2-heading, .hlpv1-heading){
   grid-column: 1 / -1 !important;
   width: auto !important;
   margin: 0 -18px !important;
 }
 
-:is(.cv2-page.cv15-clarity-page, .ob49-page, .mtv2-page, .hlpv1-page)
+:is(.ob49-page, .mtv2-page, .hlpv1-page)
 > :not(.cv2-heading, .ob49-heading, .mtv2-heading, .hlpv1-heading){
   min-width: 0 !important;
   margin-right: 0 !important;
   margin-left: 0 !important;
 }
 
-:is(.cv2-page.cv15-clarity-page, .ob49-page, .mtv2-page, .hlpv1-page) > :nth-child(2){
+:is(.ob49-page, .mtv2-page, .hlpv1-page) > :nth-child(2){
   margin-top: 0 !important;
 }
 
-:is(.cv2-page.cv15-clarity-page, .ob49-page, .mtv2-page, .hlpv1-page) > :last-child{
+:is(.ob49-page, .mtv2-page, .hlpv1-page) > :last-child{
   margin-bottom: 0 !important;
 }
 
@@ -279,12 +279,12 @@ html[data-theme="light"]
 }
 
 @media (max-width: 760px) {
-  :is(.cv2-page.cv15-clarity-page, .ob49-page, .mtv2-page, .hlpv1-page){
+  :is(.ob49-page, .mtv2-page, .hlpv1-page){
     gap: 10px !important;
     padding: 0 10px 10px !important;
   }
 
-  :is(.cv2-heading.cv15-heading, .ob49-heading, .mtv2-heading, .hlpv1-heading){
+  :is(.ob49-heading, .mtv2-heading, .hlpv1-heading){
     margin-right: -10px !important;
     margin-left: -10px !important;
   }
