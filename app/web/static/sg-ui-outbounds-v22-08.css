@@ -53,7 +53,7 @@
 .ob49-route-meta .is-default { color:var(--ob-jade); }
 .ob49-warp-card { padding:26px; }
 .ob49-warp-head { display:flex; align-items:flex-start; justify-content:space-between; gap:24px; }
-.ob49-warp-head h2 { margin:7px 0 8px; color:var(--ob-text); font-size:30px; letter-spacing:-.03em; }
+.ob49-warp-head h2 { margin:7px 0 8px; color:var(--ob-text); font-size:27px; letter-spacing:-.03em; }
 .ob49-warp-head p { max-width:900px; margin:0; color:var(--ob-muted); font-size:15px; line-height:1.55; }
 .ob49-status { display:inline-flex; align-items:center; gap:9px; flex:0 0 auto; color:var(--ob-text); font-size:14px; font-weight:850; }
 .ob49-status span { width:10px; height:10px; border-radius:50%; background:#8796aa; }
