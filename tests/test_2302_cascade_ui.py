@@ -101,7 +101,7 @@ def test_cascade_dashboard_has_nine_real_channel_slots():
     assert "for channel in cascade.channels" in template
     assert "Для включения Каскада должны быть готовы все девять" in template
     assert "Проверить все каналы" in template
-    assert "Настроить приоритет" in template
+    assert "Порядок каналов" in template
     assert "Создать / скачать bundle" in template
     assert "СЕРВЕР ВАШИХ КЛИЕНТОВ" in template
     assert "ВЫХОДНОЙ СЕРВЕР" in template
