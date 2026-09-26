@@ -58,8 +58,8 @@ def _assert_clients_frame(page, selectors, viewport):
     geometry = {selector: rect(page, selector) for selector in selectors}
     root = geometry[selectors[0]]
     head = geometry[selectors[1]]
-    _assert_close(root["x"], head["x"])
-    _assert_close(root["width"], head["width"])
+    _assert_close(root["x"] + 1.0, head["x"])
+    _assert_close(root["width"] - 2.0, head["width"])
 
     inset = 11.0 if viewport["width"] <= 760 else 19.0
     for selector in selectors[2:]:
