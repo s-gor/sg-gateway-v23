@@ -22,7 +22,6 @@ def _shared_header_contract(path: str, prefix: str) -> tuple[str, ...]:
         "margin: 0;",
         "padding: 0;",
         "box-sizing: border-box;",
-        "margin-inline: 0;",
         "min-height: 68px;",
         "padding-block: 4px 10px;",
         "border-bottom: 1px solid var(--sg-ui-border);",
@@ -40,6 +39,9 @@ def test_connections_outer_scale_matches_system_security_contract():
     security = _shared_header_contract("sg-ui-security-v22-08.css", ".sg-ui-security-head")
     connections = _shared_header_contract("sg-ui-connections-v22-08.css", ".sg-ui-connections-head")
     assert connections == system == security
+    css = (STATIC / "sg-ui-connections-v22-08.css").read_text(encoding="utf-8")
+    assert "margin-left: 0;" in css
+    assert "margin-right: 0;" in css
 
 
 def test_connections_mobile_header_matches_system_security_contract():
