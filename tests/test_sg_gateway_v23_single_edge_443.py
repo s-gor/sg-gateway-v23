@@ -103,7 +103,7 @@ def test_installer_summary_reports_public_edge_and_preserves_sg_version():
     assert 'os_pretty="$(. /etc/os-release;' in require_block
     assert "\n  . /etc/os-release\n" not in require_block
 
-    assert 'printf "[SG-Gateway] AmneziaWG 3.1: UDP %s\\n" "$PUBLIC_EDGE_PORT"' in text
+    assert 'printf "[SG-Gateway] AmneziaWG 3.1: UDP %s\\n" "$PUBLIC_EDGE_PORT"' not in text
     assert "printf '[SG-Gateway] NaiveProxy:   %s · TCP %s\\n' \"$NAIVEPROXY_VERSION\" \"$PUBLIC_EDGE_PORT\"" in text
 
     # Internal/retired runtime ports must not be presented as the client-facing
