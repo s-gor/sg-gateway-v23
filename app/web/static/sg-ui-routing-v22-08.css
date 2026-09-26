@@ -14,7 +14,7 @@
 }
 
 .sg-ui-routing-head h1 {
-  font-size: 31px;
+  font-size: clamp(31px, 2.25vw, 38px);
   line-height: 1.05;
 }
 
