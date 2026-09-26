@@ -3597,7 +3597,7 @@ main() {
 
   printf '\n%s[SG-Gateway]%s Запускаю полный мастер SG-Gateway 0.1.0-023.01 · 22 этапа\n' "$CYAN" "$RESET"
   printf '[SG-Gateway] Технический журнал: %s\n' "$INSTALL_LOG"
-  printf '[SG-Gateway] Повторный запуск выполняется на этом же EC2. Домен не обязателен.\n\n'
+  printf '[SG-Gateway] Повторный запуск выполняется на этом же Server. Домен не обязателен.\n\n'
 
   run_stage 1 "Подготовка Ubuntu" bootstrap_packages
   run_interactive_stage 2 "Определение режима и параметров" stage_prepare_install_context
