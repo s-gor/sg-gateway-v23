@@ -1,7 +1,7 @@
 /* SG-Gateway 021 accumulated UI
    Routing is the exact page-heading and outer-frame reference.
-   Applies only to System, Clients, Connections, Outbounds,
-   Maintenance, Security and Help. */
+   Applies only to legacy Outbounds, Maintenance and Help frames.
+   Clients owns its typography in sg-clients-visual-v2.css + sg-ui-clients-v22-08.css. */
 
 html[data-theme="dark"] {
   --sgpf-page-bg: #0B121C;
@@ -54,11 +54,11 @@ html[data-theme="light"] {
   box-shadow: var(--sgpf-shadow) !important;
 }
 
-:is(.cv2-heading.cv15-heading, .ob49-heading, .mtv2-heading, .hlpv1-heading) > div:first-child {
+:is(.ob49-heading, .mtv2-heading, .hlpv1-heading) > div:first-child {
   min-width: 0;
 }
 
-:is(.cv2-heading.cv15-heading, .ob49-heading, .mtv2-heading, .hlpv1-heading) h1 {
+:is(.ob49-heading, .mtv2-heading, .hlpv1-heading) h1 {
   margin: 6px 0 2px !important;
   color: var(--sgpf-text) !important;
   font-size: 27px !important;
@@ -67,14 +67,14 @@ html[data-theme="light"] {
   letter-spacing: 0 !important;
 }
 
-:is(.cv2-heading.cv15-heading, .ob49-heading, .mtv2-heading, .hlpv1-heading) p {
+:is(.ob49-heading, .mtv2-heading, .hlpv1-heading) p {
   margin: 0 !important;
   color: var(--sgpf-muted) !important;
   font-size: 13px !important;
   line-height: 1.45 !important;
 }
 
-:is(.cv2-kicker, .cnv1-kicker, .ob49-kicker, .mtv2-kicker, .hlpv1-kicker) {
+:is(.cnv1-kicker, .ob49-kicker, .mtv2-kicker, .hlpv1-kicker) {
   display: flex !important;
   align-items: center !important;
   gap: 8px !important;
@@ -85,7 +85,7 @@ html[data-theme="light"] {
   line-height: 1.2 !important;
 }
 
-:is(.cv2-kicker, .cnv1-kicker, .ob49-kicker, .mtv2-kicker, .hlpv1-kicker) > span {
+:is(.cnv1-kicker, .ob49-kicker, .mtv2-kicker, .hlpv1-kicker) > span {
   width: 6px !important;
   height: 6px !important;
   flex: 0 0 6px;
@@ -94,7 +94,7 @@ html[data-theme="light"] {
 }
 
 
-:is(.cv2-heading-actions-actions, .ob49-heading-actions, .mtv2-heading-actions, .hlpv1-heading-actions) {
+:is(.ob49-heading-actions, .mtv2-heading-actions, .hlpv1-heading-actions) {
   display: flex !important;
   align-items: center !important;
   justify-content: flex-end !important;
@@ -102,7 +102,7 @@ html[data-theme="light"] {
   gap: 8px !important;
 }
 
-:is(.cv2-heading.cv15-heading, .ob49-heading, .mtv2-heading, .hlpv1-heading)
+:is(.ob49-heading, .mtv2-heading, .hlpv1-heading)
 :is(a.button, button.button, .ob49-help, .cv2-create-button, a[class*="heading"]) {
   display: inline-flex !important;
   align-items: center !important;
@@ -122,7 +122,7 @@ html[data-theme="light"] {
 }
 
 html[data-theme="dark"]
-:is(.cv2-heading.cv15-heading, .ob49-heading, .mtv2-heading, .hlpv1-heading)
+:is(.ob49-heading, .mtv2-heading, .hlpv1-heading)
 :is(.primary, .sg-ljd-key-action, .cv2-create-button) {
   border-color: #4E82B1 !important;
   background: var(--sgpf-primary) !important;
@@ -131,7 +131,7 @@ html[data-theme="dark"]
 }
 
 html[data-theme="light"]
-:is(.cv2-heading.cv15-heading, .ob49-heading, .mtv2-heading, .hlpv1-heading)
+:is(.ob49-heading, .mtv2-heading, .hlpv1-heading)
 :is(.primary, .sg-ljd-key-action, .cv2-create-button) {
   border-color: #5C846F !important;
   background: var(--sgpf-primary) !important;
