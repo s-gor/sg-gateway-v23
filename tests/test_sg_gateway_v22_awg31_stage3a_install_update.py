@@ -192,7 +192,12 @@ def test_clean_install_creates_isolated_awg31_runtime_paths_and_service(provisio
     assert "IFACE=awg31" in helper
     assert "10.131.0.1/24" in helper
     assert "ListenPort = 10451" in server
-    assert "tcp" not in (unit + helper + server).lower()
+    transport_text = (unit + "\n" + helper + "\n" + server).lower()
+    # Do not search for the bare substring "tcp": random Base64 key material
+    # may legitimately contain those three letters. Check actual TCP transport
+    # syntax instead.
+    for tcp_marker in ("tcp://", "transport=tcp", "transport = tcp", "--tcp", "network=tcp"):
+        assert tcp_marker not in transport_text
     assert result.created_credentials == 1
     assert result.peer_configs == 2
     with sqlite3.connect(root / "var/lib/sg-gateway/sg-gateway.sqlite") as db:

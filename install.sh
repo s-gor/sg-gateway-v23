@@ -39,6 +39,7 @@ AWG3_TOOLS_VENDOR_FILE="amneziawg-tools-3.0.20260805.tar.gz"
 AWG3_GO_VENDOR_FILE="amneziawg-go-linux-amd64-v3.0.0"
 
 DEFAULT_PANEL_PORT="63443"
+PUBLIC_EDGE_PORT="443"
 DEFAULT_XRAY_PORT="443"
 DEFAULT_AWG_PORT="585"
 DEFAULT_AWG3_PORT="586"
@@ -110,6 +111,7 @@ MANAGED_PATHS=(
   etc/systemd/system/sg-gateway-awg.service
   etc/systemd/system/sg-gateway-awg3.service
   etc/systemd/system/sg-gateway-singbox.service
+  etc/systemd/system/sg-gateway-cascade.service
   etc/systemd/system/sg-gateway-udp-edge.service
   etc/systemd/system/mihomo.service
   etc/nginx/nginx.conf
@@ -208,13 +210,19 @@ require_supported_ubuntu() {
     echo "Не удалось определить операционную систему. Требуется Ubuntu." >&2
     exit 1
   fi
-  # shellcheck disable=SC1091
-  . /etc/os-release
-  if [[ "${ID:-}" != "ubuntu" ]]; then
-    printf 'Требуется Ubuntu. Обнаружено: %s\n' "${PRETTY_NAME:-неизвестная система}" >&2
+
+  # Read OS metadata in command-substitution subshells.  /etc/os-release also
+  # defines VERSION, so sourcing it in the installer shell would overwrite the
+  # SG-Gateway release VERSION used by the final summary.
+  local os_id="" os_pretty=""
+  os_id="$(. /etc/os-release; printf '%s' "${ID:-}")"
+  os_pretty="$(. /etc/os-release; printf '%s' "${PRETTY_NAME:-Ubuntu}")"
+
+  if [[ "$os_id" != "ubuntu" ]]; then
+    printf 'Требуется Ubuntu. Обнаружено: %s\n' "${os_pretty:-неизвестная система}" >&2
     exit 1
   fi
-  printf '[SG-Gateway] Поддерживаемая система: %s\n' "${PRETTY_NAME:-Ubuntu}"
+  printf '[SG-Gateway] Поддерживаемая система: %s\n' "${os_pretty:-Ubuntu}"
 }
 
 prepare_log() {
@@ -349,7 +357,7 @@ show_service_diagnostics() {
     local service
     echo "===== SERVICE DIAGNOSTICS ====="
     for service in sg-gateway.service sg-hostd.service xray.service mihomo.service \
-      sg-gateway-awg.service sg-gateway-awg3.service sg-gateway-singbox.service nginx.service; do
+      sg-gateway-awg.service sg-gateway-awg3.service sg-gateway-singbox.service sg-gateway-cascade.service nginx.service; do
       if systemctl cat "$service" >/dev/null 2>&1; then
         echo "===== ${service} ====="
         systemctl is-active "$service" 2>/dev/null || true
@@ -381,7 +389,7 @@ restore_backup() {
   printf "\n%s[SG-Gateway] [ОТКАТ]%s Восстанавливаю предыдущую установку SG-Gateway.\n" "$YELLOW" "$RESET"
 
   systemctl stop sg-gateway.service sg-hostd.service xray.service mihomo.service \
-    sg-gateway-awg.service sg-gateway-awg3.service sg-gateway-singbox.service nginx.service >/dev/null 2>&1 || true
+    sg-gateway-awg.service sg-gateway-awg3.service sg-gateway-singbox.service sg-gateway-cascade.service nginx.service >/dev/null 2>&1 || true
   rollback_remove_managed_paths /
 
   if [[ -f "$BACKUP_DIR/managed-paths.tar" ]]; then
@@ -655,9 +663,36 @@ read_tty() {
   printf -v "$target" '%s' "$value"
 }
 
+hash_admin_password() {
+  local password="$1"
+  ADMIN_PASSWORD="$password"
+  ADMIN_PASSWORD_HASH="$(python3 - "$password" <<'PYADMINHASH'
+import base64, hashlib, os, sys
+password=sys.argv[1]
+salt=os.urandom(16)
+rounds=310000
+digest=hashlib.pbkdf2_hmac('sha256',password.encode('utf-8'),salt,rounds)
+print(f"pbkdf2_sha256${rounds}${base64.urlsafe_b64encode(salt).decode()}${base64.urlsafe_b64encode(digest).decode()}")
+PYADMINHASH
+)"
+}
+
 read_password() {
   local first="" second=""
   local timeout_seconds=300
+  local password_file="${SG_GATEWAY_ADMIN_PASSWORD_FILE:-}"
+
+  if [[ -n "$password_file" ]]; then
+    [[ -f "$password_file" ]] || fail "файл пароля администратора не найден: $password_file"
+    [[ -r "$password_file" ]] || fail "файл пароля администратора недоступен для чтения: $password_file"
+    first="$(cat -- "$password_file")"
+    first="${first%$'\r'}"
+    (( ${#first} >= 8 )) || fail "пароль администратора в файле должен содержать не менее 8 символов"
+    hash_admin_password "$first"
+    printf '[SG-Gateway] Пароль администратора получен из защищённого файла.\n'
+    return 0
+  fi
+
   require_interactive_tty
   printf '\n[SG-Gateway] Требуется задать пароль администратора панели.\n'
   printf '[SG-Gateway] Ввод выполняется в текущем терминале; символы пароля не отображаются.\n' > /dev/tty
@@ -682,16 +717,7 @@ read_password() {
       printf "%sПароли не совпадают.%s\n" "$YELLOW" "$RESET" > /dev/tty
       continue
     fi
-    ADMIN_PASSWORD="$first"
-    ADMIN_PASSWORD_HASH="$(python3 - "$first" <<'PYADMINHASH'
-import base64, hashlib, os, sys
-password=sys.argv[1]
-salt=os.urandom(16)
-rounds=310000
-digest=hashlib.pbkdf2_hmac('sha256',password.encode('utf-8'),salt,rounds)
-print(f"pbkdf2_sha256${rounds}${base64.urlsafe_b64encode(salt).decode()}${base64.urlsafe_b64encode(digest).decode()}")
-PYADMINHASH
-)"
+    hash_admin_password "$first"
     return 0
   done
 }
@@ -1156,7 +1182,7 @@ collect_automatic_parameters() {
   printf "[SG-Gateway] Панель: TCP %s\n" "$PANEL_PORT"
   printf "[SG-Gateway] VLESS Reality TCP: публичный %s -> 127.0.0.1:%s\n" \
     "$XRAY_PORT" "$REALITY_INTERNAL_PORT"
-  printf "[SG-Gateway] AmneziaWG: UDP %s\n" "$AWG_PORT"
+  printf "[SG-Gateway] AmneziaWG 3.1: UDP %s\n" "$PUBLIC_EDGE_PORT"
   printf "[SG-Gateway] Первый VPN-клиент sg-admin будет создан автоматически.\n"
 
   read_password
@@ -2339,6 +2365,7 @@ WantedBy=multi-user.target
 EOF
 
   install -m 0644 "$PREFIX/deploy/sg-gateway-singbox.service" /etc/systemd/system/sg-gateway-singbox.service
+  install -m 0644 "$PREFIX/deploy/sg-gateway-cascade.service" /etc/systemd/system/sg-gateway-cascade.service
   install -m 0644 "$PREFIX/deploy/mihomo.service" /etc/systemd/system/mihomo.service
 
   install -d -m 0755 /etc/nginx/stream-conf.d /etc/nginx/sites-available /etc/nginx/sites-enabled
@@ -2503,6 +2530,7 @@ EOF
   nginx -t
   systemctl reload nginx.service
   systemctl daemon-reload
+  systemctl disable --now sg-gateway-cascade.service >/dev/null 2>&1 || true
   [[ "$(systemctl show -p User --value sg-hostd.service)" == "root" ]]
   [[ -z "$(systemctl show -p DropInPaths --value sg-hostd.service)" ]]
   if (( UPDATE_MODE == 0 )); then
@@ -3093,7 +3121,7 @@ create_backup() {
   for service in \
     sg-hostd.service xray.service mihomo.service \
     sg-gateway-awg.service sg-gateway-awg3.service sg-gateway-awg31.service \
-    sg-gateway-singbox.service sg-gateway-naiveproxy.service sg-gateway-udp-edge.service \
+    sg-gateway-singbox.service sg-gateway-cascade.service sg-gateway-naiveproxy.service sg-gateway-udp-edge.service \
     sg-gateway.service nginx.service; do
     active=0
     enabled=0
@@ -3116,7 +3144,7 @@ restore_backup() {
   systemctl stop \
     sg-gateway.service sg-hostd.service xray.service mihomo.service \
     sg-gateway-awg.service sg-gateway-awg3.service sg-gateway-awg31.service \
-    sg-gateway-singbox.service sg-gateway-naiveproxy.service nginx.service \
+    sg-gateway-singbox.service sg-gateway-cascade.service sg-gateway-naiveproxy.service nginx.service \
     >/dev/null 2>&1 || true
 
   rollback_remove_managed_paths /
@@ -3145,7 +3173,7 @@ restore_backup() {
   local services=(
     sg-hostd.service xray.service mihomo.service
     sg-gateway-awg.service sg-gateway-awg3.service sg-gateway-awg31.service
-    sg-gateway-singbox.service sg-gateway-naiveproxy.service sg-gateway-udp-edge.service
+    sg-gateway-singbox.service sg-gateway-cascade.service sg-gateway-naiveproxy.service sg-gateway-udp-edge.service
     sg-gateway.service nginx.service
   )
 
@@ -3236,7 +3264,7 @@ stage_backup_and_prepare() {
   systemctl stop \
     sg-gateway.service sg-hostd.service xray.service mihomo.service \
     sg-gateway-awg.service sg-gateway-awg3.service sg-gateway-awg31.service \
-    sg-gateway-singbox.service sg-gateway-naiveproxy.service sg-gateway-udp-edge.service \
+    sg-gateway-singbox.service sg-gateway-cascade.service sg-gateway-naiveproxy.service sg-gateway-udp-edge.service \
     >/dev/null 2>&1 || true
 
   rm -rf "$PREFIX.new" "$PREFIX"
@@ -3429,7 +3457,7 @@ restore_update_runtime_services() {
   local service
   for service in \
     mihomo.service sg-gateway-awg.service sg-gateway-awg3.service \
-    sg-gateway-awg31.service sg-gateway-singbox.service sg-gateway-naiveproxy.service sg-gateway-udp-edge.service; do
+    sg-gateway-awg31.service sg-gateway-singbox.service sg-gateway-cascade.service sg-gateway-naiveproxy.service sg-gateway-udp-edge.service; do
     if service_was_enabled_before_update "$service"; then
       systemctl_with_retry enable "$service"
     fi
@@ -3630,7 +3658,7 @@ main() {
   printf '[SG-Gateway] Публичный IP: %s\n' "$PUBLIC_ADDRESS"
   printf '[SG-Gateway] Версия:       %s\n' "$VERSION"
   printf '[SG-Gateway] Xray:         %s\n' "$(xray_installed_version)"
-  printf '[SG-Gateway] NaiveProxy:   %s · TCP %s\n' "$NAIVEPROXY_VERSION" "$NAIVEPROXY_PORT"
+  printf '[SG-Gateway] NaiveProxy:   %s · TCP %s\n' "$NAIVEPROXY_VERSION" "$PUBLIC_EDGE_PORT"
   local final_https_domain=""
   final_https_domain="$(saved_https_access)"
   if [[ -n "$final_https_domain" ]]; then

@@ -19,10 +19,10 @@ class RoutingRuntimeError(RuntimeError):
 # direct/warp tags remain accepted only so an existing server upgrades to the
 # privacy-conservative IPv4 behaviour instead of breaking or silently changing
 # address family.
-PUBLIC_ROUTING_TAGS = {"direct4", "direct6", "warp4", "warp6", "block"}
+PUBLIC_ROUTING_TAGS = {"direct4", "direct6", "warp4", "warp6", "cascade4", "cascade6", "block"}
 LEGACY_ROUTING_TAGS = {"direct", "warp"}
 ALLOWED_ROUTING_TAGS = PUBLIC_ROUTING_TAGS | LEGACY_ROUTING_TAGS
-MANAGED_OUTBOUND_TAGS = ALLOWED_ROUTING_TAGS | {"warp-core"}
+MANAGED_OUTBOUND_TAGS = ALLOWED_ROUTING_TAGS | {"warp-core", "cascade-core"}
 
 
 def xray_config_path() -> Path:
@@ -148,6 +148,19 @@ def routing_capabilities() -> dict[str, bool]:
     except Exception:
         pass
 
+    cascade_enabled = False
+    cascade_ipv4 = False
+    cascade_ipv6 = False
+    try:
+        from app.cascade.runtime import enabled as cascade_is_enabled, family_capabilities as cascade_family_capabilities
+
+        cascade_enabled = bool(cascade_is_enabled())
+        cascade_families = cascade_family_capabilities() if cascade_enabled else {"ipv4": False, "ipv6": False}
+        cascade_ipv4 = cascade_enabled and bool(cascade_families.get("ipv4"))
+        cascade_ipv6 = cascade_enabled and bool(cascade_families.get("ipv6"))
+    except Exception:
+        pass
+
     return {
         # IPv4 is SG-Gateway's compatibility baseline.  A server that cannot
         # use it will fail at the actual outbound rather than exposing another
@@ -156,8 +169,11 @@ def routing_capabilities() -> dict[str, bool]:
         "direct6": native_ipv6,
         "warp4": warp_ipv4,
         "warp6": warp_ipv6,
+        "cascade4": cascade_ipv4,
+        "cascade6": cascade_ipv6,
         "block": True,
         "warp_enabled": warp_enabled,
+        "cascade_enabled": cascade_enabled,
     }
 
 
@@ -179,6 +195,14 @@ def validate_outbound_tag(tag: str) -> None:
     if tag == "warp6" and not caps["warp6"]:
         raise RoutingRuntimeError(
             "Выбран WARP · IPv6, но WARP IPv6 не готов или WARP выключен"
+        )
+    if tag == "cascade4" and not caps["cascade4"]:
+        raise RoutingRuntimeError(
+            "Выбран Cascade · IPv4, но второй SG-Gateway не настроен, выключен или IPv4 не готов"
+        )
+    if tag == "cascade6" and not caps["cascade6"]:
+        raise RoutingRuntimeError(
+            "Выбран Cascade · IPv6, но второй SG-Gateway не настроен, выключен или IPv6 не готов"
         )
 
 
@@ -206,7 +230,7 @@ def sanitize_managed_fragment(fragment: dict | None) -> dict:
         tag = str(raw.get("outboundTag") or "").strip().lower()
         if tag not in ALLOWED_ROUTING_TAGS:
             raise RoutingRuntimeError(
-                f"Routing rule {index}: разрешены только direct4, direct6, warp4, warp6 и block"
+                f"Routing rule {index}: разрешены только direct4, direct6, warp4, warp6, cascade4, cascade6 и block"
             )
         try:
             validate_outbound_tag(tag)
@@ -352,6 +376,23 @@ def build_managed_outbounds(existing_outbounds: list | None = None) -> list[dict
     managed.append(block)
     managed.extend((direct4, direct6))
     managed.extend(warp_bundle)
+
+    try:
+        from app.cascade.runtime import outbound as cascade_outbound, family_capabilities as cascade_family_capabilities
+
+        cascade = cascade_outbound(require_enabled=True)
+        if cascade is not None:
+            families = cascade_family_capabilities()
+            if families.get("ipv4"):
+                managed.append(family_gate_outbound("cascade4", 4, proxy_tag="cascade-core"))
+            if families.get("ipv6"):
+                managed.append(family_gate_outbound("cascade6", 6, proxy_tag="cascade-core"))
+            managed.append(json.loads(json.dumps(cascade)))
+    except ImportError:
+        pass
+    except Exception as exc:
+        raise RoutingRuntimeError(str(exc)) from exc
+
     managed.extend(rest)
     return managed
 

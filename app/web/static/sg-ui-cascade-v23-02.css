@@ -1,0 +1,325 @@
+/* SG-Gateway 23.02 Cascade.
+   The page intentionally mirrors Connections. Custom CSS only:
+   1) maps Connections' scoped composition to page-cascade;
+   2) keeps Cascade channels at two cards per row;
+   3) styles the priority sorter. */
+
+body.page-cascade .cnv1-page.sg-ui-page{gap:var(--sg-ui-page-gap,18px)}
+body.page-cascade .cnv1-heading.sg-ui-page-head{margin:0}
+body.page-cascade .cnv1-heading-actions.sg-ui-actions{align-self:flex-start;gap:var(--sg-ui-grid-gap,12px)}
+
+body.page-cascade .cnv1-engine-xray{
+  min-width:0;
+  border-radius:var(--sg-ui-card-radius,14px)
+}
+body.page-cascade .cnv1-engine-xray.sg-ui-card{padding:0}
+body.page-cascade .cnv1-engine-xray.sg-ui-section{gap:0}
+body.page-cascade .cnv1-engine-xray .xps2-panel.sg-ui-section{gap:var(--sg-ui-section-gap,16px)}
+body.page-cascade .cnv1-engine-xray .sg-ui-rail{padding-inline:var(--sg-ui-rail-inset,18px)}
+
+body.page-cascade :is(
+  .cnv1-endpoint-card,
+  .xps2-selection,
+  .xps2-parameters,
+  .xps2-parameter-row,
+  .xps2-choice,
+  .cnv1-compact-protocol-card
+){
+  min-width:0;
+  border-radius:var(--sg-ui-nested-radius,10px)
+}
+
+body.page-cascade :is(
+  .button,
+  .xps2-parameter-row input:not([type="checkbox"]):not([type="radio"]),
+  .xps2-parameter-row select,
+  .cs-import-form input[type="text"],
+  .cs-import-form input[type="file"],
+  .cs-import-form textarea
+){
+  border-radius:var(--sg-ui-control-radius,9px)
+}
+
+body.page-cascade :is(
+  .button,
+  .xps2-parameter-row input:not([type="checkbox"]):not([type="radio"]),
+  .xps2-parameter-row select,
+  .cs-import-form input[type="text"],
+  .cs-import-form input[type="file"]
+){
+  min-height:var(--sg-ui-control-height,42px)
+}
+
+body.page-cascade :is(.cnv1-engine-status,.xps2-choice-status){
+  min-height:var(--sg-ui-badge-height,28px);
+  border-radius:999px
+}
+
+body.page-cascade .xps2-panel form{margin:0}
+body.page-cascade .xps2-top-actions{gap:10px}
+body.page-cascade .xps2-top-actions form{display:block}
+body.page-cascade .xps2-top-actions .button{min-width:190px}
+
+body.page-cascade .cs-endpoint-icon{
+  width:40px;
+  height:40px;
+  flex:0 0 40px
+}
+
+/* Exactly the Connections profile cards, but 2 per row as requested. */
+body.page-cascade .cs-channel-grid{
+  grid-template-columns:repeat(2,minmax(0,1fr))
+}
+body.page-cascade .cs-channel{
+  cursor:default
+}
+body.page-cascade .cs-channel.state-active{
+  border-color:var(--sg-blue);
+  background:var(--sg-panel-soft);
+  box-shadow:inset 0 0 0 1px var(--sg-blue)
+}
+body.page-cascade .cs-channel.state-ready{
+  border-color:color-mix(in srgb,var(--sg-green) 45%,var(--sg-line))
+}
+body.page-cascade .cs-channel.state-error{
+  border-color:color-mix(in srgb,var(--sg-red) 48%,var(--sg-line))
+}
+body.page-cascade .cs-channel.state-checking{
+  border-color:color-mix(in srgb,var(--sg-yellow) 52%,var(--sg-line))
+}
+
+/* State rows use the same xps2 parameter rows as Connections. */
+body.page-cascade .cs-state-value{
+  align-self:center;
+  color:var(--sg-text);
+  font-size:13px;
+  font-weight:750;
+  overflow-wrap:anywhere
+}
+body.page-cascade .cs-priority-line{
+  font-size:11px;
+  line-height:1.45
+}
+body.page-cascade .xps2-parameter-note a{
+  color:var(--sg-blue);
+  text-decoration:none
+}
+
+/* Same compact two-column protocol cards used on Connections. */
+body.page-cascade .cnv1-compact-protocol-grid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:var(--sg-ui-grid-gap,12px);
+  margin-top:17px
+}
+body.page-cascade .cnv1-compact-protocol-card{
+  position:relative;
+  min-width:0;
+  padding:14px;
+  display:grid;
+  align-content:start;
+  gap:12px;
+  border:1px solid var(--sg-line-soft);
+  background:var(--sg-panel)
+}
+body.page-cascade .cnv1-compact-protocol-head{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:12px
+}
+body.page-cascade .cnv1-compact-protocol-title{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  min-width:0
+}
+body.page-cascade .cnv1-compact-protocol-title h3{margin:0 0 2px}
+body.page-cascade .cnv1-compact-protocol-title p{
+  margin:0;
+  color:var(--sg-muted);
+  font-size:11px;
+  line-height:1.45
+}
+body.page-cascade .cnv1-compact-protocol-icon{
+  width:40px;
+  height:40px;
+  flex:0 0 40px;
+  border-radius:10px;
+  display:grid;
+  place-items:center;
+  font-weight:850;
+  font-size:11px;
+  border:0;
+  background:color-mix(in srgb,var(--sg-blue) 13%,var(--sg-panel));
+  color:var(--sg-blue)
+}
+body.page-cascade .cnv1-compact-protocol-endpoint{
+  display:grid;
+  gap:3px;
+  padding:10px 0;
+  border:0
+}
+body.page-cascade .cnv1-compact-protocol-endpoint>span,
+body.page-cascade .cs-import-form label>span{
+  color:var(--sg-muted);
+  font-size:10px;
+  font-weight:800;
+  text-transform:uppercase;
+  letter-spacing:.06em
+}
+body.page-cascade .cnv1-compact-protocol-endpoint small{
+  color:var(--sg-muted);
+  font-size:11px
+}
+body.page-cascade .cnv1-compact-protocol-actions{
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:10px;
+  min-height:42px
+}
+body.page-cascade .cnv1-compact-protocol-actions .button{
+  min-width:190px;
+  justify-content:center
+}
+
+body.page-cascade .cs-import-form{
+  display:grid;
+  gap:10px
+}
+body.page-cascade .cs-import-form>label{display:grid;gap:5px}
+body.page-cascade .cs-import-form input[type="text"],
+body.page-cascade .cs-import-form input[type="file"],
+body.page-cascade .cs-import-form textarea{
+  width:100%
+}
+body.page-cascade .cs-import-form textarea{
+  min-height:86px;
+  resize:vertical;
+  font:10px ui-monospace,SFMono-Regular,Consolas,monospace
+}
+body.page-cascade .cs-import-form details,
+body.page-cascade .cs-import-form summary{
+  color:var(--sg-muted);
+  font-size:10px
+}
+body.page-cascade .cs-import-form summary{cursor:pointer}
+body.page-cascade .cs-family{
+  display:flex;
+  align-items:center;
+  gap:16px
+}
+body.page-cascade .cs-family label{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  color:var(--sg-text);
+  font-size:11px
+}
+
+/* Mode cards also reuse xps2-choice. */
+body.page-cascade .cs-mode-form{
+  display:grid;
+  gap:16px;
+  margin-top:17px
+}
+body.page-cascade .cs-mode-grid{
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  margin-top:0
+}
+body.page-cascade .cs-mode-choice{
+  min-height:168px
+}
+body.page-cascade .cs-mode-choice input[type="radio"]{
+  accent-color:var(--sg-blue)
+}
+
+/* Priority is the only component that does not exist on Connections. */
+body.page-cascade .cs-priority-field{
+  display:grid;
+  gap:12px;
+  padding-top:2px
+}
+body.page-cascade .cs-priority-head h3{
+  font-size:16px
+}
+body.page-cascade .cs-priority-list{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:var(--sg-ui-grid-gap,12px)
+}
+body.page-cascade .cs-priority-item{
+  display:grid;
+  grid-template-columns:auto minmax(0,1fr) auto;
+  align-items:center;
+  gap:9px;
+  min-width:0;
+  min-height:48px;
+  padding:9px 10px;
+  border:1px solid var(--sg-line-soft);
+  border-radius:var(--sg-ui-nested-radius,10px);
+  background:var(--sg-panel);
+  cursor:grab
+}
+body.page-cascade .cs-priority-item.dragging{
+  opacity:.45;
+  border-color:var(--sg-blue)
+}
+body.page-cascade .cs-priority-rank{
+  display:grid;
+  place-items:center;
+  width:26px;
+  height:26px;
+  border-radius:8px;
+  background:color-mix(in srgb,var(--sg-blue) 13%,var(--sg-panel));
+  color:var(--sg-blue);
+  font:10px ui-monospace,SFMono-Regular,Consolas,monospace
+}
+body.page-cascade .cs-priority-item>strong{
+  overflow:hidden;
+  color:var(--sg-text);
+  font-size:11px;
+  text-overflow:ellipsis;
+  white-space:nowrap
+}
+body.page-cascade .cs-priority-actions{
+  display:flex;
+  gap:4px
+}
+body.page-cascade .cs-priority-move.button{
+  min-width:30px;
+  width:30px;
+  min-height:30px;
+  height:30px;
+  padding:0;
+  justify-content:center
+}
+
+body.page-cascade .cnv1-note-panel.sg-ui-card{
+  padding:var(--sg-ui-card-pad,18px)
+}
+
+@media(max-width:900px){
+  body.page-cascade .cs-channel-grid,
+  body.page-cascade .cnv1-compact-protocol-grid{
+    grid-template-columns:1fr
+  }
+  body.page-cascade .cs-mode-grid{
+    grid-template-columns:1fr
+  }
+  body.page-cascade .cs-priority-list{
+    grid-template-columns:repeat(2,minmax(0,1fr))
+  }
+}
+
+@media(max-width:760px){
+  body.page-cascade .cnv1-heading-actions.sg-ui-actions{align-self:stretch}
+  body.page-cascade .cnv1-engine-xray .sg-ui-rail{padding-inline:var(--sg-ui-rail-inset,14px)}
+}
+
+@media(max-width:650px){
+  body.page-cascade .cs-priority-list{grid-template-columns:1fr}
+  body.page-cascade .xps2-parameter-row{grid-template-columns:1fr}
+  body.page-cascade .xps2-parameter-title{grid-column:1/-1}
+}

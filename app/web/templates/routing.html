@@ -67,9 +67,11 @@
             <button type="button" data-r096-rule-tab="direct6">SG-Gateway · IPv6</button>
             <button type="button" data-r096-rule-tab="warp4">WARP · IPv4</button>
             <button type="button" data-r096-rule-tab="warp6">WARP · IPv6</button>
+            <button type="button" data-r096-rule-tab="cascade4">Каскад · IPv4</button>
+            <button type="button" data-r096-rule-tab="cascade6">Каскад · IPv6</button>
             <button type="button" data-r096-rule-tab="block">Заблокировать</button>
           </div>
-          {% for action, label in [('direct4','SG-Gateway · IPv4'),('direct6','SG-Gateway · IPv6'),('warp4','WARP · IPv4'),('warp6','WARP · IPv6'),('block','Заблокировать')] %}
+          {% for action, label in [('direct4','SG-Gateway · IPv4'),('direct6','SG-Gateway · IPv6'),('warp4','WARP · IPv4'),('warp6','WARP · IPv6'),('cascade4','Каскад · IPv4'),('cascade6','Каскад · IPv6'),('block','Заблокировать')] %}
           {% set legacy_action = 'direct' if action == 'direct4' else ('warp' if action == 'warp4' else '') %}
           {% set domains_value = smart.get('custom_' ~ action ~ '_domains', smart.get('custom_' ~ legacy_action ~ '_domains', []) if legacy_action else []) %}
           {% set ips_value = smart.get('custom_' ~ action ~ '_ips', smart.get('custom_' ~ legacy_action ~ '_ips', []) if legacy_action else []) %}
@@ -92,11 +94,17 @@
             ('strict','Strict · усиленная фильтрация'),
             ('blocked_warp','Ресурсы, заблокированные в РФ через WARP · IPv4'),
             ('all_warp','Весь интернет через WARP · IPv4'),
+            ('blocked_cascade','Ресурсы, заблокированные в РФ через Каскад · IPv4'),
+            ('all_cascade','Весь интернет через Каскад · IPv4'),
             ('custom','Пользовательская схема')
           ] %}
           {% set warp_preset = value in ['blocked_warp','all_warp'] %}
-          <label class="r096-choice-card{% if warp_preset and not caps.get('warp4') %} disabled{% endif %}" {% if warp_preset and not caps.get('warp4') %}title="Сначала подготовьте и включите WARP IPv4"{% endif %}>
-            <input type="radio" name="preset" value="{{ value }}" {% if preset == value %}checked{% endif %} {% if warp_preset and not caps.get('warp4') %}disabled{% endif %}>
+          {% set cascade_preset = value in ['blocked_cascade','all_cascade'] %}
+          <label class="r096-choice-card{% if (warp_preset and not caps.get('warp4')) or (cascade_preset and not caps.get('cascade4')) %} disabled{% endif %}"
+                 {% if warp_preset and not caps.get('warp4') %}title="Сначала подготовьте и включите WARP IPv4"
+                 {% elif cascade_preset and not caps.get('cascade4') %}title="Сначала настройте, проверьте и включите Каскад IPv4"{% endif %}>
+            <input type="radio" name="preset" value="{{ value }}" {% if preset == value %}checked{% endif %}
+                   {% if (warp_preset and not caps.get('warp4')) or (cascade_preset and not caps.get('cascade4')) %}disabled{% endif %}>
             <span>{{ label }}</span>
           </label>
           {% endfor %}
@@ -115,6 +123,8 @@
           <label class="{% if not caps.get('warp4') %}disabled{% endif %}" {% if not caps.get('warp4') %}title="WARP IPv4 не готов или выключен"{% endif %}><input type="radio" name="{{ name }}" value="warp4" {% if current == 'warp4' %}checked{% endif %} {% if not caps.get('warp4') %}disabled{% endif %}><span>WARP · IPv4</span></label>
           <label class="{% if not caps.get('warp6') %}disabled{% endif %}" {% if not caps.get('warp6') %}title="WARP IPv6 не готов или выключен"{% endif %}><input type="radio" name="{{ name }}" value="warp6" {% if current == 'warp6' %}checked{% endif %} {% if not caps.get('warp6') %}disabled{% endif %}><span>WARP · IPv6</span></label>
           {% endif %}
+          <label class="{% if not caps.get('cascade4') %}disabled{% endif %}" {% if not caps.get('cascade4') %}title="Сначала настройте и проверьте Каскад IPv4"{% endif %}><input type="radio" name="{{ name }}" value="cascade4" {% if current == 'cascade4' %}checked{% endif %} {% if not caps.get('cascade4') %}disabled{% endif %}><span>Каскад · IPv4</span></label>
+          <label class="{% if not caps.get('cascade6') %}disabled{% endif %}" {% if not caps.get('cascade6') %}title="Сначала настройте и проверьте Каскад IPv6"{% endif %}><input type="radio" name="{{ name }}" value="cascade6" {% if current == 'cascade6' %}checked{% endif %} {% if not caps.get('cascade6') %}disabled{% endif %}><span>Каскад · IPv6</span></label>
           {% if allow_block %}<label><input type="radio" name="{{ name }}" value="block" {% if current == 'block' %}checked{% endif %}><span>Заблокировать</span></label>{% endif %}
         </div>
         {% endmacro %}
@@ -156,7 +166,7 @@
 
       <article class="r096-warning-card">
         <strong>Фиксированное семейство IP</strong>
-        <span>Режимы <strong>Через SG-Gateway</strong> и <strong>Через WARP</strong> всегда используют выбранное семейство адреса. Для каждого правила выбирается не только выход, но и семейство адреса. <strong>IPv4</strong> никогда автоматически не переключается на IPv6, а <strong>IPv6</strong> — на IPv4. Если ресурс не имеет адреса выбранного семейства, соединение завершается без fallback. Это не позволяет одному правилу по очереди показывать сайту оба внешних адреса.</span>
+        <span>Режимы <strong>Через SG-Gateway</strong>, <strong>Через WARP</strong> и <strong>Через Каскад</strong> всегда используют выбранное семейство адреса. Для каждого правила выбирается не только выход, но и семейство адреса. <strong>IPv4</strong> никогда автоматически не переключается на IPv6, а <strong>IPv6</strong> — на IPv4. Если ресурс не имеет адреса выбранного семейства, соединение завершается без fallback. Это не позволяет одному правилу по очереди показывать сайту оба внешних адреса.</span>
       </article>
 
       <article class="r096-card r096-rules-preview">
@@ -168,7 +178,7 @@
         <div class="r096-rule-list">
           {% for rule in rules %}
           {% set optional_skipped = rule.missing and not rule.get('required', True) %}
-          {% set route_kind = 'skip' if optional_skipped else ('direct' if rule.action in ['direct','direct4','direct6'] else ('warp' if rule.action in ['warp','warp4','warp6'] else 'block')) %}
+          {% set route_kind = 'skip' if optional_skipped else ('direct' if rule.action in ['direct','direct4','direct6'] else ('warp' if rule.action in ['warp','warp4','warp6'] else ('cascade' if rule.action in ['cascade4','cascade6'] else 'block'))) %}
           <div class="{{ '' if rule.enabled else 'disabled' }}">
             <b>{{ '%02d' | format(loop.index * 10) }}</b>
             <span>
@@ -185,7 +195,7 @@
             </span>
             <em class="route-{{ route_kind }}">
               {% if optional_skipped %}Пропущено
-              {% else %}{{ {'direct':'SG-Gateway · IPv4','direct4':'SG-Gateway · IPv4','direct6':'SG-Gateway · IPv6','warp':'WARP · IPv4','warp4':'WARP · IPv4','warp6':'WARP · IPv6','block':'Заблокировать'}.get(rule.action, rule.action) }}{% endif %}
+              {% else %}{{ {'direct':'SG-Gateway · IPv4','direct4':'SG-Gateway · IPv4','direct6':'SG-Gateway · IPv6','warp':'WARP · IPv4','warp4':'WARP · IPv4','warp6':'WARP · IPv6','cascade4':'Каскад · IPv4','cascade6':'Каскад · IPv6','block':'Заблокировать'}.get(rule.action, rule.action) }}{% endif %}
             </em>
           </div>
           {% endfor %}
@@ -206,6 +216,19 @@
           {% endif %}
         </div>
         <button type="button" class="r096-primary-button" data-open-r096-tab="geofiles">Открыть GeoFiles</button>
+      </article>
+
+      <article class="r096-card r096-warp-summary">
+        <div>
+          <h2>Каскад</h2>
+          <p>
+            {{ 'Активен' if cascade.enabled else ('Настроен, но выключен' if cascade.configured else 'Не настроен') }} ·
+            IPv4 {{ 'готов' if cascade.ipv4_ready else 'нет' }}{% if cascade.last_test and cascade.last_test.get('ipv4') and cascade.last_test.ipv4.ip %} · {{ cascade.last_test.ipv4.ip }}{% endif %} ·
+            IPv6 {{ 'готов' if cascade.ipv6_ready else 'нет' }}{% if cascade.last_test and cascade.last_test.get('ipv6') and cascade.last_test.ipv6.ip %} · {{ cascade.last_test.ipv6.ip }}{% endif %}
+          </p>
+          <small>Выходы Каскада появляются только после реальной проверки второго SG-Gateway. Fallback на Direct отсутствует.</small>
+        </div>
+        <a class="r096-secondary-button" href="{{ url_for('cascade') }}">Открыть Каскад</a>
       </article>
 
       <article class="r096-card r096-warp-summary">
@@ -290,7 +313,9 @@
     direct: {local_action:'direct4',russia_scope:'none',russia_action:'direct4',blocked_action:'direct4',ads_action:'direct4',default_action:'direct4'},
     ads_block: {local_action:'direct4',russia_scope:'none',russia_action:'direct4',blocked_action:'direct4',ads_action:'block',default_action:'direct4'},
     blocked_warp: {local_action:'direct4',russia_scope:'none',russia_action:'direct4',blocked_action:'warp4',ads_action:'direct4',default_action:'direct4'},
-    all_warp: {local_action:'direct4',russia_scope:'none',russia_action:'direct4',blocked_action:'warp4',ads_action:'warp4',default_action:'warp4'}
+    all_warp: {local_action:'direct4',russia_scope:'none',russia_action:'direct4',blocked_action:'warp4',ads_action:'warp4',default_action:'warp4'},
+    blocked_cascade: {local_action:'direct4',russia_scope:'none',russia_action:'direct4',blocked_action:'cascade4',ads_action:'direct4',default_action:'direct4'},
+    all_cascade: {local_action:'direct4',russia_scope:'none',russia_action:'direct4',blocked_action:'cascade4',ads_action:'cascade4',default_action:'cascade4'}
   };
   let applyingPreset = false;
   const setValue = (name, value) => { const input = form?.querySelector(`input[name="${name}"][value="${value}"]`); if (input) input.checked = true; };

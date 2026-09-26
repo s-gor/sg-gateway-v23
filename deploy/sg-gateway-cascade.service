@@ -1,0 +1,23 @@
+[Unit]
+Description=SG-Gateway Cascade active transport
+After=network-online.target sg-hostd.service
+Wants=network-online.target
+ConditionPathExists=/var/lib/sg-gateway/cascade.json
+
+[Service]
+Type=simple
+User=root
+Group=root
+WorkingDirectory=/opt/sg-gateway
+Environment=PYTHONPATH=/opt/sg-gateway:/opt/sg-gateway/hostd
+Environment=SG_GATEWAY_DATA_DIR=/var/lib/sg-gateway
+ExecStart=/opt/sg-gateway/.venv/bin/python -m app.cascade.sidecar
+Restart=on-failure
+RestartSec=2
+TimeoutStopSec=15
+RuntimeDirectory=sg-gateway/cascade
+RuntimeDirectoryMode=0700
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

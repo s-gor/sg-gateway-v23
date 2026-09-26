@@ -11,7 +11,10 @@ fail() {
   exit 1
 }
 
-[[ "$BRANCH" == "stable-02301" ]] || fail "stable uninstaller is pinned to stable-02301; requested branch: $BRANCH"
+case "$BRANCH" in
+  stable-02301|feature/2302-cascade) ;;
+  *) fail "uninstaller is pinned to stable-02301 or feature/2302-cascade; requested branch: $BRANCH" ;;
+esac
 [[ "$(id -u)" -eq 0 ]] || fail "run this uninstaller through sudo"
 
 cleanup() {
@@ -43,4 +46,11 @@ UNINSTALLER="$SOURCE_DIR/deploy/full-uninstall-ubuntu.sh"
 
 printf '[SG-Gateway] GitHub source version: %s\n' "$(tr -d '\r\n' < "$SOURCE_DIR/VERSION")"
 printf '[SG-Gateway] Starting the official FULL uninstaller...\n'
-bash "$UNINSTALLER"
+# This wrapper is normally piped into sudo bash, so stdin belongs to curl.
+# Full uninstall is interactive by default; reattach the native uninstaller to
+# the controlling terminal so confirmation works in browser/gcloud/OpenSSH.
+if [[ -c /dev/tty ]] && { : < /dev/tty; } 2>/dev/null; then
+  bash "$UNINSTALLER" < /dev/tty
+else
+  bash "$UNINSTALLER"
+fi

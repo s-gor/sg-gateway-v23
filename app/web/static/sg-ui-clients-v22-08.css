@@ -49,3 +49,27 @@
     width: 100%;
   }
 }
+
+
+/* Clients outer header follows Connections / System / Security. */
+[data-sg-ui-page="clients"] > .sg-ui-page-head {
+  min-height: 68px;
+  padding: 4px 0 10px;
+  border-bottom: 1px solid var(--sg-ui-border);
+  align-items: flex-start;
+}
+
+[data-sg-ui-page="clients"] > .sg-ui-page-head .sg-ui-actions {
+  align-self: flex-start;
+}
+
+[data-sg-ui-page="clients"] > .sg-ui-page-head .sg-ui-actions .button {
+  min-height: 43px;
+  font-size: 9px;
+}
+
+@media (max-width: 760px) {
+  [data-sg-ui-page="clients"] > .sg-ui-page-head {
+    min-height: 0;
+  }
+}

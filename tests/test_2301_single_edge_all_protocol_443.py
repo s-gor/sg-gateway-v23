@@ -98,7 +98,14 @@ def test_udp_edge_is_managed_service_and_only_public_udp_owner():
     assert '"443/udp"' in installer
     assert '"${PANEL_PORT}/tcp" "443/tcp" "443/udp"' in installer
     assert 'systemctl enable --now "$UDP_EDGE_SERVICE"' in installer
-    assert "sg-gateway-awg31.service sg-gateway-singbox.service sg-gateway-naiveproxy.service sg-gateway-udp-edge.service; do" in installer
+    for service in (
+        "sg-gateway-awg31.service",
+        "sg-gateway-singbox.service",
+        "sg-gateway-naiveproxy.service",
+        "sg-gateway-udp-edge.service",
+    ):
+        assert service in installer
+    assert "sg-gateway-cascade.service" in installer
     for legacy in ('"8446/udp"', '"10443/udp"', '"2099/udp"'):
         assert legacy not in installer
 

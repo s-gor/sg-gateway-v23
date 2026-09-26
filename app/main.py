@@ -1,3 +1,4 @@
+import json
 import os
 import re
 import shutil
@@ -45,6 +46,22 @@ from app.clients.repository import (
     update_client,
     update_device,
     snapshot_client,
+)
+from app.cascade.bundle import (
+    CascadeBundleError,
+    dumps_bundle as dumps_cascade_bundle,
+    ensure_service_bundle as ensure_cascade_service_bundle,
+)
+from app.cascade.runtime import (
+    CascadeError,
+    configure as configure_cascade,
+    disable as disable_cascade,
+    enable as enable_cascade,
+    import_bundle as import_cascade_bundle,
+    overview as cascade_overview,
+    set_mode as set_cascade_mode,
+    test_all_channels as test_all_cascade_channels,
+    test_connection as test_cascade_connection,
 )
 from app.config import load_config
 from app.cpu_activity import collect_cpu_activity
@@ -805,6 +822,153 @@ def create_app() -> Flask:
             custom_outbounds=[],
         )
 
+    @app.get("/cascade")
+    def cascade():
+        return render_template(
+            "cascade.html",
+            active_page="cascade",
+            cascade=cascade_overview(),
+        )
+
+    @app.post("/cascade/save")
+    def cascade_save():
+        raw = str(request.form.get("outbound_json") or "").strip()
+        if not raw:
+            flash("Каскад: вставьте Xray VLESS outbound второго SG-Gateway.", "error")
+            return redirect(url_for("cascade"))
+        try:
+            document = json.loads(raw)
+            configure_cascade(
+                document,
+                name=str(request.form.get("name") or "Gateway B").strip() or "Gateway B",
+                ipv4_ready=bool(request.form.get("ipv4_ready")),
+                ipv6_ready=bool(request.form.get("ipv6_ready")),
+            )
+            flash(
+                "Каскад сохранён. Второй SG-Gateway подготовлен как выход Xray.",
+                "success",
+            )
+        except (ValueError, json.JSONDecodeError, CascadeError) as exc:
+            flash(f"Каскад не сохранён: {exc}", "error")
+        return redirect(url_for("cascade"))
+
+    @app.get("/cascade/bundle")
+    def cascade_bundle_export():
+        try:
+            bundle = ensure_cascade_service_bundle()
+            document = dumps_cascade_bundle(bundle)
+        except CascadeBundleError as exc:
+            flash(f"Cascade bundle не создан: {exc}", "error")
+            return redirect(url_for("cascade"))
+        return Response(
+            document,
+            mimetype="application/json",
+            headers={
+                "Content-Disposition": "attachment; filename=sg-cascade-bundle.json"
+            },
+        )
+
+    @app.post("/cascade/import")
+    def cascade_import():
+        raw = str(request.form.get("bundle_json") or "").strip()
+        upload = request.files.get("bundle_file")
+        if upload is not None and upload.filename:
+            try:
+                raw = upload.read().decode("utf-8")
+            except (OSError, UnicodeDecodeError) as exc:
+                flash(f"Cascade bundle не прочитан: {exc}", "error")
+                return redirect(url_for("cascade"))
+        try:
+            document = json.loads(raw)
+            result = import_cascade_bundle(
+                document,
+                name=str(request.form.get("name") or "Gateway B").strip() or "Gateway B",
+                ipv4_ready=bool(request.form.get("ipv4_ready")),
+                ipv6_ready=bool(request.form.get("ipv6_ready")),
+            )
+            flash(
+                f"Cascade bundle импортирован: {result['ready_count']}/{result['required_count']} каналов ожидают проверку.",
+                "success",
+            )
+        except (ValueError, json.JSONDecodeError, CascadeError) as exc:
+            flash(f"Cascade bundle не импортирован: {exc}", "error")
+        return redirect(url_for("cascade"))
+
+    @app.post("/cascade/test-all")
+    def cascade_test_all():
+        try:
+            result = test_all_cascade_channels()
+            flash(
+                f"Проверка каналов завершена: {result['ready_count']}/{result['required_count']} готовы.",
+                "success" if result["ready_count"] == result["required_count"] else "error",
+            )
+        except CascadeError as exc:
+            flash(f"Проверка Каскада не выполнена: {exc}", "error")
+        return redirect(url_for("cascade"))
+
+    @app.post("/cascade/mode")
+    def cascade_mode():
+        try:
+            raw_priority = str(request.form.get("priority") or "")
+            priority = [
+                item.strip()
+                for item in raw_priority.replace("\n", ",").split(",")
+                if item.strip()
+            ]
+            set_cascade_mode(
+                str(request.form.get("mode") or "auto"),
+                manual_channel=str(request.form.get("manual_channel") or ""),
+                priority=priority or None,
+            )
+            flash("Режим Каскада сохранён.", "success")
+        except CascadeError as exc:
+            flash(f"Режим Каскада не сохранён: {exc}", "error")
+        return redirect(url_for("cascade"))
+
+    @app.post("/cascade/test")
+    def cascade_test():
+        try:
+            result = test_cascade_connection()
+            last_test = result.get("last_test") if isinstance(result, dict) else {}
+            ok = bool(last_test.get("ok")) if isinstance(last_test, dict) else False
+            if ok:
+                details = []
+                for family in ("ipv4", "ipv6"):
+                    item = last_test.get(family) if isinstance(last_test, dict) else None
+                    if isinstance(item, dict) and item.get("ok"):
+                        details.append(f"{family.upper()} {item.get('ip') or 'OK'}")
+                flash(
+                    "Каскад проверен через реальный трафик"
+                    + (": " + " · ".join(details) if details else "."),
+                    "success",
+                )
+            else:
+                flash("Каскад не прошёл проверку через второй SG-Gateway.", "error")
+        except CascadeError as exc:
+            flash(f"Проверка Каскада не выполнена: {exc}", "error")
+        return redirect(url_for("cascade"))
+
+    @app.post("/cascade/enable")
+    def cascade_enable():
+        try:
+            enable_cascade()
+            flash("Каскад включён.", "success")
+        except CascadeError as exc:
+            flash(f"Каскад не включён: {exc}", "error")
+        return redirect(url_for("cascade"))
+
+    @app.post("/cascade/disable")
+    def cascade_disable():
+        try:
+            disable_cascade()
+            flash(
+                "Каскад выключен. Bundle и результаты проверок сохранены.",
+                "success",
+            )
+        except CascadeError as exc:
+            flash(f"Каскад не выключен: {exc}", "error")
+        return redirect(url_for("cascade"))
+
     @app.get("/routing")
     def routing():
         settings_map = list_connection_settings(("xray", "mihomo", "amneziawg31", "amneziawg"))
@@ -818,6 +982,7 @@ def create_app() -> Flask:
             geofiles=geofiles_overview(),
             routing_templates=routing_templates_overview(),
             warp=warp_overview(),
+            cascade=cascade_overview(),
             mihomo=mihomo_overview(),
             client_total=count_clients(),
         )

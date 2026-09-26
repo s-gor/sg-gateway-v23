@@ -229,8 +229,8 @@ TEMPLATES = (
 )
 
 
-# SG-Gateway has no Cascade/Node/upstream. Never expose templates that need a
-# non-existent proxy outbound.
+# Proxy templates remain filtered unless they target an outbound actually
+# implemented by SG-Gateway. 23.02 adds Cascade as the supported upstream path.
 TEMPLATES = tuple(
     template
     for template in TEMPLATES
@@ -471,7 +471,7 @@ def overview() -> dict:
         "engine_connected": True,
         "engine_message": (
             "Managed Routing подключён к рабочему config.json Xray. "
-            "Выходы разделены по семейству: SG-Gateway IPv4/IPv6, WARP IPv4/IPv6 и Block."
+            "Выходы разделены по семейству: SG-Gateway IPv4/IPv6, WARP IPv4/IPv6, Каскад IPv4/IPv6 и Block."
         ),
     }
 
@@ -647,9 +647,11 @@ SMART_PRESET_TITLES = {
     "strict": "Strict · усиленная фильтрация",
     "blocked_warp": "Ресурсы, заблокированные в РФ через WARP · IPv4",
     "all_warp": "Весь интернет через WARP · IPv4",
+    "blocked_cascade": "Ресурсы, заблокированные в РФ через Каскад · IPv4",
+    "all_cascade": "Весь интернет через Каскад · IPv4",
     "custom": "Пользовательская схема",
 }
-SMART_ACTIONS = {"direct", "warp", "direct4", "direct6", "warp4", "warp6", "block"}
+SMART_ACTIONS = {"direct", "warp", "direct4", "direct6", "warp4", "warp6", "cascade4", "cascade6", "block"}
 SMART_RUSSIA_SCOPES = {"none", "tld", "sites_ip"}
 SMART_BLOCKED_CATEGORIES = (
     "russia-blocked",
@@ -692,11 +694,15 @@ def _smart_default() -> dict:
         "custom_direct6_domains": [],
         "custom_warp4_domains": [],
         "custom_warp6_domains": [],
+        "custom_cascade4_domains": [],
+        "custom_cascade6_domains": [],
         "custom_block_domains": [],
         "custom_direct4_ips": [],
         "custom_direct6_ips": [],
         "custom_warp4_ips": [],
         "custom_warp6_ips": [],
+        "custom_cascade4_ips": [],
+        "custom_cascade6_ips": [],
         "custom_block_ips": [],
         # Old field names remain input-only compatibility buckets.
         "custom_direct_domains": [],
@@ -778,6 +784,12 @@ def _smart_apply_preset(state: dict) -> dict:
         state["blocked_action"] = "warp4"
         state["ads_action"] = "warp4"
         state["default_action"] = "warp4"
+    elif preset == "blocked_cascade":
+        state["blocked_action"] = "cascade4"
+    elif preset == "all_cascade":
+        state["blocked_action"] = "cascade4"
+        state["ads_action"] = "cascade4"
+        state["default_action"] = "cascade4"
     return state
 
 
@@ -802,7 +814,7 @@ def _smart_state_from_form(form) -> dict:
     scope = str(form.get("russia_scope", "none")).strip().lower()
     state["russia_scope"] = scope if scope in SMART_RUSSIA_SCOPES else "none"
 
-    for action in ("direct4", "direct6", "warp4", "warp6", "block", "direct", "warp"):
+    for action in ("direct4", "direct6", "warp4", "warp6", "cascade4", "cascade6", "block", "direct", "warp"):
         _parse_custom_values(form, state, f"custom_{action}_domains", _smart_domain)
         _parse_custom_values(form, state, f"custom_{action}_ips", _smart_ip)
 
@@ -847,6 +859,8 @@ def _smart_build(state: dict) -> dict:
         ("Пользовательские правила: SG-Gateway · IPv6", "direct6", state["custom_direct6_domains"], state["custom_direct6_ips"]),
         ("Пользовательские правила: WARP · IPv4", "warp4", state["custom_warp4_domains"], state["custom_warp4_ips"]),
         ("Пользовательские правила: WARP · IPv6", "warp6", state["custom_warp6_domains"], state["custom_warp6_ips"]),
+        ("Пользовательские правила: Каскад · IPv4", "cascade4", state["custom_cascade4_domains"], state["custom_cascade4_ips"]),
+        ("Пользовательские правила: Каскад · IPv6", "cascade6", state["custom_cascade6_domains"], state["custom_cascade6_ips"]),
         # Compatibility for a saved Preview 40/49 candidate.
         ("Пользовательские правила: SG-Gateway · IPv4", "direct", state["custom_direct_domains"], state["custom_direct_ips"]),
         ("Пользовательские правила: WARP · IPv4", "warp", state["custom_warp_domains"], state["custom_warp_ips"]),
@@ -929,7 +943,7 @@ def _smart_build(state: dict) -> dict:
                 state["blocked_action"],
                 domains=[f"geosite:{category}"] if category else [],
                 missing=[] if category else ["geosite:ru-blocked"],
-                required=state["preset"] == "blocked_warp",
+                required=state["preset"] in {"blocked_warp", "blocked_cascade"},
             )
         )
 
@@ -980,6 +994,8 @@ def _smart_build(state: dict) -> dict:
         ("direct6", "SG-Gateway · IPv6"),
         ("warp4", "WARP · IPv4"),
         ("warp6", "WARP · IPv6"),
+        ("cascade4", "Каскад · IPv4"),
+        ("cascade6", "Каскад · IPv6"),
     ):
         if action in requested_actions and not caps.get(action):
             rules.append(
