@@ -405,7 +405,7 @@ run_stage 6 "Очистка SG firewall/sysctl" cleanup_firewall
 run_stage 7 "Удаление service account и проверка чистоты" remove_account_and_verify
 
 printf '\n%s[SG-Gateway] ПОЛНОЕ УДАЛЕНИЕ ЗАВЕРШЕНО.%s\n' "$GREEN" "$RESET"
-printf '[SG-Gateway] EC2 готов к чистой установке SG-Gateway.\n'
+printf '[SG-Gateway] Server готов к чистой установке SG-Gateway.\n'
 printf '[SG-Gateway] Системные пакеты Ubuntu не удалялись.\n'
 printf '[SG-Gateway] Журнал: %s\n' "$UNINSTALL_LOG"
 printf '\n[SG-Gateway] Для повторной установки SG-Gateway выполните:\n'
