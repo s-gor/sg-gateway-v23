@@ -39,6 +39,7 @@ AWG3_TOOLS_VENDOR_FILE="amneziawg-tools-3.0.20260805.tar.gz"
 AWG3_GO_VENDOR_FILE="amneziawg-go-linux-amd64-v3.0.0"
 
 DEFAULT_PANEL_PORT="63443"
+PUBLIC_EDGE_PORT="443"
 DEFAULT_XRAY_PORT="443"
 DEFAULT_AWG_PORT="585"
 DEFAULT_AWG3_PORT="586"
@@ -209,13 +210,19 @@ require_supported_ubuntu() {
     echo "Не удалось определить операционную систему. Требуется Ubuntu." >&2
     exit 1
   fi
-  # shellcheck disable=SC1091
-  . /etc/os-release
-  if [[ "${ID:-}" != "ubuntu" ]]; then
-    printf 'Требуется Ubuntu. Обнаружено: %s\n' "${PRETTY_NAME:-неизвестная система}" >&2
+
+  # Read OS metadata in command-substitution subshells.  /etc/os-release also
+  # defines VERSION, so sourcing it in the installer shell would overwrite the
+  # SG-Gateway release VERSION used by the final summary.
+  local os_id="" os_pretty=""
+  os_id="$(. /etc/os-release; printf '%s' "${ID:-}")"
+  os_pretty="$(. /etc/os-release; printf '%s' "${PRETTY_NAME:-Ubuntu}")"
+
+  if [[ "$os_id" != "ubuntu" ]]; then
+    printf 'Требуется Ubuntu. Обнаружено: %s\n' "${os_pretty:-неизвестная система}" >&2
     exit 1
   fi
-  printf '[SG-Gateway] Поддерживаемая система: %s\n' "${PRETTY_NAME:-Ubuntu}"
+  printf '[SG-Gateway] Поддерживаемая система: %s\n' "${os_pretty:-Ubuntu}"
 }
 
 prepare_log() {
@@ -1175,7 +1182,7 @@ collect_automatic_parameters() {
   printf "[SG-Gateway] Панель: TCP %s\n" "$PANEL_PORT"
   printf "[SG-Gateway] VLESS Reality TCP: публичный %s -> 127.0.0.1:%s\n" \
     "$XRAY_PORT" "$REALITY_INTERNAL_PORT"
-  printf "[SG-Gateway] AmneziaWG: UDP %s\n" "$AWG_PORT"
+  printf "[SG-Gateway] AmneziaWG 3.1: UDP %s\n" "$PUBLIC_EDGE_PORT"
   printf "[SG-Gateway] Первый VPN-клиент sg-admin будет создан автоматически.\n"
 
   read_password
@@ -3651,7 +3658,7 @@ main() {
   printf '[SG-Gateway] Публичный IP: %s\n' "$PUBLIC_ADDRESS"
   printf '[SG-Gateway] Версия:       %s\n' "$VERSION"
   printf '[SG-Gateway] Xray:         %s\n' "$(xray_installed_version)"
-  printf '[SG-Gateway] NaiveProxy:   %s · TCP %s\n' "$NAIVEPROXY_VERSION" "$NAIVEPROXY_PORT"
+  printf '[SG-Gateway] NaiveProxy:   %s · TCP %s\n' "$NAIVEPROXY_VERSION" "$PUBLIC_EDGE_PORT"
   local final_https_domain=""
   final_https_domain="$(saved_https_access)"
   if [[ -n "$final_https_domain" ]]; then
