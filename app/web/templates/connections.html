@@ -20,8 +20,8 @@
 {% set xray_public_host = connections[1].public_host if connections | length > 1 else xray_settings.host %}
 {% set mihomo_public_host = connections[2].public_host if connections | length > 2 else mihomo.settings.host %}
 
-<section class="cnv1-page sg-ui-page">
-  <header class="cnv1-heading sg-ui-page-head">
+<section class="cnv1-page sg-ui-page sg-ui-connections" data-sg-ui-page="connections">
+  <header class="cnv1-heading sg-ui-page-head sg-ui-connections-head" data-sg-section="connections-head">
     <div>
       <div class="cnv1-kicker"><span></span> SG-GATEWAY / CONNECTIONS</div>
       <h1>Connections</h1>
