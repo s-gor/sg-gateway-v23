@@ -20,3 +20,13 @@ def test_full_uninstaller_supports_noninteractive_confirmation():
 def test_feature_uninstall_wrapper_can_remove_feature_install():
     source = (ROOT / "deploy" / "uninstall-from-github.sh").read_text(encoding="utf-8")
     assert 'stable-02301|feature/2302-cascade' in source
+
+
+def test_github_install_wrapper_reattaches_native_installer_to_tty():
+    source = (ROOT / "deploy" / "install-from-github.sh").read_text(encoding="utf-8")
+    assert 'bash "$SOURCE_DIR/install.sh" < /dev/tty' in source
+
+
+def test_github_uninstall_wrapper_reattaches_native_uninstaller_to_tty():
+    source = (ROOT / "deploy" / "uninstall-from-github.sh").read_text(encoding="utf-8")
+    assert 'bash "$UNINSTALLER" < /dev/tty' in source
