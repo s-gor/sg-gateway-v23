@@ -5,6 +5,7 @@ import subprocess
 ROOT = Path(__file__).resolve().parents[1]
 INSTALL = (ROOT / "install.sh").read_text(encoding="utf-8")
 CSS = (ROOT / "app/web/static/sg-readable-typography-v3.css").read_text(encoding="utf-8")
+UNINSTALL = (ROOT / "deploy/full-uninstall-ubuntu.sh").read_text(encoding="utf-8")
 
 
 def test_clients_row_double_override_is_removed() -> None:
@@ -34,7 +35,7 @@ def test_only_password_is_interactive_and_sg_admin_is_automatic() -> None:
     assert 'read_yes_no "Создать первого клиента sg-admin' not in INSTALL
     assert 'CREATE_SG_ADMIN="1"' in INSTALL
     assert "installer_port_preflight" not in INSTALL
-    assert "Первый VPN-клиент sg-admin будет создан автоматически" in INSTALL
+    assert 'printf "[SG-Gateway] Первый VPN-клиент sg-admin будет создан автоматически.\\n"' not in INSTALL
     for forbidden in (
         'read_tty "Имя сервера и hostname SSH"',
         'read_tty "Публичный HTTP-порт панели"',
@@ -43,6 +44,27 @@ def test_only_password_is_interactive_and_sg_admin_is_automatic() -> None:
         'read_tty "Порт VLESS Reality TCP"',
     ):
         assert forbidden not in INSTALL
+
+
+def test_installer_console_output_is_compact_and_uninstall_is_generic() -> None:
+    automatic = INSTALL[INSTALL.index("collect_automatic_parameters() {") : INSTALL.index("\nstage_backup_and_prepare()", INSTALL.index("collect_automatic_parameters() {"))]
+    for hidden in (
+        "[SG-Gateway] Публичный IP:",
+        "[SG-Gateway] Страна сервера:",
+        "[SG-Gateway] Имя сервера:",
+        "[SG-Gateway] Панель: TCP",
+        "[SG-Gateway] VLESS Reality TCP:",
+        "[SG-Gateway] AmneziaWG 3.1: UDP",
+        "[SG-Gateway] Первый VPN-клиент sg-admin будет создан автоматически.",
+    ):
+        assert hidden not in automatic
+
+    interactive = INSTALL[INSTALL.index("run_interactive_stage() {") : INSTALL.index("\nmain() {", INSTALL.index("run_interactive_stage() {"))]
+    assert "[SG-Gateway] [..]" not in interactive
+    assert "[SG-Gateway] [OK]" in interactive
+
+    assert "[SG-Gateway] Server готов к чистой установке SG-Gateway." in UNINSTALL
+    assert "[SG-Gateway] EC2 готов к чистой установке SG-Gateway." not in UNINSTALL
 
 
 def test_installer_uses_sanitized_permanent_log() -> None:
