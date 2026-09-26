@@ -675,15 +675,45 @@ read_password() {
   local timeout_seconds=300
   local password_file="${SG_GATEWAY_ADMIN_PASSWORD_FILE:-}"
 
-  # Cloud Shell / nested gcloud SSH sessions can provide a controlling TTY
-  # that does not behave reliably for a hidden read from /dev/tty.  Allow a
-  # root-only password file so clean install never depends on terminal echo
-  # semantics.  Interactive SSH keeps the existing prompt path unchanged.
   if [[ -n "$password_file" ]]; then
     [[ -f "$password_file" ]] || fail "файл пароля администратора не найден: $password_file"
     [[ -r "$password_file" ]] || fail "файл пароля администратора недоступен для чтения: $password_file"
     first="$(cat -- "$password_file")"
-    first="${first%
+    first="${first%$'\r'}"
+    (( ${#first} >= 8 )) || fail "пароль администратора в файле должен содержать не менее 8 символов"
+    hash_admin_password "$first"
+    printf '[SG-Gateway] Пароль администратора получен из защищённого файла.\n'
+    return 0
+  fi
+
+  require_interactive_tty
+  printf '\n[SG-Gateway] Требуется задать пароль администратора панели.\n'
+  printf '[SG-Gateway] Ввод выполняется в текущем терминале; символы пароля не отображаются.\n' > /dev/tty
+  while true; do
+    printf '[SG-Gateway] Пароль администратора (не менее 8 символов): ' > /dev/tty
+    if ! IFS= read -r -s -t "$timeout_seconds" first < /dev/tty; then
+      printf '\n' > /dev/tty
+      fail "пароль не получен из интерактивного терминала за ${timeout_seconds} секунд"
+    fi
+    printf "\n" > /dev/tty
+    printf '[SG-Gateway] Повторите пароль: ' > /dev/tty
+    if ! IFS= read -r -s -t "$timeout_seconds" second < /dev/tty; then
+      printf '\n' > /dev/tty
+      fail "повтор пароля не получен из интерактивного терминала за ${timeout_seconds} секунд"
+    fi
+    printf "\n" > /dev/tty
+    if (( ${#first} < 8 )); then
+      printf "%sПароль слишком короткий.%s\n" "$YELLOW" "$RESET" > /dev/tty
+      continue
+    fi
+    if [[ "$first" != "$second" ]]; then
+      printf "%sПароли не совпадают.%s\n" "$YELLOW" "$RESET" > /dev/tty
+      continue
+    fi
+    hash_admin_password "$first"
+    return 0
+  done
+}
 
 valid_port() {
   [[ "$1" =~ ^[0-9]+$ ]] && (( 10#$1 >= 1 && 10#$1 <= 65535 ))
