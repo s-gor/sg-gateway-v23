@@ -300,7 +300,16 @@ SG_GATEWAY_SOURCE_COMMIT="$SOURCE_COMMIT" \
 SG_GATEWAY_INSTALL_TMPDIR="$BOOTSTRAP_TMP_ROOT" \
 SG_GATEWAY_APT_INDEX_READY=1 \
 TMPDIR="$BOOTSTRAP_TMP_ROOT" \
-bash "$SOURCE_DIR/install.sh"
+# The public bootstrap itself is commonly executed as: curl ... | sudo bash.
+# In that form stdin is the curl pipe, not the user's terminal.  The native
+# installer is interactive, so attach its stdin explicitly to the controlling
+# terminal.  This keeps the normal one-line install command fully interactive
+# in browser SSH, gcloud SSH and ordinary OpenSSH sessions.
+if [[ -c /dev/tty ]] && { : < /dev/tty; } 2>/dev/null; then
+  bash "$SOURCE_DIR/install.sh" < /dev/tty
+else
+  bash "$SOURCE_DIR/install.sh"
+fi
 
 # SG_GATEWAY_FIX30_IPV6_BOOTSTRAP_V1
 # Keep the proven native installer untouched while Fix30 is developed.  The
