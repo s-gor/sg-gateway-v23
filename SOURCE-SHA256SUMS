@@ -208,7 +208,7 @@ f3361c2a8e2dd91af6e53ad65402f36cebc29ea44be8c125369d3062b02d2ae8  app/web/static
 dac6739b39c581a57a09201da28cb091b9a9d286321beafc830b12d2121aa0f6  app/web/static/sg-mihomo-v1.css
 4c17eaabb6bbf5c305e6a8b4479596fd96a2d521d6c690fd9b259a16d7de93de  app/web/static/sg-mihomo-v2.css
 8fc232b2c4fafab7e6b81571aa110689c5c472d751d40c3441c06c7094a9cc29  app/web/static/sg-mobile-sidebar-v1.css
-e2e34371ea566759bbd8d506f4e9ef4759e9c7b1c22926209407e142bbc2c77c  app/web/static/sg-page-frame-routing-v1.css
+85d903a9de870f54db3e043f601e6ddaf091509c097336524cb0e601176a2bb5  app/web/static/sg-page-frame-routing-v1.css
 536cd37ecff12adeb53eed63eb416f725d7b3c56a6ac037cfcb02d24abc2e379  app/web/static/sg-panel-shell-v1.css
 99edb9851b1142a9db96bdec973d6ac0dc6363bc4e7e2cefd81b9590f64e9f07  app/web/static/sg-preview27-final.css
 3af912049d0e8e4146d3ad0e4cba47c209f6a6bef9da46bce9b0749cd97f83a7  app/web/static/sg-preview28-final.css
@@ -254,7 +254,7 @@ ebba59e1ea1f65815571b35de458c4c4675b026877e0e57a4aaed873fc5663bf  app/web/static
 72a56dabf78bcd3c3e9ecbd456427a507549c0b0ebc9ce0c2f569fd0a6bb5a94  app/web/static/sg-ui-layout-v22-08.css
 ca262e98eb1471f121da51cf1905374f3175241a7361bff9b48f3fcafe29a363  app/web/static/sg-ui-maintenance-v22-08.css
 68e95cbf023cecfea5cc3452f06ee4975b982e339d5034e406ad5ca3748780bd  app/web/static/sg-ui-operation-job-v22-08.css
-4a2298ed1d7293f6e449727abcd083ad998eeb372e45434d35147fa0105f1d06  app/web/static/sg-ui-outbounds-v22-08.css
+137ad321305f7119d608ab78bd0b63337e6b71a29d5062dd396f5007d17d4034  app/web/static/sg-ui-outbounds-v22-08.css
 c0c6bd6cb3b3f60d4f8d2153a420dc2cbfb3e377143e561e0a4e47d8eb4cdaff  app/web/static/sg-ui-routing-v22-08.css
 734859064dae79a4d59a5f6b927f191974c3574b3d8294955093c3cee356db38  app/web/static/sg-ui-security-v22-08.css
 70d935b2c53495fd00ebafba17c1f9988d8d15a071cf048ff0fcbd3236656839  app/web/static/sg-ui-standalone-v22-08.css
